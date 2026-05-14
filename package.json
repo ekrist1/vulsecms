@@ -1,0 +1,20 @@
+{
+  "name": "vulsecms",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "packageManager": "pnpm@9.12.0",
+  "scripts": {
+    "dev": "pnpm --filter @vulse/dev dev",
+    "build": "pnpm -r --filter './packages/**' build && pnpm --filter @vulse/dev build",
+    "check": "pnpm -r exec vp check && biome check .",
+    "test": "vitest run",
+    "lint": "biome check .",
+    "format": "biome format --write ."
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.4"
+  }
+}
