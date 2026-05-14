@@ -38,4 +38,11 @@ describe('LibsqlAdapter', () => {
 
     await db.close();
   });
+
+  it('transaction returns the user function value', async () => {
+    const db = new LibsqlAdapter({ url: ':memory:' });
+    const result = await db.transaction(async () => 42);
+    expect(result).toBe(42);
+    await db.close();
+  });
 });

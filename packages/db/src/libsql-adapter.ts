@@ -34,19 +34,24 @@ export class LibsqlAdapter implements DatabaseAdapter {
       },
       queryOne: async <U = Row>(sql: string, params: unknown[] = []): Promise<U | null> => {
         const r = await this.client.execute({ sql, args: params as InValue[] });
-        return (r.rows[0] ? ({ ...r.rows[0] } as U) : null);
+        const first = r.rows[0];
+        return first ? ({ ...first } as U) : null;
       },
       transaction: () => {
         throw new Error('nested transactions are not supported');
       },
-      close: async () => {},
+      close: async () => {}, // no-op: connection lifetime belongs to the outer adapter
     };
     try {
       const out = await fn(txAdapter);
       await this.client.execute('COMMIT');
       return out;
     } catch (err) {
-      await this.client.execute('ROLLBACK');
+      try {
+        await this.client.execute('ROLLBACK');
+      } catch {
+        // ROLLBACK failed; connection is likely dead — surface the original error
+      }
       throw err;
     }
   }
