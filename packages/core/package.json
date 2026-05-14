@@ -1,0 +1,29 @@
+{
+  "name": "@vulse/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".":      { "types": "./dist/index.d.ts",      "import": "./dist/index.js" },
+    "./vite": { "types": "./dist/vite/plugin.d.ts","import": "./dist/vite/plugin.js" }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "test":  "vitest run"
+  },
+  "dependencies": {
+    "@vulse/db": "workspace:*",
+    "hono":      "^4.6.0",
+    "ulid":      "^2.3.0",
+    "zod":       "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript":  "^5.6.3",
+    "vite":        "^5.4.10",
+    "vitest":      "^2.1.4"
+  }
+}
