@@ -1,0 +1,81 @@
+import type { Plugin, ViteDevServer } from 'vite';
+import { LibsqlAdapter, runMigrations, MIGRATIONS_DIR } from '@vulse/db';
+import { loadBlueprints } from '../blueprints/load.js';
+import { createContentService } from '../content/service.js';
+import { createApi } from '../http/api.js';
+
+export interface VulseDevOptions {
+  blueprintsDir: string;
+  database: ConstructorParameters<typeof LibsqlAdapter>[0];
+}
+
+export function vulseDevPlugin(opts: VulseDevOptions): Plugin {
+  let adapter: LibsqlAdapter | null = null;
+
+  return {
+    name: 'vulse:dev',
+    apply: 'serve',
+
+    async configureServer(server: ViteDevServer) {
+      adapter = new LibsqlAdapter(opts.database);
+      await adapter.exec('PRAGMA foreign_keys = ON');
+      await runMigrations(adapter, MIGRATIONS_DIR);
+
+      async function build() {
+        const blueprints = await loadBlueprints(opts.blueprintsDir, { adapter: adapter! });
+        return createApi({ blueprints, content: createContentService(adapter!, blueprints) });
+      }
+
+      let app = await build();
+
+      server.middlewares.use(async (req, res, next) => {
+        if (!req.url || !req.url.startsWith('/api/')) return next();
+        try {
+          const url = new URL(req.url, `http://${req.headers.host ?? 'localhost'}`);
+          const headers = new Headers();
+          for (const [k, v] of Object.entries(req.headers)) {
+            if (typeof v === 'string') headers.set(k, v);
+            else if (Array.isArray(v)) headers.set(k, v.join(','));
+          }
+          const method = req.method ?? 'GET';
+          const hasBody = method !== 'GET' && method !== 'HEAD';
+          const body = hasBody ? (await readBody(req)).buffer as ArrayBuffer : null;
+          const fetchReq = new Request(url.toString(), {
+            method,
+            headers,
+            body,
+          });
+          const fetchRes = await app.fetch(fetchReq);
+          res.statusCode = fetchRes.status;
+          fetchRes.headers.forEach((v, k) => res.setHeader(k, v));
+          const buf = Buffer.from(await fetchRes.arrayBuffer());
+          res.end(buf);
+        } catch (err) {
+          next(err as Error);
+        }
+      });
+
+      server.watcher.add(opts.blueprintsDir);
+      server.watcher.on('change', async (file) => {
+        if (file.startsWith(opts.blueprintsDir)) {
+          app = await build();
+          server.ws.send({ type: 'custom', event: 'vulse:blueprints-changed' });
+        }
+      });
+    },
+
+    async closeBundle() {
+      await adapter?.close();
+    },
+  };
+}
+
+import type { IncomingMessage } from 'node:http';
+function readBody(req: IncomingMessage): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    req.on('data', (c) => chunks.push(c));
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', reject);
+  });
+}
