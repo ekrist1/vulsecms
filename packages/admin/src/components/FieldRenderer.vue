@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, type Component } from 'vue';
 import type { FieldMeta } from '../api/client.js';
 import TextField from './fields/TextField.vue';
 import TextareaField from './fields/TextareaField.vue';
@@ -16,15 +16,15 @@ const props = defineProps<{
 }>();
 defineEmits<{ 'update:modelValue': [unknown] }>();
 
-const component = computed(() => {
+const component = computed<Component>(() => {
   switch (props.meta.ui.kind) {
-    case 'text':         return TextField;
-    case 'textarea':     return TextareaField;
-    case 'date':         return DateField;
-    case 'boolean':      return BooleanField;
-    case 'select':       return SelectField;
-    case 'blocks':       return BlocksField;
-    case 'relationship': return RelationshipField;
+    case 'text':         return TextField as Component;
+    case 'textarea':     return TextareaField as Component;
+    case 'date':         return DateField as Component;
+    case 'boolean':      return BooleanField as Component;
+    case 'select':       return SelectField as Component;
+    case 'blocks':       return BlocksField as Component;
+    case 'relationship': return RelationshipField as Component;
   }
 });
 </script>
