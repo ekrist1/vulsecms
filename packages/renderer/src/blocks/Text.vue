@@ -1,0 +1,32 @@
+<script lang="ts">
+import { defineComponent, h, type PropType } from 'vue';
+import type { BlockNode, BlockMark } from '../types.js';
+
+const markTag: Record<string, string> = {
+  bold: 'strong',
+  italic: 'em',
+  code: 'code',
+  underline: 'u',
+  strike: 's',
+};
+
+export default defineComponent({
+  name: 'VulseText',
+  props: { node: { type: Object as PropType<BlockNode>, required: true } },
+  setup(props) {
+    return () => {
+      const marks = (props.node.marks ?? []) as BlockMark[];
+      let acc: ReturnType<typeof h> | string = props.node.text ?? '';
+      for (const mark of marks) {
+        if (mark.type === 'link') {
+          const href = (mark.attrs?.href as string) ?? '#';
+          acc = h('a', { class: 'vulse-link', href }, acc);
+        } else if (markTag[mark.type]) {
+          acc = h(markTag[mark.type]!, acc);
+        }
+      }
+      return acc;
+    };
+  },
+});
+</script>

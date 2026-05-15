@@ -16,9 +16,8 @@ const resolved = computed<Component | null>(
 
 <template>
   <component
-    :is="resolved"
     v-if="resolved"
+    :is="resolved"
     :node="node"
   />
-  <!-- unknown node type: render nothing -->
 </template>
