@@ -56,4 +56,52 @@ describe('apps/dev smoke', () => {
     expect(back.id).toBe(entry.id);
     expect(back.content.title).toBe('Hello');
   });
+
+  it('renames a field on a blueprint and reflects it in /api/_meta/collections', async () => {
+    // Read the current Posts definition
+    const getRes = await fetch(`${base}/api/blueprints/posts`);
+    expect(getRes.status).toBe(200);
+    const current = (await getRes.json()) as {
+      handle: string;
+      label: string;
+      singleton: boolean;
+      fields: { name: string; ui: { kind: string }; optional: boolean }[];
+    };
+
+    // Rename 'title' to 'headline' (preserve everything else)
+    const renamed = {
+      handle: current.handle,
+      label: current.label,
+      singleton: current.singleton,
+      fields: current.fields.map((f) =>
+        f.name === 'title' ? { ...f, name: 'headline', previousName: 'title' } : f,
+      ),
+    };
+    const patchRes = await fetch(`${base}/api/blueprints/posts`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(renamed),
+    });
+    expect(patchRes.status).toBe(200);
+
+    // The content meta must reflect the new field name on the next request.
+    const metaRes = await fetch(`${base}/api/_meta/collections`);
+    const meta = (await metaRes.json()) as { handle: string; fields: { name: string }[] }[];
+    const posts = meta.find((m) => m.handle === 'posts')!;
+    expect(posts.fields.map((f) => f.name)).toContain('headline');
+    expect(posts.fields.map((f) => f.name)).not.toContain('title');
+
+    // Posting content with the new field name succeeds.
+    const created = await fetch(`${base}/api/collections/posts`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        headline: 'After Rename',
+        slug: 'after',
+        body: { type: 'doc', content: [{ type: 'paragraph' }] },
+        status: 'draft',
+      }),
+    });
+    expect(created.status).toBe(201);
+  });
 });
