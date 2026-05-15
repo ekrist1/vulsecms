@@ -18,7 +18,7 @@ export default class Posts extends Collection {
       .string()
       .optional()
       .meta({ ui: { kind: 'textarea' } }),
-    body: z.array(z.any()).meta({ ui: { kind: 'blocks' } }),
+    body: z.any().meta({ ui: { kind: 'blocks' } }),
     publishAt: z
       .string()
       .optional()
