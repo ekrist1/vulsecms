@@ -4,17 +4,29 @@ export interface FieldUi {
   to?: string;
 }
 
-export interface FieldMeta {
+export interface FieldDefinition {
   name: string;
+  label?: string;
   ui: FieldUi;
   optional: boolean;
   default?: unknown;
+  validation?: { min?: number; max?: number };
 }
+
+// Backwards-compat alias for the existing FieldRenderer code.
+export type FieldMeta = FieldDefinition;
 
 export interface BlueprintMeta {
   handle: string;
   label: string;
-  fields: FieldMeta[];
+  singleton: boolean;
+  fields: FieldDefinition[];
+}
+
+// Server PATCH body adds previousName per field.
+export type FieldDefinitionWithRename = FieldDefinition & { previousName?: string };
+export interface BlueprintDefinitionWithRenames extends Omit<BlueprintMeta, 'fields'> {
+  fields: FieldDefinitionWithRename[];
 }
 
 export interface Entry {
@@ -54,6 +66,22 @@ class ApiClient {
   }
   delete(handle: string, id: string): Promise<void> {
     return this.request<void>('DELETE', `/api/collections/${handle}/${id}`);
+  }
+
+  listBlueprints(): Promise<BlueprintMeta[]> {
+    return this.request<BlueprintMeta[]>('GET', '/api/blueprints');
+  }
+  getBlueprint(handle: string): Promise<BlueprintMeta> {
+    return this.request<BlueprintMeta>('GET', `/api/blueprints/${handle}`);
+  }
+  createBlueprint(def: BlueprintMeta): Promise<BlueprintMeta> {
+    return this.request<BlueprintMeta>('POST', '/api/blueprints', def);
+  }
+  updateBlueprint(handle: string, def: BlueprintDefinitionWithRenames): Promise<BlueprintMeta> {
+    return this.request<BlueprintMeta>('PATCH', `/api/blueprints/${handle}`, def);
+  }
+  deleteBlueprint(handle: string): Promise<void> {
+    return this.request<void>('DELETE', `/api/blueprints/${handle}`);
   }
 
   private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
