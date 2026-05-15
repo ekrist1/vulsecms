@@ -1,0 +1,8 @@
+@import "tailwindcss";
+
+:root {
+  --vulse-sidebar-width: 240px;
+}
+
+html, body, #app { height: 100%; }
+body { font-family: ui-sans-serif, system-ui, sans-serif; color: #18181b; background: #fafafa; }
