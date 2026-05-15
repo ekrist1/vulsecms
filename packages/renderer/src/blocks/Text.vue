@@ -1,6 +1,6 @@
 <script lang="ts">
-import { defineComponent, h, type PropType } from 'vue';
-import type { BlockNode, BlockMark } from '../types.js';
+import { type PropType, defineComponent, h } from 'vue';
+import type { BlockMark, BlockNode } from '../types.js';
 
 const markTag: Record<string, string> = {
   bold: 'strong',

@@ -1,8 +1,8 @@
-import { describe, expect, it, beforeAll, afterAll } from 'vitest';
-import { createServer, type ViteDevServer } from 'vite';
+import { existsSync, unlinkSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { unlinkSync, existsSync } from 'node:fs';
+import { type ViteDevServer, createServer } from 'vite';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = resolve(__dirname, '..');

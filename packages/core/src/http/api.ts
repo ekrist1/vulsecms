@@ -56,9 +56,7 @@ export function createApi({ blueprints, content }: ApiDeps): Hono {
     });
   }
 
-  app.get('/api/_meta/collections', (c) =>
-    c.json([...blueprints.values()].map(toMeta)),
-  );
+  app.get('/api/_meta/collections', (c) => c.json([...blueprints.values()].map(toMeta)));
 
   return app;
 }

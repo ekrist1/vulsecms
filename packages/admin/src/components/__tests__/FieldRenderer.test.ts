@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
 import { mount } from '@vue/test-utils';
+import { describe, expect, it } from 'vitest';
 import FieldRenderer from '../FieldRenderer.vue';
 
 describe('FieldRenderer', () => {
@@ -36,7 +36,11 @@ describe('FieldRenderer', () => {
   it('renders a select for ui.kind=select', () => {
     const w = mount(FieldRenderer, {
       props: {
-        meta: { name: 'status', ui: { kind: 'select', options: ['draft', 'published'] }, optional: false },
+        meta: {
+          name: 'status',
+          ui: { kind: 'select', options: ['draft', 'published'] },
+          optional: false,
+        },
         modelValue: 'draft',
       },
     });

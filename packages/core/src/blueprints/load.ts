@@ -2,9 +2,9 @@ import { createHash } from 'node:crypto';
 import { readdir } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import type { z } from 'zod';
 import type { DatabaseAdapter } from '@vulse/db';
-import { Collection } from './collection.js';
+import type { z } from 'zod';
+import type { Collection } from './collection.js';
 import type { Blueprint, FieldMeta, FieldUi } from './types.js';
 
 export interface LoadOptions {
@@ -49,15 +49,12 @@ function extractFields(schema: z.ZodObject<z.ZodRawShape>): FieldMeta[] {
     const meta = (fieldSchema as { meta?: () => { ui?: FieldUi } }).meta?.();
     const ui = meta?.ui;
     if (!ui) {
-      throw new Error(
-        `field '${name}' is missing .meta({ ui: { kind: ... } })`,
-      );
+      throw new Error(`field '${name}' is missing .meta({ ui: { kind: ... } })`);
     }
     out.push({
       name,
       ui,
-      optional:
-        (fieldSchema as { _zod?: { optin?: string } })._zod?.optin === 'optional',
+      optional: (fieldSchema as { _zod?: { optin?: string } })._zod?.optin === 'optional',
       default: extractDefault(fieldSchema),
     });
   }

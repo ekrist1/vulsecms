@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref, watch } from 'vue';
 import { RouterLink } from 'vue-router';
-import { api, type Entry } from '../api/client.js';
+import { type Entry, api } from '../api/client.js';
 import { useBlueprintsStore } from '../stores/blueprints.js';
 
 const props = defineProps<{ handle: string }>();
@@ -19,7 +19,10 @@ async function load(handle: string) {
 }
 
 onMounted(() => load(props.handle));
-watch(() => props.handle, (h) => load(h));
+watch(
+  () => props.handle,
+  (h) => load(h),
+);
 
 function preview(e: Entry): string {
   const c = e.content as Record<string, unknown>;

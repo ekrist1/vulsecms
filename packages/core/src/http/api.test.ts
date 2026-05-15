@@ -1,10 +1,10 @@
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { LibsqlAdapter, MIGRATIONS_DIR, runMigrations } from '@vulse/db';
 import { describe, expect, it } from 'vitest';
-import { LibsqlAdapter, runMigrations, MIGRATIONS_DIR } from '@vulse/db';
 import { loadBlueprints } from '../blueprints/load.js';
 import { createContentService } from '../content/service.js';
 import { createApi } from './api.js';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixturesDir = join(here, '..', 'blueprints', '__fixtures__');

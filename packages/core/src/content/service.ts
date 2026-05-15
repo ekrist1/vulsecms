@@ -1,5 +1,5 @@
-import { ulid } from 'ulid';
 import type { DatabaseAdapter } from '@vulse/db';
+import { ulid } from 'ulid';
 import type { Blueprint } from '../blueprints/types.js';
 import { NotFoundError, ValidationError } from '../errors.js';
 import type { ContentService, Entry } from './types.js';
@@ -93,10 +93,7 @@ export function createContentService(
          VALUES (?, ?, ?, ?, 'published', ?)`,
         [id, handle, parentId, sortOrder, JSON.stringify(validated)],
       );
-      const row = await db.queryOne<EntryRow>(
-        'SELECT * FROM entries WHERE id = ?',
-        [id],
-      );
+      const row = await db.queryOne<EntryRow>('SELECT * FROM entries WHERE id = ?', [id]);
       return rowToEntry(row!);
     },
 
@@ -109,10 +106,10 @@ export function createContentService(
       if (!existing) throw new NotFoundError(`entry not found: ${id}`);
       const merged = { ...JSON.parse(existing.content), ...(input as object) };
       const validated = validate(b, merged);
-      await db.exec(
-        `UPDATE entries SET content = ?, updated_at = datetime('now') WHERE id = ?`,
-        [JSON.stringify(validated), id],
-      );
+      await db.exec(`UPDATE entries SET content = ?, updated_at = datetime('now') WHERE id = ?`, [
+        JSON.stringify(validated),
+        id,
+      ]);
       const row = await db.queryOne<EntryRow>('SELECT * FROM entries WHERE id = ?', [id]);
       return rowToEntry(row!);
     },

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
-import { api, type Entry } from '../../api/client.js';
+import { type Entry, api } from '../../api/client.js';
 
 const props = defineProps<{
   name: string;

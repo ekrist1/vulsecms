@@ -49,9 +49,7 @@ describe('runMigrations', () => {
     });
     const db = new LibsqlAdapter({ url: ':memory:' });
     await expect(runMigrations(db, dir)).rejects.toThrow();
-    const applied = await db.query<{ name: string }>(
-      'SELECT name FROM _vulse_migrations',
-    );
+    const applied = await db.query<{ name: string }>('SELECT name FROM _vulse_migrations');
     expect(applied.map((r) => r.name)).toEqual(['001_a.sql']);
     await db.close();
   });

@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { api, type BlueprintMeta } from '../api/client.js';
+import { type BlueprintMeta, api } from '../api/client.js';
 
 export const useBlueprintsStore = defineStore('blueprints', {
   state: () => ({

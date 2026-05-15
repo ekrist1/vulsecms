@@ -1,5 +1,5 @@
+import { LibsqlAdapter, MIGRATIONS_DIR, runMigrations } from '@vulse/db';
 import type { Plugin, ViteDevServer } from 'vite';
-import { LibsqlAdapter, runMigrations, MIGRATIONS_DIR } from '@vulse/db';
 import { loadBlueprints } from '../blueprints/load.js';
 import { createContentService } from '../content/service.js';
 import { createApi } from '../http/api.js';

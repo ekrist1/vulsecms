@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import { api, type ApiError } from '../api/client.js';
-import { useBlueprintsStore } from '../stores/blueprints.js';
+import { type ApiError, api } from '../api/client.js';
 import FieldRenderer from '../components/FieldRenderer.vue';
+import { useBlueprintsStore } from '../stores/blueprints.js';
 
 const props = defineProps<{ handle: string; id: string | null }>();
 const router = useRouter();

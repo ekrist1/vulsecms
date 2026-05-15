@@ -1,12 +1,30 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { mount, flushPromises } from '@vue/test-utils';
-import RelationshipField from '../RelationshipField.vue';
+import { flushPromises, mount } from '@vue/test-utils';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as client from '../../../api/client.js';
+import RelationshipField from '../RelationshipField.vue';
 
 beforeEach(() => {
   vi.spyOn(client.api, 'list').mockResolvedValue([
-    { id: 'a', collection: 'authors', parentId: null, sortOrder: 1, status: 'published', content: { name: 'Ada' }, createdAt: '', updatedAt: '' },
-    { id: 'b', collection: 'authors', parentId: null, sortOrder: 2, status: 'published', content: { name: 'Bob' }, createdAt: '', updatedAt: '' },
+    {
+      id: 'a',
+      collection: 'authors',
+      parentId: null,
+      sortOrder: 1,
+      status: 'published',
+      content: { name: 'Ada' },
+      createdAt: '',
+      updatedAt: '',
+    },
+    {
+      id: 'b',
+      collection: 'authors',
+      parentId: null,
+      sortOrder: 2,
+      status: 'published',
+      content: { name: 'Bob' },
+      createdAt: '',
+      updatedAt: '',
+    },
   ]);
 });
 

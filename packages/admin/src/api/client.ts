@@ -66,7 +66,11 @@ class ApiClient {
     if (res.status === 204) return undefined as T;
     const text = await res.text();
     const data = text ? JSON.parse(text) : null;
-    if (!res.ok) throw Object.assign(new Error('api error'), { response: data as ApiError, status: res.status });
+    if (!res.ok)
+      throw Object.assign(new Error('api error'), {
+        response: data as ApiError,
+        status: res.status,
+      });
     return data as T;
   }
 }

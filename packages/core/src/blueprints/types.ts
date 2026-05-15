@@ -1,14 +1,7 @@
 import type { z } from 'zod';
 
 export interface FieldUi {
-  kind:
-    | 'text'
-    | 'textarea'
-    | 'blocks'
-    | 'date'
-    | 'boolean'
-    | 'select'
-    | 'relationship';
+  kind: 'text' | 'textarea' | 'blocks' | 'date' | 'boolean' | 'select' | 'relationship';
   options?: readonly string[];
   to?: string;
 }

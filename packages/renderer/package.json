@@ -6,24 +6,24 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
-    ".":        { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
+    ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
     "./styles": "./styles/renderer.css"
   },
   "files": ["dist", "styles"],
   "scripts": {
     "build": "vue-tsc -p tsconfig.json && vite build",
     "check": "vue-tsc -p tsconfig.json --noEmit",
-    "test":  "vitest run"
+    "test": "vitest run"
   },
   "peerDependencies": { "vue": "^3.5.0" },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.1.4",
-    "@vue/test-utils":    "^2.4.6",
-    "jsdom":              "^25.0.0",
-    "typescript":         "^5.6.3",
-    "vite":               "^5.4.10",
-    "vitest":             "^2.1.4",
-    "vue":                "^3.5.0",
-    "vue-tsc":            "^2.1.10"
+    "@vue/test-utils": "^2.4.6",
+    "jsdom": "^25.0.0",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10",
+    "vitest": "^2.1.4",
+    "vue": "^3.5.0",
+    "vue-tsc": "^2.1.10"
   }
 }

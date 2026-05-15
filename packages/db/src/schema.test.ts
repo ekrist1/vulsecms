@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { MIGRATIONS_DIR } from './index.js';
 import { LibsqlAdapter } from './libsql-adapter.js';
 import { runMigrations } from './migrate.js';
-import { MIGRATIONS_DIR } from './index.js';
 
 async function freshDb() {
   const db = new LibsqlAdapter({ url: ':memory:' });
@@ -32,9 +32,7 @@ describe('v1 schema', () => {
 
   it('entries support parent/child + cascade on delete', async () => {
     const db = await freshDb();
-    await db.exec(
-      "INSERT INTO collections (handle, blueprint_hash) VALUES ('posts', 'h1')",
-    );
+    await db.exec("INSERT INTO collections (handle, blueprint_hash) VALUES ('posts', 'h1')");
     await db.exec(
       "INSERT INTO entries (id, collection_handle, content) VALUES ('p1', 'posts', '{}')",
     );
@@ -49,9 +47,7 @@ describe('v1 schema', () => {
 
   it('sort_order indexes return entries in order', async () => {
     const db = await freshDb();
-    await db.exec(
-      "INSERT INTO collections (handle, blueprint_hash) VALUES ('posts', 'h1')",
-    );
+    await db.exec("INSERT INTO collections (handle, blueprint_hash) VALUES ('posts', 'h1')");
     for (const [id, order] of [
       ['b', 2],
       ['a', 1],

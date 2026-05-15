@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted } from 'vue';
-import { RouterView, RouterLink, useRouter } from 'vue-router';
+import { RouterLink, RouterView, useRouter } from 'vue-router';
 import { useBlueprintsStore } from './stores/blueprints.js';
 
 const store = useBlueprintsStore();

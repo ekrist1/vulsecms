@@ -1,10 +1,10 @@
-import { describe, expect, it } from 'vitest';
-import { LibsqlAdapter, runMigrations, MIGRATIONS_DIR } from '@vulse/db';
-import { loadBlueprints } from '../blueprints/load.js';
-import { createContentService } from './service.js';
-import { ValidationError, NotFoundError } from '../errors.js';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { LibsqlAdapter, MIGRATIONS_DIR, runMigrations } from '@vulse/db';
+import { describe, expect, it } from 'vitest';
+import { loadBlueprints } from '../blueprints/load.js';
+import { NotFoundError, ValidationError } from '../errors.js';
+import { createContentService } from './service.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixturesDir = join(here, '..', 'blueprints', '__fixtures__');
@@ -84,7 +84,7 @@ describe('ContentService', () => {
       [parent.id],
     );
     await content.delete('posts', parent.id);
-    const rows = await db.query("SELECT id FROM entries");
+    const rows = await db.query('SELECT id FROM entries');
     expect(rows).toEqual([]);
     await db.close();
   });

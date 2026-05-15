@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { useEditor, EditorContent } from '@tiptap/vue-3';
 import StarterKit from '@tiptap/starter-kit';
+import { EditorContent, useEditor } from '@tiptap/vue-3';
 import { watch } from 'vue';
 import { VulseCalloutExtension } from './vulse-callout-extension.js';
 

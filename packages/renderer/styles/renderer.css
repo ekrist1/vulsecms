@@ -1,12 +1,51 @@
-.vulse-doc           { line-height: 1.6; }
-.vulse-paragraph     { margin: 0 0 1em; }
-.vulse-heading       { font-weight: 600; line-height: 1.2; margin: 1.4em 0 0.6em; }
-.vulse-bullet-list   { padding-left: 1.5em; list-style: disc; }
-.vulse-ordered-list  { padding-left: 1.5em; list-style: decimal; }
-.vulse-blockquote    { border-left: 3px solid #d4d4d8; padding-left: 1em; color: #52525b; }
-.vulse-code-block    { background: #f4f4f5; padding: 0.75em 1em; border-radius: 6px; overflow-x: auto; }
-.vulse-link          { color: #2563eb; text-decoration: underline; }
+.vulse-doc {
+  line-height: 1.6;
+}
+.vulse-paragraph {
+  margin: 0 0 1em;
+}
+.vulse-heading {
+  font-weight: 600;
+  line-height: 1.2;
+  margin: 1.4em 0 0.6em;
+}
+.vulse-bullet-list {
+  padding-left: 1.5em;
+  list-style: disc;
+}
+.vulse-ordered-list {
+  padding-left: 1.5em;
+  list-style: decimal;
+}
+.vulse-blockquote {
+  border-left: 3px solid #d4d4d8;
+  padding-left: 1em;
+  color: #52525b;
+}
+.vulse-code-block {
+  background: #f4f4f5;
+  padding: 0.75em 1em;
+  border-radius: 6px;
+  overflow-x: auto;
+}
+.vulse-link {
+  color: #2563eb;
+  text-decoration: underline;
+}
 
-.vulse-callout       { border-radius: 8px; padding: 0.75em 1em; margin: 1em 0; border: 1px solid; }
-.vulse-callout--info { background: #eff6ff; border-color: #bfdbfe; color: #1e3a8a; }
-.vulse-callout--warn { background: #fff7ed; border-color: #fed7aa; color: #9a3412; }
+.vulse-callout {
+  border-radius: 8px;
+  padding: 0.75em 1em;
+  margin: 1em 0;
+  border: 1px solid;
+}
+.vulse-callout--info {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1e3a8a;
+}
+.vulse-callout--warn {
+  background: #fff7ed;
+  border-color: #fed7aa;
+  color: #9a3412;
+}

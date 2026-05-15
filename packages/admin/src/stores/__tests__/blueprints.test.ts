@@ -1,7 +1,7 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { setActivePinia, createPinia } from 'pinia';
-import { useBlueprintsStore } from '../blueprints.js';
+import { createPinia, setActivePinia } from 'pinia';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import * as client from '../../api/client.js';
+import { useBlueprintsStore } from '../blueprints.js';
 
 beforeEach(() => {
   setActivePinia(createPinia());

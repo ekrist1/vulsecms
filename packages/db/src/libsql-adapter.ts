@@ -1,4 +1,4 @@
-import { createClient, type Client, type Config, type InValue } from '@libsql/client';
+import { type Client, type Config, type InValue, createClient } from '@libsql/client';
 import type { DatabaseAdapter, Row } from './adapter.js';
 
 export class LibsqlAdapter implements DatabaseAdapter {

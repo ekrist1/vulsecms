@@ -1,10 +1,10 @@
-import { serve } from '@hono/node-server';
-import { serveStatic } from '@hono/node-server/serve-static';
-import { Hono } from 'hono';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { LibsqlAdapter, MIGRATIONS_DIR, runMigrations } from '@vulse/db';
+import { serve } from '@hono/node-server';
+import { serveStatic } from '@hono/node-server/serve-static';
 import { createApi, createContentService, loadBlueprints } from '@vulse/core';
+import { LibsqlAdapter, MIGRATIONS_DIR, runMigrations } from '@vulse/db';
+import { Hono } from 'hono';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
