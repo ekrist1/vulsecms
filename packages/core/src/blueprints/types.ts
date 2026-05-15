@@ -1,22 +1,17 @@
 import type { z } from 'zod';
+import type { FieldDefinition, FieldUi } from './definition.js';
 
-export interface FieldUi {
-  kind: 'text' | 'textarea' | 'blocks' | 'date' | 'boolean' | 'select' | 'relationship';
-  options?: readonly string[];
-  to?: string;
-}
+export type { FieldUi, FieldDefinition } from './definition.js';
 
-export interface FieldMeta {
-  name: string;
-  ui: FieldUi;
-  optional: boolean;
-  default?: unknown;
-}
+// Backwards-compat alias: prior code referred to FieldMeta. Keep it as an
+// alias for FieldDefinition so the admin client code keeps compiling.
+export type FieldMeta = FieldDefinition;
 
 export interface Blueprint {
   handle: string;
   label: string;
+  singleton: boolean;
   schema: z.ZodObject<z.ZodRawShape>;
-  fields: FieldMeta[];
+  fields: FieldDefinition[];
   hash: string;
 }

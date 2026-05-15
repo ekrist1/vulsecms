@@ -39,7 +39,7 @@ function buildBlueprint(cls: typeof Collection): Blueprint {
   const schema = cls.schema;
   const fields = extractFields(schema);
   const hash = hashBlueprint(handle, fields);
-  return { handle, label, schema, fields, hash };
+  return { handle, label, singleton: false, schema, fields, hash };
 }
 
 function extractFields(schema: z.ZodObject<z.ZodRawShape>): FieldMeta[] {
