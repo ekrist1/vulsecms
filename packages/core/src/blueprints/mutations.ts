@@ -1,14 +1,14 @@
 import type { DatabaseAdapter } from '@vulse/db';
 import { NotFoundError, ValidationError } from '../errors.js';
+import { blueprintEvents } from '../events.js';
 import { hashDefinition } from './compile.js';
 import {
-  BlueprintDefinitionSchema,
-  BlueprintDefinitionWithRenamesSchema,
   type BlueprintDefinition,
+  BlueprintDefinitionSchema,
   type BlueprintDefinitionWithRenames,
+  BlueprintDefinitionWithRenamesSchema,
   type FieldDefinitionWithRename,
 } from './definition.js';
-import { blueprintEvents } from '../events.js';
 
 export async function createBlueprint(
   db: DatabaseAdapter,
@@ -72,12 +72,7 @@ export async function updateBlueprint(
       `UPDATE collections
        SET definition = ?, blueprint_hash = ?, singleton = ?, updated_at = datetime('now')
        WHERE handle = ?`,
-      [
-        JSON.stringify(canonical),
-        hashDefinition(canonical),
-        canonical.singleton ? 1 : 0,
-        handle,
-      ],
+      [JSON.stringify(canonical), hashDefinition(canonical), canonical.singleton ? 1 : 0, handle],
     );
   });
 
@@ -194,9 +189,9 @@ async function loadDefinition(
 
 function parseOrThrow<T>(
   schema: {
-    safeParse: (x: unknown) =>
-      | { success: true; data: T }
-      | { success: false; error: { issues: unknown[] } };
+    safeParse: (
+      x: unknown,
+    ) => { success: true; data: T } | { success: false; error: { issues: unknown[] } };
   },
   value: unknown,
 ): T {

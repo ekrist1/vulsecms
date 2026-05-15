@@ -1,9 +1,9 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { mount, flushPromises } from '@vue/test-utils';
+import { flushPromises, mount } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
-import { createRouter, createMemoryHistory } from 'vue-router';
-import BlueprintEditor from '../BlueprintEditor.vue';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createMemoryHistory, createRouter } from 'vue-router';
 import * as client from '../../api/client.js';
+import BlueprintEditor from '../BlueprintEditor.vue';
 
 const router = createRouter({
   history: createMemoryHistory(),

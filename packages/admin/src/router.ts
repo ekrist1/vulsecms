@@ -1,8 +1,8 @@
-import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router';
-import CollectionList from './pages/CollectionList.vue';
-import CollectionEntry from './pages/CollectionEntry.vue';
-import BlueprintList from './pages/BlueprintList.vue';
+import { type RouteRecordRaw, createRouter, createWebHistory } from 'vue-router';
 import BlueprintEditor from './pages/BlueprintEditor.vue';
+import BlueprintList from './pages/BlueprintList.vue';
+import CollectionEntry from './pages/CollectionEntry.vue';
+import CollectionList from './pages/CollectionList.vue';
 
 const routes: RouteRecordRaw[] = [
   { path: '/', redirect: '/loading' },

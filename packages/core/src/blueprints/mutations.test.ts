@@ -1,11 +1,11 @@
-import { describe, expect, it } from 'vitest';
-import { LibsqlAdapter, runMigrations, MIGRATIONS_DIR } from '@vulse/db';
-import { createBlueprint, updateBlueprint, deleteBlueprint } from './mutations.js';
-import { seedBlueprintsFromCode } from './seed.js';
-import { ValidationError, NotFoundError } from '../errors.js';
-import type { BlueprintDefinition, BlueprintDefinitionWithRenames } from './definition.js';
-import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { LibsqlAdapter, MIGRATIONS_DIR, runMigrations } from '@vulse/db';
+import { describe, expect, it } from 'vitest';
+import { NotFoundError, ValidationError } from '../errors.js';
+import type { BlueprintDefinition, BlueprintDefinitionWithRenames } from './definition.js';
+import { createBlueprint, deleteBlueprint, updateBlueprint } from './mutations.js';
+import { seedBlueprintsFromCode } from './seed.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixturesDir = join(here, '__fixtures__');
@@ -80,9 +80,7 @@ describe('createBlueprint', () => {
     await expect(
       createBlueprint(db, {
         ...minimal,
-        fields: [
-          { name: 'parent', ui: { kind: 'relationship', to: 'ghosts' }, optional: false },
-        ],
+        fields: [{ name: 'parent', ui: { kind: 'relationship', to: 'ghosts' }, optional: false }],
       }),
     ).rejects.toBeInstanceOf(ValidationError);
     await db.close();
@@ -119,7 +117,7 @@ describe('updateBlueprint', () => {
   it('renames a field and rewrites entries.content JSON keys', async () => {
     const db = await setup();
     await db.exec(
-      "INSERT INTO entries (id, collection_handle, content) VALUES ('e1', 'posts', '{\"title\":\"Hello\",\"body\":[]}')",
+      'INSERT INTO entries (id, collection_handle, content) VALUES (\'e1\', \'posts\', \'{"title":"Hello","body":[]}\')',
     );
 
     await updateBlueprint(db, 'posts', {
@@ -149,7 +147,7 @@ describe('updateBlueprint', () => {
   it('leaves orphan data when a field is removed', async () => {
     const db = await setup();
     await db.exec(
-      "INSERT INTO entries (id, collection_handle, content) VALUES ('e1', 'posts', '{\"title\":\"Hello\",\"body\":[]}')",
+      'INSERT INTO entries (id, collection_handle, content) VALUES (\'e1\', \'posts\', \'{"title":"Hello","body":[]}\')',
     );
     await updateBlueprint(db, 'posts', {
       handle: 'posts',
@@ -200,12 +198,8 @@ describe('deleteBlueprint', () => {
       "INSERT INTO entries (id, collection_handle, content) VALUES ('e1', 'posts', '{}')",
     );
     await deleteBlueprint(db, 'posts');
-    expect(
-      await db.queryOne("SELECT handle FROM collections WHERE handle = 'posts'"),
-    ).toBeNull();
-    expect(await db.query("SELECT id FROM entries WHERE collection_handle = 'posts'")).toEqual(
-      [],
-    );
+    expect(await db.queryOne("SELECT handle FROM collections WHERE handle = 'posts'")).toBeNull();
+    expect(await db.query("SELECT id FROM entries WHERE collection_handle = 'posts'")).toEqual([]);
     await db.close();
   });
 

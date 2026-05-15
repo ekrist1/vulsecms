@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
-import type { Blueprint } from './types.js';
 import type { BlueprintDefinition, FieldDefinition } from './definition.js';
+import type { Blueprint } from './types.js';
 
 export function compileBlueprint(def: BlueprintDefinition): Blueprint {
   const shape: Record<string, z.ZodTypeAny> = {};

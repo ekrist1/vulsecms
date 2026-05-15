@@ -1,7 +1,7 @@
 import type { DatabaseAdapter } from '@vulse/db';
-import type { Blueprint } from './types.js';
-import { BlueprintDefinitionSchema, type BlueprintDefinition } from './definition.js';
 import { compileBlueprint } from './compile.js';
+import { type BlueprintDefinition, BlueprintDefinitionSchema } from './definition.js';
+import type { Blueprint } from './types.js';
 
 export interface LoadOptions {
   adapter: DatabaseAdapter;
@@ -14,7 +14,9 @@ export async function loadBlueprints(opts: LoadOptions): Promise<Map<string, Blu
   const map = new Map<string, Blueprint>();
   for (const row of rows) {
     if (!row.definition) {
-      throw new Error(`collection '${row.handle}' has no definition; run seedBlueprintsFromCode first`);
+      throw new Error(
+        `collection '${row.handle}' has no definition; run seedBlueprintsFromCode first`,
+      );
     }
     const parsed = JSON.parse(row.definition);
     const def: BlueprintDefinition = BlueprintDefinitionSchema.parse(parsed);
@@ -23,7 +25,10 @@ export async function loadBlueprints(opts: LoadOptions): Promise<Map<string, Blu
   return map;
 }
 
-export async function reloadBlueprint(handle: string, opts: LoadOptions): Promise<Blueprint | null> {
+export async function reloadBlueprint(
+  handle: string,
+  opts: LoadOptions,
+): Promise<Blueprint | null> {
   const row = await opts.adapter.queryOne<{ definition: string | null }>(
     'SELECT definition FROM collections WHERE handle = ?',
     [handle],

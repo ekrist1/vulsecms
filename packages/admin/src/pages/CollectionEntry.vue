@@ -23,8 +23,7 @@ const slugTouched = ref(false);
 const hasAutoSlug = computed(() => {
   const bp = blueprint.value;
   if (!bp) return false;
-  const has = (name: string) =>
-    bp.fields.some((f) => f.name === name && f.ui.kind === 'text');
+  const has = (name: string) => bp.fields.some((f) => f.name === name && f.ui.kind === 'text');
   return has('title') && has('slug');
 });
 

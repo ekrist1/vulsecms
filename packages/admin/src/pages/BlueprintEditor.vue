@@ -31,7 +31,7 @@ const saving = ref(false);
 const isCreate = computed(() => props.handle === null);
 
 async function load() {
-  Object.keys(errors).forEach((k) => delete errors[k]);
+  for (const k of Object.keys(errors)) delete errors[k];
   fields.splice(0, fields.length);
   if (props.handle === null) {
     handle.value = '';
@@ -89,7 +89,7 @@ function setKind(i: number, kind: FieldUi['kind']) {
 }
 
 async function save() {
-  Object.keys(errors).forEach((k) => delete errors[k]);
+  for (const k of Object.keys(errors)) delete errors[k];
   submitError.value = null;
   saving.value = true;
   try {

@@ -79,9 +79,7 @@ describe('compileBlueprint', () => {
   it('compiles relationship as a string id', () => {
     const b = compileBlueprint(
       bp({
-        fields: [
-          { name: 'author', ui: { kind: 'relationship', to: 'authors' }, optional: false },
-        ],
+        fields: [{ name: 'author', ui: { kind: 'relationship', to: 'authors' }, optional: false }],
       }),
     );
     expect(b.schema.safeParse({ author: 'ulid-here' }).success).toBe(true);

@@ -3,8 +3,8 @@ import type { Plugin, ViteDevServer } from 'vite';
 import { loadBlueprints } from '../blueprints/load.js';
 import { seedBlueprintsFromCode } from '../blueprints/seed.js';
 import { createContentService } from '../content/service.js';
-import { createApi } from '../http/api.js';
 import { blueprintEvents } from '../events.js';
+import { createApi } from '../http/api.js';
 
 export interface VulseDevOptions {
   blueprintsDir: string;

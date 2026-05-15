@@ -2,7 +2,7 @@ import { readdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import type { DatabaseAdapter } from '@vulse/db';
-import { Collection } from './collection.js';
+import type { Collection } from './collection.js';
 import { hashDefinition } from './compile.js';
 import type { BlueprintDefinition, FieldDefinition, FieldUi } from './definition.js';
 

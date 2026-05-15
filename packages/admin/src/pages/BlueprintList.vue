@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import { RouterLink } from 'vue-router';
-import { api, type BlueprintMeta } from '../api/client.js';
+import { type BlueprintMeta, api } from '../api/client.js';
 
 const blueprints = ref<BlueprintMeta[]>([]);
 const loading = ref(false);

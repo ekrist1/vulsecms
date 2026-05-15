@@ -1,19 +1,15 @@
+import type { DatabaseAdapter } from '@vulse/db';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import type { Blueprint } from '../blueprints/types.js';
-import type { ContentService } from '../content/types.js';
-import { NotFoundError, ValidationError } from '../errors.js';
-import { toMeta } from './meta.js';
-import {
-  createBlueprint,
-  updateBlueprint,
-  deleteBlueprint,
-} from '../blueprints/mutations.js';
 import {
   BlueprintDefinitionSchema,
   BlueprintDefinitionWithRenamesSchema,
 } from '../blueprints/definition.js';
-import type { DatabaseAdapter } from '@vulse/db';
+import { createBlueprint, deleteBlueprint, updateBlueprint } from '../blueprints/mutations.js';
+import type { Blueprint } from '../blueprints/types.js';
+import type { ContentService } from '../content/types.js';
+import { NotFoundError, ValidationError } from '../errors.js';
+import { toMeta } from './meta.js';
 
 export interface ApiDeps {
   blueprints: Map<string, Blueprint>;
