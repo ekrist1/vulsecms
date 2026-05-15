@@ -23,7 +23,7 @@ onMounted(async () => {
         <div class="px-2 pt-2 text-xs uppercase tracking-wide text-zinc-500">Collections</div>
         <RouterLink
           v-for="bp in store.list"
-          :key="bp.handle"
+          :key="`coll-${bp.handle}`"
           :to="`/collections/${bp.handle}`"
           class="block rounded px-2 py-1.5 text-sm hover:bg-zinc-100"
           active-class="bg-zinc-100 font-medium"
@@ -32,10 +32,25 @@ onMounted(async () => {
           {{ bp.label }}
         </RouterLink>
 
-        <!-- Door-open slots for later milestones:
-        <div class="px-2 pt-4 text-xs uppercase tracking-wide text-zinc-500">Navigation</div>
-        <div class="px-2 pt-4 text-xs uppercase tracking-wide text-zinc-500">Settings</div>
-        -->
+        <div class="px-2 pt-4 text-xs uppercase tracking-wide text-zinc-500">Schema</div>
+        <RouterLink
+          v-for="bp in store.list"
+          :key="`schema-${bp.handle}`"
+          :to="`/schema/${bp.handle}`"
+          class="block rounded px-2 py-1.5 text-sm hover:bg-zinc-100"
+          active-class="bg-zinc-100 font-medium"
+          :data-testid="`schema-nav-${bp.handle}`"
+        >
+          {{ bp.label }}
+        </RouterLink>
+        <RouterLink
+          to="/schema/new"
+          class="block rounded px-2 py-1.5 text-sm text-zinc-600 hover:bg-zinc-100"
+          active-class="bg-zinc-100 font-medium"
+          data-testid="schema-nav-new"
+        >
+          + New collection
+        </RouterLink>
       </nav>
     </aside>
     <main class="flex-1 overflow-auto">
