@@ -1,8 +1,9 @@
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { LibsqlAdapter, MIGRATIONS_DIR, runMigrations } from '@vulse/db';
 import { describe, expect, it } from 'vitest';
-import { loadBlueprints } from './load.js';
+import { LibsqlAdapter, runMigrations, MIGRATIONS_DIR } from '@vulse/db';
+import { loadBlueprints, reloadBlueprint } from './load.js';
+import { seedBlueprintsFromCode } from './seed.js';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixturesDir = join(here, '__fixtures__');
@@ -13,37 +14,36 @@ async function freshDb() {
   return db;
 }
 
-describe('loadBlueprints', () => {
-  it('loads class-based blueprints and exposes field meta', async () => {
+describe('loadBlueprints / reloadBlueprint', () => {
+  it('loads seeded blueprints with compiled Zod schemas', async () => {
     const db = await freshDb();
-    const map = await loadBlueprints(fixturesDir, { adapter: db });
-
+    await seedBlueprintsFromCode({ adapter: db, dir: fixturesDir });
+    const map = await loadBlueprints({ adapter: db });
     expect([...map.keys()].sort()).toEqual(['authors', 'posts']);
-
-    const posts = map.get('posts')!;
-    expect(posts.label).toBe('Posts');
-    expect(posts.fields.find((f) => f.name === 'title')?.ui.kind).toBe('text');
-    expect(posts.fields.find((f) => f.name === 'body')?.ui.kind).toBe('blocks');
-
+    expect(map.get('posts')!.schema.safeParse({ title: 'a', body: [] }).success).toBe(true);
     await db.close();
   });
 
-  it('upserts a collections row per blueprint', async () => {
+  it('throws when a row has a null definition', async () => {
     const db = await freshDb();
-    await loadBlueprints(fixturesDir, { adapter: db });
-    const rows = await db.query<{ handle: string; blueprint_hash: string }>(
-      'SELECT handle, blueprint_hash FROM collections ORDER BY handle',
-    );
-    expect(rows.map((r) => r.handle)).toEqual(['authors', 'posts']);
-    expect(rows.every((r) => r.blueprint_hash.length === 64)).toBe(true);
+    await db.exec("INSERT INTO collections (handle, blueprint_hash) VALUES ('orphan', 'h')");
+    await expect(loadBlueprints({ adapter: db })).rejects.toThrow(/no definition/);
     await db.close();
   });
 
-  it('hash is stable across reloads of the same blueprint', async () => {
+  it('reloadBlueprint returns a single compiled blueprint', async () => {
     const db = await freshDb();
-    const a = await loadBlueprints(fixturesDir, { adapter: db });
-    const b = await loadBlueprints(fixturesDir, { adapter: db });
-    expect(a.get('posts')!.hash).toBe(b.get('posts')!.hash);
+    await seedBlueprintsFromCode({ adapter: db, dir: fixturesDir });
+    const bp = await reloadBlueprint('posts', { adapter: db });
+    expect(bp).not.toBeNull();
+    expect(bp!.handle).toBe('posts');
+    expect(bp!.hash).toHaveLength(64);
+    await db.close();
+  });
+
+  it('reloadBlueprint returns null for missing handle', async () => {
+    const db = await freshDb();
+    expect(await reloadBlueprint('ghost', { adapter: db })).toBeNull();
     await db.close();
   });
 });

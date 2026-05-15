@@ -1,6 +1,7 @@
 import { LibsqlAdapter, MIGRATIONS_DIR, runMigrations } from '@vulse/db';
 import type { Plugin, ViteDevServer } from 'vite';
 import { loadBlueprints } from '../blueprints/load.js';
+import { seedBlueprintsFromCode } from '../blueprints/seed.js';
 import { createContentService } from '../content/service.js';
 import { createApi } from '../http/api.js';
 
@@ -21,8 +22,10 @@ export function vulseDevPlugin(opts: VulseDevOptions): Plugin {
       await adapter.exec('PRAGMA foreign_keys = ON');
       await runMigrations(adapter, MIGRATIONS_DIR);
 
+      await seedBlueprintsFromCode({ adapter, dir: opts.blueprintsDir });
+
       async function build() {
-        const blueprints = await loadBlueprints(opts.blueprintsDir, { adapter: adapter! });
+        const blueprints = await loadBlueprints({ adapter: adapter! });
         return createApi({ blueprints, content: createContentService(adapter!, blueprints) });
       }
 

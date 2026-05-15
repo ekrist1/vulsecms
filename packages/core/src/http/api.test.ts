@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { LibsqlAdapter, MIGRATIONS_DIR, runMigrations } from '@vulse/db';
 import { describe, expect, it } from 'vitest';
 import { loadBlueprints } from '../blueprints/load.js';
+import { seedBlueprintsFromCode } from '../blueprints/seed.js';
 import { createContentService } from '../content/service.js';
 import { createApi } from './api.js';
 
@@ -12,7 +13,8 @@ const fixturesDir = join(here, '..', 'blueprints', '__fixtures__');
 async function setup() {
   const db = new LibsqlAdapter({ url: ':memory:' });
   await runMigrations(db, MIGRATIONS_DIR);
-  const blueprints = await loadBlueprints(fixturesDir, { adapter: db });
+  await seedBlueprintsFromCode({ adapter: db, dir: fixturesDir });
+  const blueprints = await loadBlueprints({ adapter: db });
   const content = createContentService(db, blueprints);
   const app = createApi({ blueprints, content });
   return { db, app };

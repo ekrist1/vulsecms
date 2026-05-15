@@ -9,7 +9,9 @@ export {
   type BlueprintDefinitionWithRenames,
   type FieldDefinitionWithRename,
 } from './blueprints/definition.js';
-export { loadBlueprints, type LoadOptions } from './blueprints/load.js';
+export { loadBlueprints, reloadBlueprint, type LoadOptions } from './blueprints/load.js';
+export { seedBlueprintsFromCode } from './blueprints/seed.js';
+export { blueprintEvents } from './events.js';
 export { createContentService } from './content/service.js';
 export type { ContentService, Entry } from './content/types.js';
 export { createApi, type ApiDeps } from './http/api.js';
