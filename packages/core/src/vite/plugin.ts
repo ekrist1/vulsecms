@@ -26,7 +26,7 @@ export function vulseDevPlugin(opts: VulseDevOptions): Plugin {
 
       async function build() {
         const blueprints = await loadBlueprints({ adapter: adapter! });
-        return createApi({ blueprints, content: createContentService(adapter!, blueprints) });
+        return createApi({ blueprints, content: createContentService(adapter!, blueprints), adapter: adapter! });
       }
 
       let app = await build();

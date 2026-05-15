@@ -16,7 +16,7 @@ async function setup() {
   await seedBlueprintsFromCode({ adapter: db, dir: fixturesDir });
   const blueprints = await loadBlueprints({ adapter: db });
   const content = createContentService(db, blueprints);
-  const app = createApi({ blueprints, content });
+  const app = createApi({ blueprints, content, adapter: db });
   return { db, app };
 }
 
