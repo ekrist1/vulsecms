@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+@source "../**/*.{vue,ts,tsx,html}";
+@source "../../../../apps/dev/**/*.{vue,ts,tsx,html}";
+
 :root {
   --vulse-sidebar-width: 240px;
 }
