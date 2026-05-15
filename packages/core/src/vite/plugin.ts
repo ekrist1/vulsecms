@@ -4,6 +4,7 @@ import { loadBlueprints } from '../blueprints/load.js';
 import { seedBlueprintsFromCode } from '../blueprints/seed.js';
 import { createContentService } from '../content/service.js';
 import { createApi } from '../http/api.js';
+import { blueprintEvents } from '../events.js';
 
 export interface VulseDevOptions {
   blueprintsDir: string;
@@ -21,15 +22,21 @@ export function vulseDevPlugin(opts: VulseDevOptions): Plugin {
       adapter = new LibsqlAdapter(opts.database);
       await adapter.exec('PRAGMA foreign_keys = ON');
       await runMigrations(adapter, MIGRATIONS_DIR);
-
       await seedBlueprintsFromCode({ adapter, dir: opts.blueprintsDir });
 
       async function build() {
         const blueprints = await loadBlueprints({ adapter: adapter! });
-        return createApi({ blueprints, content: createContentService(adapter!, blueprints), adapter: adapter! });
+        const content = createContentService(adapter!, blueprints);
+        return createApi({ blueprints, content, adapter: adapter! });
       }
 
       let app = await build();
+
+      const onChange = async () => {
+        app = await build();
+        server.ws.send({ type: 'custom', event: 'vulse:blueprints-changed' });
+      };
+      blueprintEvents.on('change', onChange);
 
       server.middlewares.use(async (req, res, next) => {
         if (!req.url || !req.url.startsWith('/api/')) return next();
@@ -55,14 +62,6 @@ export function vulseDevPlugin(opts: VulseDevOptions): Plugin {
           res.end(buf);
         } catch (err) {
           next(err as Error);
-        }
-      });
-
-      server.watcher.add(opts.blueprintsDir);
-      server.watcher.on('change', async (file) => {
-        if (file.startsWith(opts.blueprintsDir)) {
-          app = await build();
-          server.ws.send({ type: 'custom', event: 'vulse:blueprints-changed' });
         }
       });
     },
