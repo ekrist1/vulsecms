@@ -39,12 +39,12 @@ export function vulseDevPlugin(opts: VulseDevOptions): Plugin {
           }
           const method = req.method ?? 'GET';
           const hasBody = method !== 'GET' && method !== 'HEAD';
-          const body = hasBody ? (await readBody(req)).buffer as ArrayBuffer : null;
-          const fetchReq = new Request(url.toString(), {
-            method,
-            headers,
-            body,
-          });
+          const init: RequestInit = { method, headers };
+          if (hasBody) {
+            const buf = await readBody(req);
+            init.body = new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength) as BodyInit;
+          }
+          const fetchReq = new Request(url.toString(), init);
           const fetchRes = await app.fetch(fetchReq);
           res.statusCode = fetchRes.status;
           fetchRes.headers.forEach((v, k) => res.setHeader(k, v));
