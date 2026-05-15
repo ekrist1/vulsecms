@@ -206,6 +206,7 @@ async function destroy() {
               <button
                 type="button"
                 class="text-left"
+                :data-testid="`field-expand-${i}`"
                 @click="expandedIndex = expandedIndex === i ? null : i"
               >
                 <span class="font-mono text-sm">{{ f.name || '(new field)' }}</span>
