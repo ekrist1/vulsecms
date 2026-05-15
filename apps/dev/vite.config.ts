@@ -13,7 +13,7 @@ export default defineConfig({
     tailwindcss(),
     vulseDevPlugin({
       blueprintsDir: resolve(__dirname, 'blueprints'),
-      database: { url: 'file:./dev.db' },
+      database: { url: process.env.VULSE_DB_URL ?? 'file:./dev.db' },
     }),
   ],
 });

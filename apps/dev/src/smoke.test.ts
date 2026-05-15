@@ -1,4 +1,3 @@
-import { existsSync, unlinkSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { type ViteDevServer, createServer } from 'vite';
@@ -11,8 +10,9 @@ let server: ViteDevServer;
 let base: string;
 
 beforeAll(async () => {
-  const devDb = resolve(root, 'dev.db');
-  if (existsSync(devDb)) unlinkSync(devDb);
+  // Isolated in-memory DB so the smoke test never collides with a running
+  // `pnpm dev` (which would otherwise hit SQLITE_READONLY_DBMOVED on writes).
+  process.env.VULSE_DB_URL = ':memory:';
   server = await createServer({
     configFile: resolve(root, 'vite.config.ts'),
     root,
@@ -43,7 +43,7 @@ describe('apps/dev smoke', () => {
       body: JSON.stringify({
         title: 'Hello',
         slug: 'hello',
-        body: [],
+        body: { type: 'doc', content: [{ type: 'paragraph' }] },
         status: 'draft',
       }),
     });
