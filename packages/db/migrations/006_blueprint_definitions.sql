@@ -1,0 +1,1 @@
+ALTER TABLE collections RENAME COLUMN blueprint_snapshot TO definition;
