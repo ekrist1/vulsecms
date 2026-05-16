@@ -1,10 +1,14 @@
 import { createPinia, setActivePinia } from 'pinia';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useToastsStore } from '../toasts.js';
 
 beforeEach(() => {
   setActivePinia(createPinia());
   vi.useFakeTimers();
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe('useToastsStore', () => {

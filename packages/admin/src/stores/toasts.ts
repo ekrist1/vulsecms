@@ -10,37 +10,45 @@ export interface Toast {
 
 const AUTO_DISMISS_MS = 4000;
 
+let _nextId = 1;
+const _timers = new Map<number, ReturnType<typeof setTimeout>>();
+
+function pushToast(
+  list: Toast[],
+  kind: ToastKind,
+  message: string,
+  dismissAfter: number | null,
+  dismiss: (id: number) => void,
+) {
+  const id = _nextId++;
+  list.push({ id, kind, message });
+  if (dismissAfter !== null) {
+    const timer = setTimeout(() => dismiss(id), dismissAfter);
+    _timers.set(id, timer);
+  }
+}
+
 export const useToastsStore = defineStore('toasts', {
   state: () => ({
     list: [] as Toast[],
-    _nextId: 1,
-    _timers: new Map<number, ReturnType<typeof setTimeout>>(),
   }),
   actions: {
     success(message: string) {
-      this._push('success', message, AUTO_DISMISS_MS);
+      pushToast(this.list, 'success', message, AUTO_DISMISS_MS, (id) => this.dismiss(id));
     },
     error(message: string) {
-      this._push('error', message, null);
+      pushToast(this.list, 'error', message, null, (id) => this.dismiss(id));
     },
     info(message: string) {
-      this._push('info', message, AUTO_DISMISS_MS);
+      pushToast(this.list, 'info', message, AUTO_DISMISS_MS, (id) => this.dismiss(id));
     },
     dismiss(id: number) {
       const idx = this.list.findIndex((t) => t.id === id);
       if (idx !== -1) this.list.splice(idx, 1);
-      const timer = this._timers.get(id);
+      const timer = _timers.get(id);
       if (timer) {
         clearTimeout(timer);
-        this._timers.delete(id);
-      }
-    },
-    _push(kind: ToastKind, message: string, dismissAfter: number | null) {
-      const id = this._nextId++;
-      this.list.push({ id, kind, message });
-      if (dismissAfter !== null) {
-        const timer = setTimeout(() => this.dismiss(id), dismissAfter);
-        this._timers.set(id, timer);
+        _timers.delete(id);
       }
     },
   },
