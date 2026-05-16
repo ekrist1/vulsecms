@@ -4,10 +4,12 @@ import { RouterLink, useRouter } from 'vue-router';
 import { type ApiError, api } from '../api/client.js';
 import FieldRenderer from '../components/FieldRenderer.vue';
 import { useBlueprintsStore } from '../stores/blueprints.js';
+import { useToastsStore } from '../stores/toasts.js';
 
 const props = defineProps<{ handle: string; id: string | null }>();
 const router = useRouter();
 const store = useBlueprintsStore();
+const toasts = useToastsStore();
 
 const state = reactive<Record<string, unknown>>({});
 const errors = reactive<Record<string, string>>({});
@@ -83,6 +85,7 @@ async function save() {
     const entry = props.id
       ? await api.update(props.handle, props.id, { ...state })
       : await api.create(props.handle, { ...state });
+    toasts.success('Entry saved');
     if (!props.id) router.replace(`/collections/${props.handle}/${entry.id}`);
   } catch (err) {
     const e = err as { response?: ApiError };
@@ -92,7 +95,9 @@ async function save() {
         if (field) errors[field] = issue.message;
       }
     } else {
-      submitError.value = e.response?.message ?? 'Failed to save';
+      const msg = e.response?.message ?? 'Failed to save';
+      submitError.value = msg;
+      toasts.error(msg);
     }
   } finally {
     saving.value = false;

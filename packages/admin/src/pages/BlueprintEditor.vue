@@ -9,10 +9,12 @@ import {
   api,
 } from '../api/client.js';
 import { useBlueprintsStore } from '../stores/blueprints.js';
+import { useToastsStore } from '../stores/toasts.js';
 
 const props = defineProps<{ handle: string | null }>();
 const router = useRouter();
 const store = useBlueprintsStore();
+const toasts = useToastsStore();
 
 interface EditorField extends FieldDefinition {
   previousName: string | null; // null = newly added; otherwise tracks rename source
@@ -147,6 +149,7 @@ async function save() {
       await api.updateBlueprint(props.handle!, payload as never);
     }
     await store.refresh();
+    toasts.success('Schema saved');
     router.push(`/schema/${handle.value}`);
   } catch (err) {
     const e = err as { response?: ApiError };
@@ -158,7 +161,9 @@ async function save() {
       submitError.value =
         fields.length === 0 ? null : 'Some fields are invalid; see inline messages.';
     } else {
-      submitError.value = e.response?.message ?? 'Failed to save';
+      const msg = e.response?.message ?? 'Failed to save';
+      submitError.value = msg;
+      toasts.error(msg);
     }
   } finally {
     saving.value = false;
@@ -170,6 +175,7 @@ async function destroy() {
   if (!confirm(`Delete blueprint '${props.handle}' and ALL its entries?`)) return;
   await api.deleteBlueprint(props.handle);
   await store.refresh();
+  toasts.success('Blueprint deleted');
   router.push('/schema');
 }
 </script>

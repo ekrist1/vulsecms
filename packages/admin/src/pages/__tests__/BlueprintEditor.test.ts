@@ -168,4 +168,26 @@ describe('BlueprintEditor', () => {
       (w.find('[data-testid="blueprint-save"]').element as HTMLButtonElement).disabled,
     ).toBe(false);
   });
+
+  it('emits a success toast on save', async () => {
+    vi.spyOn(client.api, 'updateBlueprint').mockResolvedValue({
+      handle: 'posts',
+      label: 'Posts',
+      singleton: false,
+      fields: [],
+    });
+    const w = mountEditor('posts');
+    await flushPromises();
+    // Editor is in edit mode with 2 fields preloaded — Save is enabled.
+    await w.find('form').trigger('submit');
+    await flushPromises();
+
+    // Inspect the toasts store directly to avoid coupling to <Toasts /> markup,
+    // which is not mounted in this isolated component test.
+    const { useToastsStore } = await import('../../stores/toasts.js');
+    const toasts = useToastsStore();
+    expect(toasts.list.map((t) => ({ kind: t.kind, message: t.message }))).toEqual([
+      { kind: 'success', message: 'Schema saved' },
+    ]);
+  });
 });
