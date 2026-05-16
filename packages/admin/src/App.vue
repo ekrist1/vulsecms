@@ -1,17 +1,33 @@
 <script setup lang="ts">
-import { onMounted } from 'vue';
+import { onMounted, ref, watch } from 'vue';
 import { RouterLink, RouterView, useRouter } from 'vue-router';
-import { useBlueprintsStore } from './stores/blueprints.js';
 import Toasts from './components/Toasts.vue';
+import { useBlueprintsStore } from './stores/blueprints.js';
 
 const store = useBlueprintsStore();
 const router = useRouter();
 
+const SCHEMA_OPEN_KEY = 'vulse.sidebar.schema.open';
+const schemaOpen = ref(false);
+
 onMounted(async () => {
+  try {
+    schemaOpen.value = localStorage.getItem(SCHEMA_OPEN_KEY) === '1';
+  } catch {
+    // localStorage unavailable (SSR, sandboxed iframes) — leave default.
+  }
   await store.hydrate();
   const first = store.list[0];
   if (first && router.currentRoute.value.path === '/loading') {
     router.replace(`/collections/${first.handle}`);
+  }
+});
+
+watch(schemaOpen, (v) => {
+  try {
+    localStorage.setItem(SCHEMA_OPEN_KEY, v ? '1' : '0');
+  } catch {
+    // ignore
   }
 });
 </script>
@@ -33,25 +49,37 @@ onMounted(async () => {
           {{ bp.label }}
         </RouterLink>
 
-        <div class="px-2 pt-4 text-xs uppercase tracking-wide text-zinc-500">Schema</div>
-        <RouterLink
-          v-for="bp in store.list"
-          :key="`schema-${bp.handle}`"
-          :to="`/schema/${bp.handle}`"
-          class="block rounded px-2 py-1.5 text-sm hover:bg-zinc-100"
-          active-class="bg-zinc-100 font-medium"
-          :data-testid="`schema-nav-${bp.handle}`"
+        <div class="px-2 pt-4 text-xs uppercase tracking-wide text-zinc-500">Settings</div>
+        <button
+          type="button"
+          class="flex w-full items-center gap-1 rounded px-2 py-1.5 text-left text-sm hover:bg-zinc-100"
+          data-testid="settings-schema-toggle"
+          :aria-expanded="schemaOpen"
+          @click="schemaOpen = !schemaOpen"
         >
-          {{ bp.label }}
-        </RouterLink>
-        <RouterLink
-          to="/schema/new"
-          class="block rounded px-2 py-1.5 text-sm text-zinc-600 hover:bg-zinc-100"
-          active-class="bg-zinc-100 font-medium"
-          data-testid="schema-nav-new"
-        >
-          + New collection
-        </RouterLink>
+          <span class="inline-block w-3 text-zinc-400">{{ schemaOpen ? '▾' : '▸' }}</span>
+          <span>Schema</span>
+        </button>
+        <div v-if="schemaOpen" class="ml-4" data-testid="settings-schema-children">
+          <RouterLink
+            v-for="bp in store.list"
+            :key="`schema-${bp.handle}`"
+            :to="`/schema/${bp.handle}`"
+            class="block rounded px-2 py-1.5 text-sm hover:bg-zinc-100"
+            active-class="bg-zinc-100 font-medium"
+            :data-testid="`schema-nav-${bp.handle}`"
+          >
+            {{ bp.label }}
+          </RouterLink>
+          <RouterLink
+            to="/schema/new"
+            class="block rounded px-2 py-1.5 text-sm text-zinc-600 hover:bg-zinc-100"
+            active-class="bg-zinc-100 font-medium"
+            data-testid="schema-nav-new"
+          >
+            + New collection
+          </RouterLink>
+        </div>
       </nav>
     </aside>
     <main class="flex-1 overflow-auto">
