@@ -2,6 +2,7 @@
 import { onMounted } from 'vue';
 import { RouterLink, RouterView, useRouter } from 'vue-router';
 import { useBlueprintsStore } from './stores/blueprints.js';
+import Toasts from './components/Toasts.vue';
 
 const store = useBlueprintsStore();
 const router = useRouter();
@@ -56,5 +57,6 @@ onMounted(async () => {
     <main class="flex-1 overflow-auto">
       <RouterView />
     </main>
+    <Toasts />
   </div>
 </template>
