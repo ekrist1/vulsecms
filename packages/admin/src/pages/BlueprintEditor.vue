@@ -155,7 +155,8 @@ async function save() {
         const key = issue.path.join('.');
         errors[key] = issue.message;
       }
-      submitError.value = 'Some fields are invalid; see inline messages.';
+      submitError.value =
+        fields.length === 0 ? null : 'Some fields are invalid; see inline messages.';
     } else {
       submitError.value = e.response?.message ?? 'Failed to save';
     }
@@ -239,6 +240,25 @@ async function destroy() {
             type="button"
             class="rounded border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
             data-testid="add-field"
+            @click="addField"
+          >
+            + Add field
+          </button>
+        </div>
+
+        <div
+          v-if="fields.length === 0"
+          class="rounded border border-dashed border-zinc-300 bg-zinc-50 px-4 py-6 text-sm text-zinc-600"
+          data-testid="fields-empty-state"
+        >
+          <p class="font-medium text-zinc-700">No fields yet.</p>
+          <p class="mt-1">
+            Add at least one field to define what entries in this collection look like.
+          </p>
+          <button
+            type="button"
+            class="mt-3 rounded border border-zinc-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+            data-testid="fields-empty-add"
             @click="addField"
           >
             + Add field
@@ -398,7 +418,8 @@ async function destroy() {
         <button
           type="submit"
           class="rounded bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
-          :disabled="saving"
+          :disabled="saving || fields.length === 0"
+          :title="fields.length === 0 ? 'Add at least one field before saving.' : undefined"
           data-testid="blueprint-save"
         >
           {{ saving ? 'Saving…' : 'Save' }}
