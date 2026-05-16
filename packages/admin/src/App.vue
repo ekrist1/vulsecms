@@ -54,13 +54,14 @@ watch(schemaOpen, (v) => {
           type="button"
           class="flex w-full items-center gap-1 rounded px-2 py-1.5 text-left text-sm hover:bg-zinc-100"
           data-testid="settings-schema-toggle"
+          aria-controls="settings-schema-children"
           :aria-expanded="schemaOpen"
           @click="schemaOpen = !schemaOpen"
         >
           <span class="inline-block w-3 text-zinc-400">{{ schemaOpen ? '▾' : '▸' }}</span>
           <span>Schema</span>
         </button>
-        <div v-if="schemaOpen" class="ml-4" data-testid="settings-schema-children">
+        <div v-if="schemaOpen" id="settings-schema-children" class="ml-4" data-testid="settings-schema-children">
           <RouterLink
             v-for="bp in store.list"
             :key="`schema-${bp.handle}`"
