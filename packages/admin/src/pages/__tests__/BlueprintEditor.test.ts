@@ -111,4 +111,46 @@ describe('BlueprintEditor', () => {
     expect(payload.fields[0]).toMatchObject({ name: 'title' });
     expect((payload.fields[0] as unknown as Record<string, unknown>).previousName).toBeUndefined();
   });
+
+  it('auto-slugifies handle from label in create mode', async () => {
+    const w = mountEditor(null);
+    await flushPromises();
+    await w.find('[data-testid="blueprint-label"]').setValue('My Cool Pages');
+    expect((w.find('[data-testid="blueprint-handle"]').element as HTMLInputElement).value).toBe(
+      'my-cool-pages',
+    );
+  });
+
+  it('locks the handle once the user clicks Edit, and stops auto-syncing', async () => {
+    const w = mountEditor(null);
+    await flushPromises();
+    await w.find('[data-testid="blueprint-label"]').setValue('Pages');
+    expect((w.find('[data-testid="blueprint-handle"]').element as HTMLInputElement).value).toBe(
+      'pages',
+    );
+    await w.find('[data-testid="handle-edit"]').trigger('click');
+    await w.find('[data-testid="blueprint-handle"]').setValue('my-pages');
+    await w.find('[data-testid="blueprint-label"]').setValue('Pages Renamed');
+    // Handle stays at the user-edited value.
+    expect((w.find('[data-testid="blueprint-handle"]').element as HTMLInputElement).value).toBe(
+      'my-pages',
+    );
+  });
+
+  it('reset returns handle to the slugified label', async () => {
+    const w = mountEditor(null);
+    await flushPromises();
+    await w.find('[data-testid="blueprint-label"]').setValue('Pages');
+    await w.find('[data-testid="handle-edit"]').trigger('click');
+    await w.find('[data-testid="blueprint-handle"]').setValue('something-else');
+    await w.find('[data-testid="handle-reset"]').trigger('click');
+    expect((w.find('[data-testid="blueprint-handle"]').element as HTMLInputElement).value).toBe(
+      'pages',
+    );
+    // After reset, typing into Label should sync again.
+    await w.find('[data-testid="blueprint-label"]').setValue('Posts');
+    expect((w.find('[data-testid="blueprint-handle"]').element as HTMLInputElement).value).toBe(
+      'posts',
+    );
+  });
 });

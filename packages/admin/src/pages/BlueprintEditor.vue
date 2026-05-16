@@ -28,7 +28,33 @@ const errors = reactive<Record<string, string>>({});
 const submitError = ref<string | null>(null);
 const saving = ref(false);
 
+const handleLocked = ref(false);
+
+function slugify(input: string): string {
+  return input
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[^a-z0-9_-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/^[^a-z]+/, '');
+}
+
+function unlockHandle() {
+  handleLocked.value = true;
+}
+
+function resetHandle() {
+  handleLocked.value = false;
+  handle.value = slugify(label.value);
+}
+
 const isCreate = computed(() => props.handle === null);
+
+watch(label, (v) => {
+  if (isCreate.value && !handleLocked.value) {
+    handle.value = slugify(v);
+  }
+});
 
 async function load() {
   for (const k of Object.keys(errors)) delete errors[k];
@@ -37,12 +63,14 @@ async function load() {
     handle.value = '';
     label.value = '';
     singleton.value = false;
+    handleLocked.value = false;
     return;
   }
   const bp = await api.getBlueprint(props.handle);
   handle.value = bp.handle;
   label.value = bp.label;
   singleton.value = bp.singleton;
+  handleLocked.value = true;
   for (const f of bp.fields) {
     fields.push({ ...f, previousName: f.name });
   }
@@ -151,16 +179,6 @@ async function destroy() {
     <form class="max-w-3xl space-y-6" @submit.prevent="save">
       <div class="space-y-3 rounded border border-zinc-200 bg-white p-4">
         <label class="block">
-          <span class="block text-sm font-medium text-zinc-700">Handle</span>
-          <input
-            v-model="handle"
-            :disabled="!isCreate"
-            class="mt-1 w-full rounded border border-zinc-300 px-3 py-2 text-sm disabled:bg-zinc-100"
-            data-testid="blueprint-handle"
-          />
-          <span v-if="errors['handle']" class="mt-1 block text-xs text-red-600">{{ errors['handle'] }}</span>
-        </label>
-        <label class="block">
           <span class="block text-sm font-medium text-zinc-700">Label</span>
           <input
             v-model="label"
@@ -169,6 +187,39 @@ async function destroy() {
           />
           <span v-if="errors['label']" class="mt-1 block text-xs text-red-600">{{ errors['label'] }}</span>
         </label>
+        <div>
+          <div class="flex items-baseline justify-between">
+            <span class="block text-sm font-medium text-zinc-700">Handle</span>
+            <div v-if="isCreate" class="flex gap-3 text-xs">
+              <button
+                v-if="!handleLocked"
+                type="button"
+                class="text-zinc-500 hover:text-zinc-900"
+                data-testid="handle-edit"
+                @click="unlockHandle"
+              >
+                Edit
+              </button>
+              <button
+                v-else
+                type="button"
+                class="text-zinc-500 hover:text-zinc-900"
+                data-testid="handle-reset"
+                @click="resetHandle"
+              >
+                Reset
+              </button>
+            </div>
+          </div>
+          <input
+            v-model="handle"
+            :readonly="!isCreate || !handleLocked"
+            :disabled="!isCreate"
+            class="mt-1 w-full rounded border border-zinc-300 px-3 py-2 text-sm read-only:bg-zinc-50 disabled:bg-zinc-100"
+            data-testid="blueprint-handle"
+          />
+          <span v-if="errors['handle']" class="mt-1 block text-xs text-red-600">{{ errors['handle'] }}</span>
+        </div>
         <label class="flex items-center gap-2">
           <input
             v-model="singleton"
