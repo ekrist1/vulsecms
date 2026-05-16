@@ -158,15 +158,15 @@ describe('BlueprintEditor', () => {
     const w = mountEditor(null);
     await flushPromises();
     expect(w.find('[data-testid="fields-empty-state"]').exists()).toBe(true);
-    expect(
-      (w.find('[data-testid="blueprint-save"]').element as HTMLButtonElement).disabled,
-    ).toBe(true);
+    expect((w.find('[data-testid="blueprint-save"]').element as HTMLButtonElement).disabled).toBe(
+      true,
+    );
     // Adding a field removes the empty state and enables Save.
     await w.find('[data-testid="add-field"]').trigger('click');
     expect(w.find('[data-testid="fields-empty-state"]').exists()).toBe(false);
-    expect(
-      (w.find('[data-testid="blueprint-save"]').element as HTMLButtonElement).disabled,
-    ).toBe(false);
+    expect((w.find('[data-testid="blueprint-save"]').element as HTMLButtonElement).disabled).toBe(
+      false,
+    );
   });
 
   it('emits a success toast on save', async () => {
