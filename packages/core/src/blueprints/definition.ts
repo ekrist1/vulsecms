@@ -16,6 +16,7 @@ const relationshipFieldUiSchema = z.object({
   kind: z.literal('relationship'),
   to: z.string().min(1),
 });
+const assetFieldUiSchema = z.object({ kind: z.literal('asset') });
 
 const nonReplicatorFieldUiSchemas = [
   textFieldUiSchema,
@@ -25,6 +26,7 @@ const nonReplicatorFieldUiSchemas = [
   booleanFieldUiSchema,
   selectFieldUiSchema,
   relationshipFieldUiSchema,
+  assetFieldUiSchema,
 ] as const;
 
 export const NonReplicatorFieldUiSchema = z.discriminatedUnion('kind', nonReplicatorFieldUiSchemas);

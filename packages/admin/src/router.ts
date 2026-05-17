@@ -31,6 +31,8 @@ const routes: RouteRecordRaw[] = [
   { path: '/settings/groups', component: () => import('./pages/GroupList.vue'), meta: { requiresAuth: true, requiresSuper: true } },
   { path: '/settings/groups/new', component: () => import('./pages/GroupEditor.vue'), props: () => ({ handle: null }), meta: { requiresAuth: true, requiresSuper: true } },
   { path: '/settings/groups/:handle', component: () => import('./pages/GroupEditor.vue'), props: true, meta: { requiresAuth: true, requiresSuper: true } },
+  { path: '/assets', component: () => import('./pages/AssetList.vue'), meta: { requiresAuth: true } },
+  { path: '/settings/s3', component: () => import('./pages/S3Settings.vue'), meta: { requiresAuth: true, requiresSuper: true } },
 ];
 
 export const router = createRouter({

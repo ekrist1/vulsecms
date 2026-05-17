@@ -22,3 +22,24 @@ export type { ContentService, Entry } from './content/types.js';
 export { createApi, type ApiDeps } from './http/api.js';
 export { toMeta, type BlueprintMeta } from './http/meta.js';
 export { ValidationError, NotFoundError, ConflictError } from './errors.js';
+export { assetRoutes } from './assets/routes.js';
+export {
+  getS3Config,
+  setS3Config,
+  deleteS3Config,
+  toPublic as toPublicS3Config,
+} from './assets/settings.js';
+export {
+  listAssets,
+  getAsset,
+  createAsset,
+  deleteAsset,
+  buildObjectKey,
+} from './assets/service.js';
+export { presignUrl, publicUrlFor, buildObjectUrl } from './assets/presign.js';
+export {
+  S3ConfigSchema,
+  type S3Config,
+  type S3ConfigPublic,
+  type AssetDTO,
+} from './assets/types.js';

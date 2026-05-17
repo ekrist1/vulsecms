@@ -75,6 +75,21 @@ watch(schemaOpen, (v) => {
           </span>
         </RouterLink>
 
+        <div class="px-2 pt-4 text-xs uppercase tracking-wide text-zinc-500">Media</div>
+        <RouterLink
+          to="/assets"
+          class="vulse-nav-link rounded-xl text-sm text-zinc-800"
+          active-class="vulse-nav-link-active"
+          data-testid="nav-assets"
+        >
+          <span class="flex items-center gap-2">
+            <svg class="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path fill-rule="evenodd" d="M3 5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5Zm2 0v8.586l2.293-2.293a1 1 0 0 1 1.414 0L11 13.586l2.293-2.293a1 1 0 0 1 1.414 0L15 11.586V5H5Zm9 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z" clip-rule="evenodd" />
+            </svg>
+            <span>Assets</span>
+          </span>
+        </RouterLink>
+
         <div class="px-2 pt-4 text-xs uppercase tracking-wide text-zinc-500">Settings</div>
         <button
           type="button"
@@ -127,6 +142,15 @@ watch(schemaOpen, (v) => {
           data-testid="settings-groups-link"
         >
           Groups
+        </RouterLink>
+        <RouterLink
+          v-if="auth.user?.isSuper"
+          to="/settings/s3"
+          class="block rounded px-2 py-1.5 text-sm hover:bg-zinc-100"
+          active-class="bg-zinc-100 font-medium"
+          data-testid="settings-s3-link"
+        >
+          S3 Storage
         </RouterLink>
       </nav>
     </aside>
