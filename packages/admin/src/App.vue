@@ -3,10 +3,17 @@ import { onMounted, ref, watch } from 'vue';
 import { RouterLink, RouterView, useRouter } from 'vue-router';
 import logoUrl from './assets/logo-mark.svg';
 import Toasts from './components/Toasts.vue';
+import { useAuthStore } from './stores/auth.js';
 import { useBlueprintsStore } from './stores/blueprints.js';
 
 const store = useBlueprintsStore();
+const auth = useAuthStore();
 const router = useRouter();
+
+async function signOut() {
+  await auth.logout();
+  router.push('/login');
+}
 
 const SCHEMA_OPEN_KEY = 'vulse.sidebar.schema.open';
 const schemaOpen = ref(false);
@@ -40,14 +47,25 @@ watch(schemaOpen, (v) => {
         <img class="inline-block h-8 w-8" :src="logoUrl" alt="Logo" />
         Vulse
       </div>
+      <div v-if="auth.user" class="border-y border-zinc-100 px-4 py-2 text-xs">
+        <div class="font-mono text-zinc-700" data-testid="user-chip">{{ auth.user.email }}</div>
+        <button
+          type="button"
+          class="mt-1 text-zinc-500 hover:text-zinc-900"
+          data-testid="sign-out"
+          @click="signOut"
+        >
+          Sign out
+        </button>
+      </div>
       <nav class="px-2">
         <div class="px-2 pt-2 text-xs uppercase tracking-wide text-zinc-500">Collections</div>
         <RouterLink
           v-for="bp in store.list"
           :key="`coll-${bp.handle}`"
           :to="`/collections/${bp.handle}`"
-          class="block rounded px-2 py-1.5 text-sm hover:bg-zinc-100"
-          active-class="bg-zinc-100 font-medium"
+          class="vulse-nav-link rounded-xl text-sm text-zinc-800"
+          active-class="vulse-nav-link-active"
           :data-testid="`nav-${bp.handle}`"
         >
           {{ bp.label }}
@@ -70,16 +88,16 @@ watch(schemaOpen, (v) => {
             v-for="bp in store.list"
             :key="`schema-${bp.handle}`"
             :to="`/schema/${bp.handle}`"
-            class="block rounded px-2 py-1.5 text-sm hover:bg-zinc-100"
-            active-class="bg-zinc-100 font-medium"
+            class="vulse-nav-link rounded-xl text-sm text-zinc-800"
+            active-class="vulse-nav-link-active"
             :data-testid="`schema-nav-${bp.handle}`"
           >
             {{ bp.label }}
           </RouterLink>
           <RouterLink
             to="/schema/new"
-            class="block rounded px-2 py-1.5 text-sm text-zinc-600 hover:bg-zinc-100"
-            active-class="bg-zinc-100 font-medium"
+            class="vulse-nav-link rounded-xl text-sm text-zinc-600"
+            active-class="vulse-nav-link-active"
             data-testid="schema-nav-new"
           >
             + New collection
