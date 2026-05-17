@@ -18,7 +18,7 @@ async function setup() {
   const blueprints = await loadBlueprints({ adapter: db });
   const content = createContentService(db, blueprints);
   const authInstance = createAuth({
-    libsqlUrl: ':memory:',
+    client: db.client,
     env: { authSecret: 'x', baseUrl: 'http://x', allowPublicSignup: true, smtpUrl: undefined },
   });
   const app = createApi({ blueprints, content, adapter: db, authInstance });

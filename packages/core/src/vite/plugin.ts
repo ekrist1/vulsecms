@@ -26,11 +26,8 @@ export function vulseDevPlugin(opts: VulseDevOptions): Plugin {
       await runMigrations(adapter, MIGRATIONS_DIR);
       await seedBlueprintsFromCode({ adapter, dir: opts.blueprintsDir });
 
-      const dbUrl = typeof opts.database === 'string'
-        ? opts.database
-        : (opts.database.url ?? ':memory:');
       authInstance = createAuth({
-        libsqlUrl: dbUrl,
+        client: adapter.client,
         env: {
           authSecret: process.env.VULSE_AUTH_SECRET ?? 'dev-insecure-secret-do-not-use-in-prod',
           baseUrl: process.env.VULSE_AUTH_BASE_URL ?? 'http://localhost:5173',
@@ -73,7 +70,9 @@ export function vulseDevPlugin(opts: VulseDevOptions): Plugin {
           const init: RequestInit = { method, headers };
           if (hasBody) {
             const buf = await readBody(req);
-            init.body = new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength) as BodyInit;
+            if (buf.byteLength > 0) {
+              init.body = new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength) as BodyInit;
+            }
           }
           const fetchReq = new Request(url.toString(), init);
           const fetchRes = await app.fetch(fetchReq);

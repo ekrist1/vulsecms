@@ -24,7 +24,7 @@ const blueprintsDir = resolve(__dirname, '..', 'blueprints');
 await seedBlueprintsFromCode({ adapter: db, dir: blueprintsDir });
 
 const authInstance = createAuth({
-  libsqlUrl: dbUrl,
+  client: db.client,
   env: {
     authSecret: process.env.VULSE_AUTH_SECRET ?? 'dev-insecure-secret-do-not-use-in-prod',
     baseUrl: process.env.VULSE_AUTH_BASE_URL ?? 'http://localhost:3000',

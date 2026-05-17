@@ -1,4 +1,4 @@
-import { createClient, type Client } from '@libsql/client';
+import { type Client } from '@libsql/client';
 import { APIError, betterAuth, type BetterAuthOptions } from 'better-auth';
 import { createAuthMiddleware } from 'better-auth/api';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
@@ -13,9 +13,8 @@ export interface AuthInstanceEnv {
   smtpUrl: string | undefined;
 }
 
-export function createAuth(opts: { libsqlUrl: string; env: AuthInstanceEnv }) {
-  const client: Client = createClient({ url: opts.libsqlUrl });
-  const db = drizzle(client, { schema });
+export function createAuth(opts: { client: Client; env: AuthInstanceEnv }) {
+  const db = drizzle(opts.client, { schema });
 
   const isHttps = opts.env.baseUrl.startsWith('https://');
 
@@ -54,7 +53,7 @@ export function createAuth(opts: { libsqlUrl: string; env: AuthInstanceEnv }) {
           required: true,
           defaultValue: 0,
           input: false,
-          fieldName: 'is_super',
+          fieldName: 'isSuper',
         },
       },
     },
@@ -86,8 +85,8 @@ export function createAuth(opts: { libsqlUrl: string; env: AuthInstanceEnv }) {
   return {
     auth,
     db,
-    client,
-    close: () => client.close(),
+    client: opts.client,
+    close: () => {}, // no-op: caller owns the client lifetime
   };
 }
 

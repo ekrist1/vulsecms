@@ -2,7 +2,7 @@ import { type Client, type Config, type InValue, createClient } from '@libsql/cl
 import type { DatabaseAdapter, Row } from './adapter.js';
 
 export class LibsqlAdapter implements DatabaseAdapter {
-  private client: Client;
+  readonly client: Client;
 
   constructor(config: Config) {
     this.client = createClient(config);

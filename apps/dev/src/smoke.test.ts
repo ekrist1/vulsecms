@@ -105,3 +105,42 @@ describe('apps/dev smoke', () => {
     expect(created.status).toBe(201);
   });
 });
+
+describe('auth Phase A', () => {
+  it('signs up an external user and signs them in', async () => {
+    const email = `u-${Date.now()}@example.com`;
+    const password = 'hunter2hunter2';
+
+    // Sign up.
+    const signup = await fetch(`${base}/api/auth/sign-up/email`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email, password, name: 'Tester' }),
+    });
+    expect(signup.status).toBe(200);
+
+    // Sign in.
+    const signin = await fetch(`${base}/api/auth/sign-in/email`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    expect(signin.status).toBe(200);
+    const cookie = signin.headers.get('set-cookie') ?? '';
+    expect(cookie).toContain('vulse_session=');
+
+    // /api/auth/me reflects the signed-in user.
+    const meRes = await fetch(`${base}/api/auth/me`, { headers: { cookie } });
+    expect(meRes.status).toBe(200);
+    const me = (await meRes.json()) as { user: { email: string; role: string } | null };
+    expect(me.user?.email).toBe(email);
+    expect(me.user?.role).toBe('external_user');
+
+    // Sign out.
+    const signout = await fetch(`${base}/api/auth/sign-out`, {
+      method: 'POST',
+      headers: { cookie },
+    });
+    expect(signout.status).toBe(200);
+  });
+});
