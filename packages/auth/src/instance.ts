@@ -82,7 +82,13 @@ export function createAuth(opts: { libsqlUrl: string; env: AuthInstanceEnv }) {
     },
   };
 
-  return { auth: betterAuth(options), db, client };
+  const auth = betterAuth(options);
+  return {
+    auth,
+    db,
+    client,
+    close: () => client.close(),
+  };
 }
 
 export type AuthInstance = ReturnType<typeof createAuth>;
