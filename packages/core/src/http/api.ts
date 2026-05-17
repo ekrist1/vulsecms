@@ -1,7 +1,18 @@
-import { sessionMiddleware, meRoute, usersRoute, groupsRoute, requirePerm, requireSuper, effectivePerms, type AuthInstance, type AuthVars } from '@vulse/auth';
+import {
+  type AuthInstance,
+  type AuthVars,
+  effectivePerms,
+  groupsRoute,
+  meRoute,
+  requirePerm,
+  requireSuper,
+  sessionMiddleware,
+  usersRoute,
+} from '@vulse/auth';
 import type { DatabaseAdapter } from '@vulse/db';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import { assetRoutes } from '../assets/routes.js';
 import {
   BlueprintDefinitionSchema,
   BlueprintDefinitionWithRenamesSchema,
@@ -10,7 +21,7 @@ import { createBlueprint, deleteBlueprint, updateBlueprint } from '../blueprints
 import type { Blueprint } from '../blueprints/types.js';
 import type { ContentService } from '../content/types.js';
 import { ConflictError, NotFoundError, ValidationError } from '../errors.js';
-import { assetRoutes } from '../assets/routes.js';
+import { getRevision, listRevisions } from '../revisions/service.js';
 import { toMeta } from './meta.js';
 
 export interface ApiDeps {
@@ -20,7 +31,12 @@ export interface ApiDeps {
   authInstance: AuthInstance;
 }
 
-export function createApi({ blueprints, content, adapter, authInstance }: ApiDeps): Hono<{ Variables: AuthVars }> {
+export function createApi({
+  blueprints,
+  content,
+  adapter,
+  authInstance,
+}: ApiDeps): Hono<{ Variables: AuthVars }> {
   const app = new Hono<{ Variables: AuthVars }>();
   app.use('*', cors({ origin: (origin) => origin ?? '*', credentials: true }));
   app.use('*', sessionMiddleware(authInstance));
@@ -103,24 +119,93 @@ export function createApi({ blueprints, content, adapter, authInstance }: ApiDep
     const handle = c.req.param('handle');
     if (!blueprints.has(handle)) throw new NotFoundError(`unknown collection: ${handle}`);
     const input = await c.req.json();
-    const entry = await content.create(handle, input);
+    const userId = c.get('user')?.id;
+    const entry = await content.create(handle, input, userId ? { actor: { userId } } : undefined);
     return c.json(entry, 201);
   });
 
-  app.patch('/api/collections/:handle/:id', requirePerm({ action: 'update', adapter }), async (c) => {
+  app.patch(
+    '/api/collections/:handle/:id',
+    requirePerm({ action: 'update', adapter }),
+    async (c) => {
+      const handle = c.req.param('handle');
+      if (!blueprints.has(handle)) throw new NotFoundError(`unknown collection: ${handle}`);
+      const input = await c.req.json();
+      const userId = c.get('user')?.id;
+      const entry = await content.update(
+        handle,
+        c.req.param('id'),
+        input,
+        userId ? { actor: { userId } } : undefined,
+      );
+      return c.json(entry);
+    },
+  );
+
+  app.delete(
+    '/api/collections/:handle/:id',
+    requirePerm({ action: 'delete', adapter }),
+    async (c) => {
+      const handle = c.req.param('handle');
+      if (!blueprints.has(handle)) throw new NotFoundError(`unknown collection: ${handle}`);
+      await content.delete(handle, c.req.param('id'));
+      return c.body(null, 204);
+    },
+  );
+
+  // ---- Revision routes ----
+
+  app.get('/api/collections/:handle/:id/revisions', async (c) => {
     const handle = c.req.param('handle');
+    const id = c.req.param('id');
     if (!blueprints.has(handle)) throw new NotFoundError(`unknown collection: ${handle}`);
-    const input = await c.req.json();
-    const entry = await content.update(handle, c.req.param('id'), input);
-    return c.json(entry);
+    const user = c.get('user');
+    if (!user) return c.json({ error: 'auth_required' }, 401);
+    if (user.role === 'editor' && !user.isSuper) {
+      const perms = await effectivePerms(user, adapter);
+      if (!perms.get(handle)?.has('read')) return c.json({ error: 'forbidden' }, 403);
+    }
+    const entry = await content.get(handle, id);
+    if (!entry) throw new NotFoundError('entry not found');
+    const limit = Number(c.req.query('limit') ?? '50');
+    const offset = Number(c.req.query('offset') ?? '0');
+    return c.json(await listRevisions(adapter, id, { limit, offset }));
   });
 
-  app.delete('/api/collections/:handle/:id', requirePerm({ action: 'delete', adapter }), async (c) => {
+  app.get('/api/collections/:handle/:id/revisions/:revisionId', async (c) => {
     const handle = c.req.param('handle');
+    const id = c.req.param('id');
     if (!blueprints.has(handle)) throw new NotFoundError(`unknown collection: ${handle}`);
-    await content.delete(handle, c.req.param('id'));
-    return c.body(null, 204);
+    const user = c.get('user');
+    if (!user) return c.json({ error: 'auth_required' }, 401);
+    if (user.role === 'editor' && !user.isSuper) {
+      const perms = await effectivePerms(user, adapter);
+      if (!perms.get(handle)?.has('read')) return c.json({ error: 'forbidden' }, 403);
+    }
+    const revision = await getRevision(adapter, id, c.req.param('revisionId'));
+    if (!revision) throw new NotFoundError('revision not found');
+    return c.json(revision);
   });
+
+  app.post(
+    '/api/collections/:handle/:id/revisions/:revisionId/restore',
+    requirePerm({ action: 'update', adapter }),
+    async (c) => {
+      const handle = c.req.param('handle');
+      const id = c.req.param('id');
+      if (!blueprints.has(handle)) throw new NotFoundError(`unknown collection: ${handle}`);
+      const revision = await getRevision(adapter, id, c.req.param('revisionId'));
+      if (!revision) throw new NotFoundError('revision not found');
+      const userId = c.get('user')?.id;
+      const entry = await content.update(
+        handle,
+        id,
+        revision.content,
+        userId ? { actor: { userId } } : undefined,
+      );
+      return c.json(entry);
+    },
+  );
 
   // ---- Blueprint routes ----
 

@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { RouterLink, useRouter } from 'vue-router';
 import { type ApiError, api } from '../api/client.js';
 import FieldRenderer from '../components/FieldRenderer.vue';
+import RevisionsPanel from '../components/RevisionsPanel.vue';
 import { useBlueprintsStore } from '../stores/blueprints.js';
 import { useToastsStore } from '../stores/toasts.js';
 
@@ -17,6 +18,7 @@ const saving = ref(false);
 const loading = ref(false);
 const submitError = ref<string | null>(null);
 const isProtected = ref(false);
+const activeTab = ref<'edit' | 'revisions'>('edit');
 
 const blueprint = computed(() => store.get(props.handle));
 
@@ -121,8 +123,39 @@ async function save() {
     <div v-if="!blueprint" class="text-sm text-zinc-500">Unknown collection.</div>
     <template v-else>
       <h1 class="mb-4 text-xl font-semibold">{{ id ? 'Edit' : 'New' }} {{ blueprint.label }}</h1>
-      <div v-if="loading" class="text-sm text-zinc-500">Loading…</div>
-      <form v-else class="max-w-2xl space-y-4" @submit.prevent="save">
+      <div v-if="id" class="mb-4 flex gap-1 border-b border-zinc-200" role="tablist">
+        <button
+          type="button"
+          role="tab"
+          :aria-selected="activeTab === 'edit'"
+          class="-mb-px border-b-2 px-3 py-2 text-sm font-medium"
+          :class="activeTab === 'edit' ? 'border-zinc-900 text-zinc-900' : 'border-transparent text-zinc-500 hover:text-zinc-700'"
+          data-testid="tab-edit"
+          @click="activeTab = 'edit'"
+        >
+          Edit
+        </button>
+        <button
+          type="button"
+          role="tab"
+          :aria-selected="activeTab === 'revisions'"
+          class="-mb-px border-b-2 px-3 py-2 text-sm font-medium"
+          :class="activeTab === 'revisions' ? 'border-zinc-900 text-zinc-900' : 'border-transparent text-zinc-500 hover:text-zinc-700'"
+          data-testid="tab-revisions"
+          @click="activeTab = 'revisions'"
+        >
+          Revisions
+        </button>
+      </div>
+      <div v-if="id && activeTab === 'revisions'" class="max-w-3xl">
+        <RevisionsPanel :handle="handle" :id="id" @restored="loadEntry" />
+      </div>
+      <div v-if="loading && (!id || activeTab === 'edit')" class="text-sm text-zinc-500">Loading…</div>
+      <form
+        v-else-if="!id || activeTab === 'edit'"
+        class="max-w-2xl space-y-4"
+        @submit.prevent="save"
+      >
         <FieldRenderer
           v-for="f in blueprint.fields"
           :key="f.name"

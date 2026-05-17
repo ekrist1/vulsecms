@@ -125,6 +125,25 @@ export interface GroupDTO {
   }[];
 }
 
+export interface RevisionSummary {
+  id: string;
+  entryId: string;
+  revisionNumber: number;
+  createdAt: string;
+  createdBy: string | null;
+}
+
+export interface RevisionDetail extends RevisionSummary {
+  content: Record<string, unknown>;
+}
+
+export interface RevisionListResponse {
+  items: RevisionSummary[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 export interface AssetItem {
   id: string;
   key: string;
@@ -196,9 +215,10 @@ class ApiClient {
     if (query.q) params.set('q', query.q);
     if (query.field) params.set('field', query.field);
     const suffix = params.size > 0 ? `?${params.toString()}` : '';
-    return this.request<Entry[] | EntryListResponse>('GET', `/api/collections/${handle}${suffix}`).then(
-      normalizeEntryList,
-    );
+    return this.request<Entry[] | EntryListResponse>(
+      'GET',
+      `/api/collections/${handle}${suffix}`,
+    ).then(normalizeEntryList);
   }
   async listAll(handle: string, limit = 500): Promise<Entry[]> {
     const result = await this.list(handle, { limit, offset: 0 });
@@ -238,21 +258,45 @@ class ApiClient {
     if (opts?.role) qs.set('role', opts.role);
     qs.set('limit', String(opts?.limit ?? 50));
     qs.set('offset', String(opts?.offset ?? 0));
-    return this.request<{ items: UserDTO[]; total: number; limit: number; offset: number }>('GET', `/api/users?${qs}`);
+    return this.request<{ items: UserDTO[]; total: number; limit: number; offset: number }>(
+      'GET',
+      `/api/users?${qs}`,
+    );
   }
-  async getUser(id: string) { return this.request<UserDTO>('GET', `/api/users/${id}`); }
-  async createUser(body: { email: string; password: string; name?: string | null; role: 'editor' | 'external_user'; isSuper: boolean; groupIds?: string[] }) {
+  async getUser(id: string) {
+    return this.request<UserDTO>('GET', `/api/users/${id}`);
+  }
+  async createUser(body: {
+    email: string;
+    password: string;
+    name?: string | null;
+    role: 'editor' | 'external_user';
+    isSuper: boolean;
+    groupIds?: string[];
+  }) {
     return this.request<UserDTO>('POST', '/api/users', body);
   }
-  async updateUser(id: string, body: Partial<{ name: string | null; role: 'editor' | 'external_user'; isSuper: boolean; groupIds: string[] }>) {
+  async updateUser(
+    id: string,
+    body: Partial<{
+      name: string | null;
+      role: 'editor' | 'external_user';
+      isSuper: boolean;
+      groupIds: string[];
+    }>,
+  ) {
     return this.request<UserDTO>('PATCH', `/api/users/${id}`, body);
   }
   async deleteUser(id: string) {
     return this.request<void>('DELETE', `/api/users/${id}`);
   }
 
-  async listGroups() { return this.request<GroupDTO[]>('GET', '/api/groups'); }
-  async getGroup(handle: string) { return this.request<GroupDTO>('GET', `/api/groups/${handle}`); }
+  async listGroups() {
+    return this.request<GroupDTO[]>('GET', '/api/groups');
+  }
+  async getGroup(handle: string) {
+    return this.request<GroupDTO>('GET', `/api/groups/${handle}`);
+  }
   async createGroup(body: { handle: string; label: string }) {
     return this.request<GroupDTO>('POST', '/api/groups', body);
   }
@@ -266,6 +310,33 @@ class ApiClient {
     return this.request<void>('DELETE', `/api/groups/${handle}`);
   }
 
+  // ---- Revisions ----
+  async listRevisions(
+    handle: string,
+    id: string,
+    opts?: { limit?: number; offset?: number },
+  ): Promise<RevisionListResponse> {
+    const qs = new URLSearchParams();
+    qs.set('limit', String(opts?.limit ?? 50));
+    qs.set('offset', String(opts?.offset ?? 0));
+    return this.request<RevisionListResponse>(
+      'GET',
+      `/api/collections/${handle}/${id}/revisions?${qs}`,
+    );
+  }
+  async getRevision(handle: string, id: string, revisionId: string): Promise<RevisionDetail> {
+    return this.request<RevisionDetail>(
+      'GET',
+      `/api/collections/${handle}/${id}/revisions/${revisionId}`,
+    );
+  }
+  async restoreRevision(handle: string, id: string, revisionId: string): Promise<Entry> {
+    return this.request<Entry>(
+      'POST',
+      `/api/collections/${handle}/${id}/revisions/${revisionId}/restore`,
+    );
+  }
+
   // ---- Assets / S3 ----
   async listAssets(opts?: { limit?: number; offset?: number }): Promise<AssetListResponse> {
     const qs = new URLSearchParams();
@@ -276,10 +347,21 @@ class ApiClient {
   async getAsset(id: string): Promise<AssetItem> {
     return this.request<AssetItem>('GET', `/api/assets/${id}`);
   }
-  async signAssetUpload(body: { filename: string; contentType?: string; prefix?: string }): Promise<AssetSignResponse> {
+  async signAssetUpload(body: {
+    filename: string;
+    contentType?: string;
+    prefix?: string;
+  }): Promise<AssetSignResponse> {
     return this.request<AssetSignResponse>('POST', '/api/assets/sign', body);
   }
-  async registerAsset(body: { key: string; bucket: string; url: string; contentType?: string | null; size?: number | null; originalName?: string | null }): Promise<AssetItem> {
+  async registerAsset(body: {
+    key: string;
+    bucket: string;
+    url: string;
+    contentType?: string | null;
+    size?: number | null;
+    originalName?: string | null;
+  }): Promise<AssetItem> {
     return this.request<AssetItem>('POST', '/api/assets', body);
   }
   async deleteAsset(id: string): Promise<void> {
