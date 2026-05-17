@@ -13,26 +13,91 @@ const routes: RouteRecordRaw[] = [
   { path: '/forgot-password', component: ForgotPasswordPage, meta: { requiresAuth: false } },
   { path: '/reset-password/:token', component: ResetPasswordPage, meta: { requiresAuth: false } },
   { path: '/', redirect: '/loading' },
-  { path: '/loading', component: { template: '<div class="p-8 text-zinc-500">Loading…</div>' }, meta: { requiresAuth: true } },
-  { path: '/collections/:handle', component: CollectionList, props: true, meta: { requiresAuth: true } },
+  {
+    path: '/loading',
+    component: { template: '<div class="p-8 text-zinc-500">Loading…</div>' },
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/collections/:handle',
+    component: CollectionList,
+    props: true,
+    meta: { requiresAuth: true },
+  },
   {
     path: '/collections/:handle/new',
     component: CollectionEntry,
     props: (r) => ({ handle: r.params.handle, id: null }),
     meta: { requiresAuth: true },
   },
-  { path: '/collections/:handle/:id', component: CollectionEntry, props: true, meta: { requiresAuth: true } },
+  {
+    path: '/collections/:handle/:id',
+    component: CollectionEntry,
+    props: true,
+    meta: { requiresAuth: true },
+  },
   { path: '/schema', component: BlueprintList, meta: { requiresAuth: true } },
-  { path: '/schema/new', component: BlueprintEditor, props: () => ({ handle: null }), meta: { requiresAuth: true, requiresSuper: true } },
-  { path: '/schema/:handle', component: BlueprintEditor, props: true, meta: { requiresAuth: true, requiresSuper: true } },
-  { path: '/settings/users', component: () => import('./pages/UserList.vue'), meta: { requiresAuth: true, requiresSuper: true } },
-  { path: '/settings/users/new', component: () => import('./pages/UserEditor.vue'), props: () => ({ id: null }), meta: { requiresAuth: true, requiresSuper: true } },
-  { path: '/settings/users/:id', component: () => import('./pages/UserEditor.vue'), props: true, meta: { requiresAuth: true, requiresSuper: true } },
-  { path: '/settings/groups', component: () => import('./pages/GroupList.vue'), meta: { requiresAuth: true, requiresSuper: true } },
-  { path: '/settings/groups/new', component: () => import('./pages/GroupEditor.vue'), props: () => ({ handle: null }), meta: { requiresAuth: true, requiresSuper: true } },
-  { path: '/settings/groups/:handle', component: () => import('./pages/GroupEditor.vue'), props: true, meta: { requiresAuth: true, requiresSuper: true } },
-  { path: '/assets', component: () => import('./pages/AssetList.vue'), meta: { requiresAuth: true } },
-  { path: '/settings/s3', component: () => import('./pages/S3Settings.vue'), meta: { requiresAuth: true, requiresSuper: true } },
+  {
+    path: '/schema/new',
+    component: BlueprintEditor,
+    props: () => ({ handle: null }),
+    meta: { requiresAuth: true, requiresSuper: true },
+  },
+  {
+    path: '/schema/:handle',
+    component: BlueprintEditor,
+    props: true,
+    meta: { requiresAuth: true, requiresSuper: true },
+  },
+  {
+    path: '/settings/users',
+    component: () => import('./pages/UserList.vue'),
+    meta: { requiresAuth: true, requiresSuper: true },
+  },
+  {
+    path: '/settings/users/new',
+    component: () => import('./pages/UserEditor.vue'),
+    props: () => ({ id: null }),
+    meta: { requiresAuth: true, requiresSuper: true },
+  },
+  {
+    path: '/settings/users/:id',
+    component: () => import('./pages/UserEditor.vue'),
+    props: true,
+    meta: { requiresAuth: true, requiresSuper: true },
+  },
+  {
+    path: '/settings/groups',
+    component: () => import('./pages/GroupList.vue'),
+    meta: { requiresAuth: true, requiresSuper: true },
+  },
+  {
+    path: '/settings/groups/new',
+    component: () => import('./pages/GroupEditor.vue'),
+    props: () => ({ handle: null }),
+    meta: { requiresAuth: true, requiresSuper: true },
+  },
+  {
+    path: '/settings/groups/:handle',
+    component: () => import('./pages/GroupEditor.vue'),
+    props: true,
+    meta: { requiresAuth: true, requiresSuper: true },
+  },
+  {
+    path: '/assets',
+    component: () => import('./pages/AssetList.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/settings/s3',
+    component: () => import('./pages/S3Settings.vue'),
+    meta: { requiresAuth: true, requiresSuper: true },
+  },
+  {
+    path: '/settings/database',
+    component: () => import('./pages/DatabaseSettings.vue'),
+    meta: { requiresAuth: true, requiresSuper: true },
+  },
 ];
 
 export const router = createRouter({
@@ -43,7 +108,11 @@ export const router = createRouter({
 router.beforeEach(async (to) => {
   const auth = useAuthStore();
   if (!auth.hydrated) {
-    try { await auth.hydrate(); } catch { /* ignore */ }
+    try {
+      await auth.hydrate();
+    } catch {
+      /* ignore */
+    }
   }
   if (to.meta.requiresAuth !== false && !auth.user) {
     return { path: '/login', query: { redirect: to.fullPath } };

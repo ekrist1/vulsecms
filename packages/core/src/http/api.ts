@@ -9,7 +9,7 @@ import {
   sessionMiddleware,
   usersRoute,
 } from '@vulse/auth';
-import type { DatabaseAdapter } from '@vulse/db';
+import type { DatabaseAdapter, DatabaseConfigSummary } from '@vulse/db';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { assetRoutes } from '../assets/routes.js';
@@ -29,6 +29,7 @@ export interface ApiDeps {
   content: ContentService;
   adapter: DatabaseAdapter;
   authInstance: AuthInstance;
+  databaseSummary?: DatabaseConfigSummary;
 }
 
 export function createApi({
@@ -36,6 +37,7 @@ export function createApi({
   content,
   adapter,
   authInstance,
+  databaseSummary,
 }: ApiDeps): Hono<{ Variables: AuthVars }> {
   const app = new Hono<{ Variables: AuthVars }>();
   app.use('*', cors({ origin: (origin) => origin ?? '*', credentials: true }));
@@ -251,6 +253,14 @@ export function createApi({
   app.get('/api/_meta/collections', (c) => {
     if (!c.get('user')) return c.json({ error: 'auth_required' }, 401);
     return c.json([...blueprints.values()].map(toMeta));
+  });
+
+  app.get('/api/_system/database', (c) => {
+    const user = c.get('user');
+    if (!user) return c.json({ error: 'auth_required' }, 401);
+    if (!user.isSuper) return c.json({ error: 'forbidden' }, 403);
+    if (!databaseSummary) return c.json({ error: 'not_available' }, 404);
+    return c.json(databaseSummary);
   });
 
   return app;

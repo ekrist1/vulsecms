@@ -125,6 +125,16 @@ export interface GroupDTO {
   }[];
 }
 
+export interface DatabaseSummary {
+  driver: 'libsql';
+  scheme: 'file' | 'libsql' | 'http' | 'https' | 'ws' | 'wss' | 'memory' | 'unknown';
+  host: string | null;
+  syncUrlHost: string | null;
+  embeddedReplica: boolean;
+  remote: boolean;
+  encrypted: boolean;
+}
+
 export interface RevisionSummary {
   id: string;
   entryId: string;
@@ -308,6 +318,10 @@ class ApiClient {
   }
   async deleteGroup(handle: string) {
     return this.request<void>('DELETE', `/api/groups/${handle}`);
+  }
+
+  async getDatabaseSummary(): Promise<DatabaseSummary> {
+    return this.request<DatabaseSummary>('GET', '/api/_system/database');
   }
 
   // ---- Revisions ----
