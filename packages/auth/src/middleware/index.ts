@@ -1,2 +1,3 @@
 export { sessionMiddleware } from './session.js';
-// require-super and require-perm added in Phase B.
+export { requireSuper } from './require-super.js';
+export { requirePerm, type RequirePermOptions } from './require-perm.js';
