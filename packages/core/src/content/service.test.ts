@@ -3,8 +3,9 @@ import { fileURLToPath } from 'node:url';
 import { LibsqlAdapter, MIGRATIONS_DIR, runMigrations } from '@vulse/db';
 import { describe, expect, it } from 'vitest';
 import { loadBlueprints } from '../blueprints/load.js';
+import { createBlueprint } from '../blueprints/mutations.js';
 import { seedBlueprintsFromCode } from '../blueprints/seed.js';
-import { NotFoundError, ValidationError } from '../errors.js';
+import { ConflictError, NotFoundError, ValidationError } from '../errors.js';
 import { createContentService } from './service.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -46,6 +47,30 @@ describe('ContentService', () => {
     const a = await content.create('posts', { title: 'a', body: [] });
     const b = await content.create('posts', { title: 'b', body: [] });
     expect(b.sortOrder).toBe(a.sortOrder + 1);
+    await db.close();
+  });
+
+  it('rejects a second entry for singleton collections', async () => {
+    const db = new LibsqlAdapter({ url: ':memory:' });
+    await db.exec('PRAGMA foreign_keys = ON');
+    await runMigrations(db, MIGRATIONS_DIR);
+    await seedBlueprintsFromCode({ adapter: db, dir: fixturesDir });
+    await createBlueprint(db, {
+      handle: 'home-page',
+      label: 'Home page',
+      singleton: true,
+      fields: [
+        { name: 'title', label: 'Title', ui: { kind: 'text' }, optional: false },
+      ],
+    });
+    const blueprints = await loadBlueprints({ adapter: db });
+    const content = createContentService(db, blueprints);
+
+    await content.create('home-page', { title: 'Welcome' });
+    await expect(content.create('home-page', { title: 'Again' })).rejects.toBeInstanceOf(
+      ConflictError,
+    );
+
     await db.close();
   });
 

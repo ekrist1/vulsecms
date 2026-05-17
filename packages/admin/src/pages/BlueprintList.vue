@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue';
 import { RouterLink } from 'vue-router';
 import { type BlueprintMeta, api } from '../api/client.js';
+import CollectionKindIcon from '../components/CollectionKindIcon.vue';
 
 const blueprints = ref<BlueprintMeta[]>([]);
 const loading = ref(false);
@@ -36,6 +37,7 @@ onMounted(load);
         <tr>
           <th class="py-2">Handle</th>
           <th class="py-2">Label</th>
+          <th class="py-2">Type</th>
           <th class="py-2">Fields</th>
         </tr>
       </thead>
@@ -47,6 +49,12 @@ onMounted(load);
             </RouterLink>
           </td>
           <td class="py-2">{{ bp.label }}</td>
+          <td class="py-2">
+            <span class="inline-flex items-center gap-2 text-zinc-500">
+              <CollectionKindIcon :singleton="bp.singleton" />
+              <span>{{ bp.singleton ? 'Singleton' : 'Collection' }}</span>
+            </span>
+          </td>
           <td class="py-2 text-zinc-500">{{ bp.fields.length }}</td>
         </tr>
       </tbody>

@@ -9,7 +9,7 @@ import {
 import { createBlueprint, deleteBlueprint, updateBlueprint } from '../blueprints/mutations.js';
 import type { Blueprint } from '../blueprints/types.js';
 import type { ContentService } from '../content/types.js';
-import { NotFoundError, ValidationError } from '../errors.js';
+import { ConflictError, NotFoundError, ValidationError } from '../errors.js';
 import { toMeta } from './meta.js';
 
 export interface ApiDeps {
@@ -39,6 +39,9 @@ export function createApi({ blueprints, content, adapter, authInstance }: ApiDep
     }
     if (err instanceof NotFoundError) {
       return c.json({ error: 'not_found', message: err.message }, 404);
+    }
+    if (err instanceof ConflictError) {
+      return c.json({ error: 'conflict', message: err.message }, 409);
     }
     console.error(err);
     return c.json({ error: 'internal', message: err.message }, 500);

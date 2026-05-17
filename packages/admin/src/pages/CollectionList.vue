@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { RouterLink } from 'vue-router';
 import { type Entry, type EntryListResponse, type FieldDefinition, api } from '../api/client.js';
+import CollectionKindIcon from '../components/CollectionKindIcon.vue';
 import { useBlueprintsStore } from '../stores/blueprints.js';
 
 const props = defineProps<{ handle: string }>();
@@ -43,6 +44,7 @@ const searchDraft = ref('');
 const searchQuery = ref('');
 const searchField = ref('all');
 const visibleColumnKeys = ref<ColumnKey[]>([]);
+const singletonEntryId = ref<string | null>(null);
 
 let searchTimer: ReturnType<typeof setTimeout> | null = null;
 let loadToken = 0;
@@ -96,7 +98,23 @@ const totalPages = computed(() =>
 const showingStart = computed(() => (entries.value.total === 0 ? 0 : entries.value.offset + 1));
 const showingEnd = computed(() => entries.value.offset + entries.value.items.length);
 const collectionLabel = computed(() => blueprint.value?.label ?? props.handle);
+const isSingleton = computed(() => blueprint.value?.singleton ?? false);
+const collectionTypeLabel = computed(() =>
+  isSingleton.value ? 'Singleton collection' : 'Collection',
+);
 const hasFilters = computed(() => searchQuery.value.length > 0 || searchField.value !== 'all');
+const primaryEntryAction = computed(() => {
+  if (isSingleton.value && singletonEntryId.value) {
+    return {
+      label: 'Open entry',
+      to: `/collections/${props.handle}/${singletonEntryId.value}`,
+    };
+  }
+  return {
+    label: isSingleton.value ? 'Create entry' : 'New entry',
+    to: `/collections/${props.handle}/new`,
+  };
+});
 
 function humanize(value: string): string {
   return value
@@ -238,6 +256,16 @@ async function load(handle: string) {
   }
 }
 
+async function loadSingletonEntry(handle: string) {
+  if (!isSingleton.value) {
+    singletonEntryId.value = null;
+    return;
+  }
+
+  const result = await api.list(handle, { limit: 1, offset: 0 });
+  singletonEntryId.value = result.items[0]?.id ?? null;
+}
+
 async function remove(id: string) {
   if (!confirm('Delete this entry?')) return;
   await api.delete(props.handle, id);
@@ -246,6 +274,7 @@ async function remove(id: string) {
     return;
   }
   await load(props.handle);
+  await loadSingletonEntry(props.handle);
 }
 
 function clearFilters() {
@@ -289,6 +318,14 @@ watch(
   { immediate: true },
 );
 
+watch(
+  [() => props.handle, isSingleton],
+  ([handle]) => {
+    void loadSingletonEntry(handle);
+  },
+  { immediate: true },
+);
+
 onBeforeUnmount(() => {
   if (searchTimer) clearTimeout(searchTimer);
 });
@@ -298,17 +335,24 @@ onBeforeUnmount(() => {
   <div class="p-6" :data-testid="`collection-list-${handle}`">
     <div class="mb-5 flex flex-wrap items-start justify-between gap-4">
       <div>
-        <h1 class="text-2xl font-semibold">{{ collectionLabel }}</h1>
+        <h1 class="flex items-center gap-3 text-2xl font-semibold">
+          <CollectionKindIcon :singleton="isSingleton" class="h-5 w-5" />
+          <span>{{ collectionLabel }}</span>
+        </h1>
         <p class="mt-1 text-sm text-zinc-500">
           {{ entries.total }} {{ entries.total === 1 ? 'entry' : 'entries' }}
         </p>
+        <div class="mt-2 inline-flex items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 py-1 text-xs font-medium text-zinc-600">
+          <CollectionKindIcon :singleton="isSingleton" />
+          <span>{{ collectionTypeLabel }}</span>
+        </div>
       </div>
       <RouterLink
-        :to="`/collections/${handle}/new`"
+        :to="primaryEntryAction.to"
         class="vulse-button-primary rounded px-3 py-1.5 text-sm font-medium"
         data-testid="new-entry"
       >
-        New entry
+        {{ primaryEntryAction.label }}
       </RouterLink>
     </div>
 

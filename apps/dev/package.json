@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "predev": "pnpm -r --filter @vulse/db --filter @vulse/auth --filter @vulse/core build",
     "dev": "vite",
     "build": "vite build && vite build -c vite.config.server.ts",
     "start": "node dist/server/server.prod.js",

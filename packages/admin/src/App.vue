@@ -2,6 +2,7 @@
 import { onMounted, ref, watch } from 'vue';
 import { RouterLink, RouterView, useRouter } from 'vue-router';
 import logoUrl from './assets/logo-mark.svg';
+import CollectionKindIcon from './components/CollectionKindIcon.vue';
 import Toasts from './components/Toasts.vue';
 import { useAuthStore } from './stores/auth.js';
 import { useBlueprintsStore } from './stores/blueprints.js';
@@ -68,7 +69,10 @@ watch(schemaOpen, (v) => {
           active-class="vulse-nav-link-active"
           :data-testid="`nav-${bp.handle}`"
         >
-          {{ bp.label }}
+          <span class="flex items-center gap-2">
+            <CollectionKindIcon :singleton="bp.singleton" class="shrink-0" />
+            <span>{{ bp.label }}</span>
+          </span>
         </RouterLink>
 
         <div class="px-2 pt-4 text-xs uppercase tracking-wide text-zinc-500">Settings</div>
@@ -92,7 +96,10 @@ watch(schemaOpen, (v) => {
             active-class="vulse-nav-link-active"
             :data-testid="`schema-nav-${bp.handle}`"
           >
-            {{ bp.label }}
+            <span class="flex items-center gap-2">
+              <CollectionKindIcon :singleton="bp.singleton" class="shrink-0" />
+              <span>{{ bp.label }}</span>
+            </span>
           </RouterLink>
           <RouterLink
             to="/schema/new"

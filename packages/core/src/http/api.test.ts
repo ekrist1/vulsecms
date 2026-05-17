@@ -4,6 +4,7 @@ import { createAuth, seedSuperUser } from '@vulse/auth';
 import { LibsqlAdapter, MIGRATIONS_DIR, runMigrations } from '@vulse/db';
 import { describe, expect, it } from 'vitest';
 import { loadBlueprints } from '../blueprints/load.js';
+import { createBlueprint } from '../blueprints/mutations.js';
 import { seedBlueprintsFromCode } from '../blueprints/seed.js';
 import { createContentService } from '../content/service.js';
 import { createApi } from './api.js';
@@ -11,7 +12,7 @@ import { createApi } from './api.js';
 const here = dirname(fileURLToPath(import.meta.url));
 const fixturesDir = join(here, '..', 'blueprints', '__fixtures__');
 
-async function setup() {
+async function setup(seed?: (db: LibsqlAdapter) => Promise<void>) {
   const db = new LibsqlAdapter({ url: ':memory:' });
   await runMigrations(db, MIGRATIONS_DIR);
   await seedBlueprintsFromCode({ adapter: db, dir: fixturesDir });
@@ -21,6 +22,7 @@ async function setup() {
     bootstrapPassword: 'hunter2hunter2',
     isProd: false,
   });
+  if (seed) await seed(db);
   const blueprints = await loadBlueprints({ adapter: db });
   const content = createContentService(db, blueprints);
   const authInstance = createAuth({
@@ -142,6 +144,38 @@ describe('createApi', () => {
       headers: { cookie },
     });
     expect(del.status).toBe(204);
+    authInstance.close();
+    await db.close();
+  });
+
+  it('returns 409 when creating a second singleton entry', async () => {
+    const { app, db, authInstance, cookie } = await setup(async (seedDb) => {
+      await createBlueprint(seedDb, {
+        handle: 'home-page',
+        label: 'Home page',
+        singleton: true,
+        fields: [{ name: 'title', label: 'Title', ui: { kind: 'text' }, optional: false }],
+      });
+    });
+
+    const first = await app.request('http://x/api/collections/home-page', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie },
+      body: JSON.stringify({ title: 'Welcome' }),
+    });
+    expect(first.status).toBe(201);
+
+    const second = await app.request('http://x/api/collections/home-page', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie },
+      body: JSON.stringify({ title: 'Again' }),
+    });
+    expect(second.status).toBe(409);
+    expect(await second.json()).toMatchObject({
+      error: 'conflict',
+      message: 'This singleton collection already has an entry.',
+    });
+
     authInstance.close();
     await db.close();
   });

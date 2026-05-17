@@ -10,6 +10,7 @@ const router = createRouter({
   history: createMemoryHistory(),
   routes: [
     { path: '/collections/:handle', component: { template: '<div />' } },
+    { path: '/collections/:handle/new', component: { template: '<div />' } },
     { path: '/collections/:handle/:id', component: { template: '<div />' } },
   ],
 });
@@ -141,5 +142,30 @@ describe('CollectionList', () => {
       'Showing 1-1 of 1',
     );
     expect(wrapper.text()).toContain('Hono routes 101');
+  });
+
+  it('opens the existing entry for singleton collections', async () => {
+    const store = useBlueprintsStore();
+    store.map = new Map([
+      [
+        'posts',
+        {
+          handle: 'posts',
+          label: 'Posts',
+          singleton: true,
+          fields: [
+            { name: 'title', label: 'Title', ui: { kind: 'text' }, optional: false },
+            { name: 'slug', label: 'Slug', ui: { kind: 'text' }, optional: false },
+          ],
+        },
+      ],
+    ]);
+
+    const wrapper = mountPage();
+    await flushPromises();
+
+    const action = wrapper.get('[data-testid="new-entry"]');
+    expect(action.text()).toBe('Open entry');
+    expect(action.attributes('href')).toBe(`/collections/posts/${seedEntries[0]!.id}`);
   });
 });

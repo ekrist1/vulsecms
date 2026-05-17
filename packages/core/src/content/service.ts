@@ -1,7 +1,7 @@
 import type { DatabaseAdapter } from '@vulse/db';
 import { ulid } from 'ulid';
 import type { Blueprint } from '../blueprints/types.js';
-import { NotFoundError, ValidationError } from '../errors.js';
+import { ConflictError, NotFoundError, ValidationError } from '../errors.js';
 import type { ContentService, Entry, ListEntriesOptions } from './types.js';
 
 interface EntryRow {
@@ -134,6 +134,15 @@ export function createContentService(
 
     async create(handle, input) {
       const b = blueprint(handle);
+      if (b.singleton) {
+        const existing = await db.queryOne<{ id: string }>(
+          'SELECT id FROM entries WHERE collection_handle = ? LIMIT 1',
+          [handle],
+        );
+        if (existing) {
+          throw new ConflictError('This singleton collection already has an entry.');
+        }
+      }
       const validated = validate(b, input);
       const id = ulid();
       const parentId = (input as { parentId?: string | null }).parentId ?? null;
