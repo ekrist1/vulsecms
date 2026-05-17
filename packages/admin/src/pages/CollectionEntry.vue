@@ -16,6 +16,7 @@ const errors = reactive<Record<string, string>>({});
 const saving = ref(false);
 const loading = ref(false);
 const submitError = ref<string | null>(null);
+const isProtected = ref(false);
 
 const blueprint = computed(() => store.get(props.handle));
 
@@ -51,12 +52,14 @@ async function loadEntry() {
     try {
       const entry = await api.get(props.handle, props.id);
       for (const f of bp.fields) state[f.name] = (entry.content as Record<string, unknown>)[f.name];
+      isProtected.value = (entry as unknown as { protected?: boolean }).protected ?? false;
       slugTouched.value = true; // existing entries: don't overwrite a saved slug
     } finally {
       loading.value = false;
     }
   } else {
     for (const f of bp.fields) state[f.name] = f.default ?? defaultFor(f.ui.kind);
+    isProtected.value = false;
   }
 }
 
@@ -84,8 +87,8 @@ async function save() {
   saving.value = true;
   try {
     const entry = props.id
-      ? await api.update(props.handle, props.id, { ...state })
-      : await api.create(props.handle, { ...state });
+      ? await api.update(props.handle, props.id, { ...state, protected: isProtected.value })
+      : await api.create(props.handle, { ...state, protected: isProtected.value });
     toasts.success('Entry saved');
     if (!props.id) router.replace(`/collections/${props.handle}/${entry.id}`);
   } catch (err) {
@@ -121,6 +124,13 @@ async function save() {
           :error="errors[f.name] ?? ''"
           @update:model-value="(v: unknown) => updateField(f.name, v)"
         />
+        <div class="rounded border border-zinc-200 bg-white p-3">
+          <h3 class="mb-2 text-sm font-semibold text-zinc-700">Visibility</h3>
+          <label class="flex items-center gap-2 text-sm">
+            <input v-model="isProtected" type="checkbox" class="rounded border-zinc-300" data-testid="entry-protected" />
+            <span class="text-zinc-700">Protected (requires sign-in to view)</span>
+          </label>
+        </div>
         <div v-if="submitError" class="rounded bg-red-50 px-3 py-2 text-sm text-red-700">
           {{ submitError }}
         </div>
