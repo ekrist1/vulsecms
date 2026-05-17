@@ -76,7 +76,7 @@ export function createAuth(opts: { libsqlUrl: string; env: AuthInstanceEnv }) {
     hooks: {
       before: createAuthMiddleware(async (ctx) => {
         if (ctx.path === '/sign-up/email' && !opts.env.allowPublicSignup) {
-          throw new APIError('FORBIDDEN', { message: 'signup_disabled' });
+          throw new APIError('FORBIDDEN', { message: 'signup_disabled', error: 'signup_disabled' });
         }
       }),
     },
