@@ -24,7 +24,7 @@ onMounted(load);
       <h1 class="text-xl font-semibold">Schema</h1>
       <RouterLink
         to="/schema/new"
-        class="rounded bg-zinc-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-zinc-700"
+        class="vulse-button-primary rounded px-3 py-1.5 text-sm font-medium"
         data-testid="new-blueprint"
       >
         + New collection

@@ -85,6 +85,36 @@ describe('createBlueprint', () => {
     ).rejects.toBeInstanceOf(ValidationError);
     await db.close();
   });
+
+  it('rejects duplicate replicator set names and nested relationship targets that do not exist', async () => {
+    const db = await setup();
+    await expect(
+      createBlueprint(db, {
+        ...minimal,
+        fields: [
+          {
+            name: 'content',
+            label: 'Content',
+            ui: {
+              kind: 'replicator',
+              sets: [
+                {
+                  name: 'hero',
+                  fields: [{ name: 'title', ui: { kind: 'text' }, optional: false }],
+                },
+                {
+                  name: 'hero',
+                  fields: [{ name: 'author', ui: { kind: 'relationship', to: 'ghosts' }, optional: false }],
+                },
+              ],
+            },
+            optional: false,
+          },
+        ],
+      }),
+    ).rejects.toBeInstanceOf(ValidationError);
+    await db.close();
+  });
 });
 
 describe('updateBlueprint', () => {

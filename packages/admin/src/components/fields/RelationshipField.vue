@@ -16,7 +16,7 @@ onMounted(async () => {
   if (!props.to) return;
   loading.value = true;
   try {
-    options.value = await api.list(props.to);
+    options.value = await api.listAll(props.to);
   } finally {
     loading.value = false;
   }

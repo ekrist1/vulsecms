@@ -63,6 +63,7 @@ async function loadEntry() {
 function defaultFor(kind: string): unknown {
   if (kind === 'boolean') return false;
   if (kind === 'blocks') return { type: 'doc', content: [{ type: 'paragraph' }] };
+  if (kind === 'replicator') return [];
   return '';
 }
 
@@ -126,7 +127,7 @@ async function save() {
         <div class="flex items-center gap-2">
           <button
             type="submit"
-            class="rounded bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
+            class="vulse-button-primary rounded px-4 py-2 text-sm font-medium disabled:opacity-50"
             :disabled="saving"
             data-testid="submit"
           >

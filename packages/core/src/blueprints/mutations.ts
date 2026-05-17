@@ -8,6 +8,8 @@ import {
   type BlueprintDefinitionWithRenames,
   BlueprintDefinitionWithRenamesSchema,
   type FieldDefinitionWithRename,
+  type FieldUi,
+  type NestedFieldDefinition,
 } from './definition.js';
 
 export async function createBlueprint(
@@ -119,26 +121,34 @@ async function ensureValidCrossField(
   def: BlueprintDefinition | BlueprintDefinitionWithRenames,
   selfHandle: string | null,
 ): Promise<void> {
-  // Unique field names (within the blueprint).
+  await ensureValidFieldList(db, def.fields, ['fields'], selfHandle ?? def.handle);
+}
+
+async function ensureValidFieldList(
+  db: DatabaseAdapter,
+  fields: Array<{ name: string; ui: FieldUi } | NestedFieldDefinition>,
+  path: Array<string | number>,
+  currentHandle: string,
+): Promise<void> {
   const seen = new Set<string>();
-  for (let i = 0; i < def.fields.length; i++) {
-    const f = def.fields[i]!;
+  for (let i = 0; i < fields.length; i++) {
+    const f = fields[i]!;
     if (seen.has(f.name)) {
       throw new ValidationError([
         {
           code: 'custom',
           message: `duplicate field name '${f.name}'`,
-          path: ['fields', i, 'name'],
+          path: [...path, i, 'name'],
         } as never,
       ]);
     }
     seen.add(f.name);
   }
-  // Relationship targets must exist (self-ref via selfHandle/def.handle is allowed).
-  for (let i = 0; i < def.fields.length; i++) {
-    const f = def.fields[i]!;
-    if (f.ui.kind === 'relationship') {
-      if (f.ui.to === selfHandle || f.ui.to === def.handle) continue;
+
+  for (let i = 0; i < fields.length; i++) {
+    const f = fields[i]!;
+    if (f.ui.kind === 'relationship' && 'to' in f.ui) {
+      if (f.ui.to === currentHandle) continue;
       const target = await db.queryOne<{ handle: string }>(
         'SELECT handle FROM collections WHERE handle = ?',
         [f.ui.to],
@@ -148,9 +158,32 @@ async function ensureValidCrossField(
           {
             code: 'custom',
             message: `relationship target '${f.ui.to}' does not exist`,
-            path: ['fields', i, 'ui', 'to'],
+            path: [...path, i, 'ui', 'to'],
           } as never,
         ]);
+      }
+    }
+
+    if (f.ui.kind === 'replicator' && 'sets' in f.ui) {
+      const seenSets = new Set<string>();
+      for (let j = 0; j < f.ui.sets.length; j++) {
+        const set = f.ui.sets[j]!;
+        if (seenSets.has(set.name)) {
+          throw new ValidationError([
+            {
+              code: 'custom',
+              message: `duplicate set name '${set.name}'`,
+              path: [...path, i, 'ui', 'sets', j, 'name'],
+            } as never,
+          ]);
+        }
+        seenSets.add(set.name);
+        await ensureValidFieldList(
+          db,
+          set.fields,
+          [...path, i, 'ui', 'sets', j, 'fields'],
+          currentHandle,
+        );
       }
     }
   }

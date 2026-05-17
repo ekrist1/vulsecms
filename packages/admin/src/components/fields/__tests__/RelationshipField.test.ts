@@ -4,7 +4,7 @@ import * as client from '../../../api/client.js';
 import RelationshipField from '../RelationshipField.vue';
 
 beforeEach(() => {
-  vi.spyOn(client.api, 'list').mockResolvedValue([
+  vi.spyOn(client.api, 'listAll').mockResolvedValue([
     {
       id: 'a',
       collection: 'authors',

@@ -86,6 +86,50 @@ describe('compileBlueprint', () => {
     expect(b.schema.safeParse({ author: 123 }).success).toBe(false);
   });
 
+  it('compiles replicator as an array of typed sets', () => {
+    const b = compileBlueprint(
+      bp({
+        fields: [
+          {
+            name: 'content',
+            ui: {
+              kind: 'replicator',
+              sets: [
+                {
+                  name: 'text',
+                  fields: [{ name: 'body', ui: { kind: 'textarea' }, optional: false }],
+                },
+                {
+                  name: 'cta',
+                  fields: [
+                    { name: 'headline', ui: { kind: 'text' }, optional: false },
+                    { name: 'published', ui: { kind: 'boolean' }, optional: false, default: false },
+                  ],
+                },
+              ],
+            },
+            optional: false,
+          },
+        ],
+      }),
+    );
+
+    expect(
+      b.schema.safeParse({
+        content: [
+          { set: 'text', content: { body: 'Hello' } },
+          { set: 'cta', content: { headline: 'Join now' } },
+        ],
+      }).success,
+    ).toBe(true);
+
+    expect(
+      b.schema.safeParse({
+        content: [{ set: 'unknown', content: {} }],
+      }).success,
+    ).toBe(false);
+  });
+
   it('attaches ui meta to each field for the loader to extract', () => {
     const b = compileBlueprint(
       bp({ fields: [{ name: 'title', ui: { kind: 'text' }, optional: false }] }),

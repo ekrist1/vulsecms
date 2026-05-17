@@ -64,6 +64,89 @@ describe('BlueprintEditor', () => {
     expect(w.find('[data-testid="field-options-0"]').exists()).toBe(true);
   });
 
+  it('switching kind to replicator reveals the sets editor', async () => {
+    const w = mountEditor('posts');
+    await flushPromises();
+    await w.find('[data-testid="field-expand-0"]').trigger('click');
+    await w.find('[data-testid="field-kind-0"]').setValue('replicator');
+    expect(w.find('[data-testid="replicator-add-set-0"]').exists()).toBe(true);
+  });
+
+  it('requires name verification before removing an existing field', async () => {
+    const w = mountEditor('posts');
+    await flushPromises();
+
+    await w.find('[data-testid="field-remove-0"]').trigger('click');
+    expect(w.find('[data-testid="remove-confirmation-modal"]').exists()).toBe(true);
+    expect(
+      (w.find('[data-testid="remove-confirmation-confirm"]').element as HTMLButtonElement).disabled,
+    ).toBe(true);
+
+    await w.find('[data-testid="remove-confirmation-input"]').setValue('wrong');
+    expect(
+      (w.find('[data-testid="remove-confirmation-confirm"]').element as HTMLButtonElement).disabled,
+    ).toBe(true);
+
+    await w.find('[data-testid="remove-confirmation-input"]').setValue('title');
+    expect(
+      (w.find('[data-testid="remove-confirmation-confirm"]').element as HTMLButtonElement).disabled,
+    ).toBe(false);
+
+    await w.find('[data-testid="remove-confirmation-confirm"]').trigger('click');
+    expect(w.findAll('[data-testid^="field-card-"]')).toHaveLength(1);
+    expect(w.find('[data-testid="field-card-title"]').exists()).toBe(false);
+  });
+
+  it('lets you remove a new unsaved field without typing verification text', async () => {
+    const w = mountEditor(null);
+    await flushPromises();
+    await w.find('[data-testid="add-field"]').trigger('click');
+
+    await w.find('[data-testid="field-remove-0"]').trigger('click');
+    expect(w.find('[data-testid="remove-confirmation-input"]').exists()).toBe(false);
+    expect(
+      (w.find('[data-testid="remove-confirmation-confirm"]').element as HTMLButtonElement).disabled,
+    ).toBe(false);
+
+    await w.find('[data-testid="remove-confirmation-confirm"]').trigger('click');
+    expect(w.findAll('[data-testid^="field-card-"]')).toHaveLength(0);
+  });
+
+  it('requires handle verification before deleting a blueprint', async () => {
+    const deleteSpy = vi.spyOn(client.api, 'deleteBlueprint').mockResolvedValue(undefined);
+    const w = mountEditor('posts');
+    await flushPromises();
+
+    await w.find('[data-testid="blueprint-delete"]').trigger('click');
+    expect(w.find('[data-testid="remove-confirmation-modal"]').exists()).toBe(true);
+    expect(
+      (w.find('[data-testid="remove-confirmation-confirm"]').element as HTMLButtonElement).disabled,
+    ).toBe(true);
+
+    await w.find('[data-testid="remove-confirmation-input"]').setValue('wrong');
+    expect(
+      (w.find('[data-testid="remove-confirmation-confirm"]').element as HTMLButtonElement).disabled,
+    ).toBe(true);
+
+    await w.find('[data-testid="remove-confirmation-input"]').setValue('posts');
+    expect(
+      (w.find('[data-testid="remove-confirmation-confirm"]').element as HTMLButtonElement).disabled,
+    ).toBe(false);
+
+    await w.find('[data-testid="remove-confirmation-confirm"]').trigger('click');
+    await flushPromises();
+
+    expect(deleteSpy).toHaveBeenCalledWith('posts');
+    expect(w.find('[data-testid="remove-confirmation-modal"]').exists()).toBe(false);
+
+    const { useToastsStore } = await import('../../stores/toasts.js');
+    const toasts = useToastsStore();
+    expect(toasts.list.map((t) => ({ kind: t.kind, message: t.message }))).toContainEqual({
+      kind: 'success',
+      message: 'Blueprint deleted',
+    });
+  });
+
   it('submits previousName only when name was renamed', async () => {
     const updateSpy = vi.spyOn(client.api, 'updateBlueprint').mockResolvedValue({
       handle: 'posts',

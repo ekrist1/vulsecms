@@ -2,7 +2,7 @@ import type { DatabaseAdapter } from '@vulse/db';
 import { ulid } from 'ulid';
 import type { Blueprint } from '../blueprints/types.js';
 import { NotFoundError, ValidationError } from '../errors.js';
-import type { ContentService, Entry } from './types.js';
+import type { ContentService, Entry, ListEntriesOptions } from './types.js';
 
 interface EntryRow {
   id: string;
@@ -14,6 +14,8 @@ interface EntryRow {
   created_at: string;
   updated_at: string;
 }
+
+const SEARCHABLE_FIELD_KINDS = new Set(['text', 'textarea', 'select', 'relationship', 'date']);
 
 export function createContentService(
   db: DatabaseAdapter,
@@ -44,19 +46,78 @@ export function createContentService(
     };
   }
 
+  function searchableFieldNames(b: Blueprint): Set<string> {
+    return new Set(
+      b.fields
+        .filter((field) => SEARCHABLE_FIELD_KINDS.has(field.ui.kind))
+        .map((field) => field.name),
+    );
+  }
+
+  function buildSearchSql(
+    b: Blueprint,
+    opts: ListEntriesOptions,
+  ): { sql: string; params: unknown[] } {
+    const q = opts.q?.trim();
+    if (!q) return { sql: '', params: [] };
+
+    const like = `%${q}%`;
+    const requestedField = opts.field?.trim();
+    const searchableFields = searchableFieldNames(b);
+    const clauses: string[] = [];
+    const params: unknown[] = [];
+
+    const addPlainLike = (column: string) => {
+      clauses.push(`${column} LIKE ? COLLATE NOCASE`);
+      params.push(like);
+    };
+
+    const addJsonLike = (fieldName: string) => {
+      clauses.push(`CAST(json_extract(content, ?) AS TEXT) LIKE ? COLLATE NOCASE`);
+      params.push(`$.${fieldName}`, like);
+    };
+
+    if (requestedField === 'id') {
+      addPlainLike('id');
+    } else if (requestedField === 'updatedAt') {
+      addPlainLike('updated_at');
+    } else if (requestedField && searchableFields.has(requestedField)) {
+      addJsonLike(requestedField);
+    } else {
+      addPlainLike('id');
+      addPlainLike('updated_at');
+      for (const fieldName of searchableFields) addJsonLike(fieldName);
+    }
+
+    return clauses.length > 0 ? { sql: ` AND (${clauses.join(' OR ')})`, params } : { sql: '', params: [] };
+  }
+
   return {
     async list(handle, opts = {}) {
-      blueprint(handle);
-      const limit = opts.limit ?? 100;
-      const offset = opts.offset ?? 0;
+      const b = blueprint(handle);
+      const limit = Math.max(1, Math.min(opts.limit ?? 25, 500));
+      const offset = Math.max(0, opts.offset ?? 0);
+      const search = buildSearchSql(b, opts);
+      const whereSql = `WHERE collection_handle = ?${search.sql}`;
+      const whereParams = [handle, ...search.params];
+
+      const totalRow = await db.queryOne<{ total: number }>(
+        `SELECT COUNT(*) AS total FROM entries ${whereSql}`,
+        whereParams,
+      );
       const rows = await db.query<EntryRow>(
         `SELECT * FROM entries
-         WHERE collection_handle = ?
+         ${whereSql}
          ORDER BY sort_order ASC, created_at DESC
          LIMIT ? OFFSET ?`,
-        [handle, limit, offset],
+        [...whereParams, limit, offset],
       );
-      return rows.map(rowToEntry);
+      return {
+        items: rows.map(rowToEntry),
+        total: totalRow?.total ?? 0,
+        limit,
+        offset,
+      };
     },
 
     async get(handle, id) {

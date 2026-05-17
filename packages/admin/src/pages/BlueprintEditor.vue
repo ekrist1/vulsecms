@@ -6,6 +6,9 @@ import {
   type BlueprintMeta,
   type FieldDefinition,
   type FieldUi,
+  type NestedFieldDefinition,
+  type NonReplicatorFieldUi,
+  type ReplicatorSetDefinition,
   api,
 } from '../api/client.js';
 import { useBlueprintsStore } from '../stores/blueprints.js';
@@ -16,9 +19,54 @@ const router = useRouter();
 const store = useBlueprintsStore();
 const toasts = useToastsStore();
 
-interface EditorField extends FieldDefinition {
+interface EditorNestedField extends NestedFieldDefinition {
+  previousName: string | null;
+}
+
+interface EditorReplicatorSet extends Omit<ReplicatorSetDefinition, 'fields'> {
+  fields: EditorNestedField[];
+  previousName: string | null;
+}
+
+type EditorFieldUi =
+  | NonReplicatorFieldUi
+  | {
+      kind: 'replicator';
+      sets: EditorReplicatorSet[];
+    };
+
+interface EditorField extends Omit<FieldDefinition, 'ui'> {
+  ui: EditorFieldUi;
   previousName: string | null; // null = newly added; otherwise tracks rename source
 }
+
+type RemovalTarget =
+  | {
+      kind: 'field';
+      index: number;
+      name: string;
+      requiresVerification: boolean;
+    }
+  | {
+      kind: 'replicator-set';
+      fieldIndex: number;
+      setIndex: number;
+      name: string;
+      requiresVerification: boolean;
+    }
+  | {
+      kind: 'replicator-nested-field';
+      fieldIndex: number;
+      setIndex: number;
+      nestedIndex: number;
+      name: string;
+      requiresVerification: boolean;
+    }
+  | {
+      kind: 'blueprint';
+      name: string;
+      requiresVerification: true;
+    };
 
 const handle = ref('');
 const label = ref('');
@@ -31,6 +79,8 @@ const submitError = ref<string | null>(null);
 const saving = ref(false);
 
 const handleLocked = ref(false);
+const removalTarget = ref<RemovalTarget | null>(null);
+const removalVerification = ref('');
 
 function slugify(input: string): string {
   return input
@@ -75,7 +125,7 @@ async function load() {
   singleton.value = bp.singleton;
   handleLocked.value = true;
   for (const f of bp.fields) {
-    fields.push({ ...f, previousName: f.name });
+    fields.push(toEditorField(f));
   }
 }
 
@@ -93,9 +143,10 @@ function addField() {
   expandedIndex.value = fields.length - 1;
 }
 
-function removeField(i: number) {
+function performRemoveField(i: number) {
   fields.splice(i, 1);
   if (expandedIndex.value === i) expandedIndex.value = null;
+  else if (expandedIndex.value !== null && expandedIndex.value > i) expandedIndex.value -= 1;
 }
 
 function moveUp(i: number) {
@@ -116,7 +167,259 @@ function setKind(i: number, kind: FieldUi['kind']) {
   const f = fields[i]!;
   if (kind === 'select') f.ui = { kind, options: [] };
   else if (kind === 'relationship') f.ui = { kind, to: '' };
+  else if (kind === 'replicator') f.ui = { kind, sets: [] };
   else f.ui = { kind };
+}
+
+function setNestedKind(
+  fieldIndex: number,
+  setIndex: number,
+  nestedIndex: number,
+  kind: NonReplicatorFieldUi['kind'],
+) {
+  const nested = fields[fieldIndex]!.ui.kind === 'replicator'
+    ? fields[fieldIndex]!.ui.sets[setIndex]!.fields[nestedIndex]!
+    : null;
+  if (!nested) return;
+  if (kind === 'select') nested.ui = { kind, options: [] };
+  else if (kind === 'relationship') nested.ui = { kind, to: '' };
+  else nested.ui = { kind };
+}
+
+function addReplicatorSet(fieldIndex: number) {
+  const field = fields[fieldIndex];
+  if (!field || field.ui.kind !== 'replicator') return;
+  field.ui.sets.push({
+    name: '',
+    label: '',
+    previousName: null,
+    fields: [],
+  });
+}
+
+function performRemoveReplicatorSet(fieldIndex: number, setIndex: number) {
+  const field = fields[fieldIndex];
+  if (!field || field.ui.kind !== 'replicator') return;
+  field.ui.sets.splice(setIndex, 1);
+}
+
+function addReplicatorSetField(fieldIndex: number, setIndex: number) {
+  const field = fields[fieldIndex];
+  if (!field || field.ui.kind !== 'replicator') return;
+  field.ui.sets[setIndex]!.fields.push({
+    name: '',
+    label: '',
+    ui: { kind: 'text' },
+    optional: false,
+    previousName: null,
+  });
+}
+
+function performRemoveReplicatorSetField(fieldIndex: number, setIndex: number, nestedIndex: number) {
+  const field = fields[fieldIndex];
+  if (!field || field.ui.kind !== 'replicator') return;
+  field.ui.sets[setIndex]!.fields.splice(nestedIndex, 1);
+}
+
+function openFieldRemovalDialog(index: number) {
+  const field = fields[index];
+  if (!field) return;
+  removalTarget.value = {
+    kind: 'field',
+    index,
+    name: field.name || field.previousName || 'field',
+    requiresVerification: field.previousName !== null,
+  };
+  removalVerification.value = '';
+}
+
+function openReplicatorSetRemovalDialog(fieldIndex: number, setIndex: number) {
+  const field = fields[fieldIndex];
+  const set = field?.ui.kind === 'replicator' ? field.ui.sets[setIndex] : null;
+  if (!set) return;
+  removalTarget.value = {
+    kind: 'replicator-set',
+    fieldIndex,
+    setIndex,
+    name: set.name || set.previousName || 'set',
+    requiresVerification: set.previousName !== null,
+  };
+  removalVerification.value = '';
+}
+
+function openReplicatorNestedFieldRemovalDialog(
+  fieldIndex: number,
+  setIndex: number,
+  nestedIndex: number,
+) {
+  const field = fields[fieldIndex];
+  const nested =
+    field?.ui.kind === 'replicator' ? field.ui.sets[setIndex]?.fields[nestedIndex] : null;
+  if (!nested) return;
+  removalTarget.value = {
+    kind: 'replicator-nested-field',
+    fieldIndex,
+    setIndex,
+    nestedIndex,
+    name: nested.name || nested.previousName || 'field',
+    requiresVerification: nested.previousName !== null,
+  };
+  removalVerification.value = '';
+}
+
+function openBlueprintRemovalDialog() {
+  if (!props.handle) return;
+  removalTarget.value = {
+    kind: 'blueprint',
+    name: props.handle,
+    requiresVerification: true,
+  };
+  removalVerification.value = '';
+}
+
+function closeRemovalDialog() {
+  removalTarget.value = null;
+  removalVerification.value = '';
+}
+
+const removalDialogTitle = computed(() => {
+  if (!removalTarget.value) return '';
+  switch (removalTarget.value.kind) {
+    case 'field':
+      return `Remove field '${removalTarget.value.name}'?`;
+    case 'replicator-set':
+      return `Remove set '${removalTarget.value.name}'?`;
+    case 'replicator-nested-field':
+      return `Remove nested field '${removalTarget.value.name}'?`;
+    case 'blueprint':
+      return `Delete blueprint '${removalTarget.value.name}'?`;
+  }
+});
+
+const removalDialogMessage = computed(() => {
+  if (!removalTarget.value) return '';
+  switch (removalTarget.value.kind) {
+    case 'field':
+      return 'Removing a schema field can orphan existing values and make them unavailable in the editor.';
+    case 'replicator-set':
+      return 'Removing a replicator set can strand existing content blocks that use this set and may prevent clean future edits.';
+    case 'replicator-nested-field':
+      return 'Removing a nested field can hide existing values inside replicator content and later saves may drop them.';
+    case 'blueprint':
+      return 'Deleting a blueprint removes the schema and permanently deletes every entry in this collection.';
+  }
+});
+
+const removalConfirmLabel = computed(() =>
+  removalTarget.value?.kind === 'blueprint' ? 'Delete' : 'Remove',
+);
+
+const removalConfirmDisabled = computed(() => {
+  if (!removalTarget.value) return true;
+  if (!removalTarget.value.requiresVerification) return false;
+  return removalVerification.value !== removalTarget.value.name;
+});
+
+async function confirmRemoval() {
+  const target = removalTarget.value;
+  if (!target || removalConfirmDisabled.value) return;
+  switch (target.kind) {
+    case 'field':
+      performRemoveField(target.index);
+      break;
+    case 'replicator-set':
+      performRemoveReplicatorSet(target.fieldIndex, target.setIndex);
+      break;
+    case 'replicator-nested-field':
+      performRemoveReplicatorSetField(target.fieldIndex, target.setIndex, target.nestedIndex);
+      break;
+    case 'blueprint':
+      await api.deleteBlueprint(target.name);
+      await store.refresh();
+      toasts.success('Blueprint deleted');
+      await router.push('/schema');
+      break;
+  }
+  closeRemovalDialog();
+}
+
+function toEditorField(field: FieldDefinition): EditorField {
+  if (field.ui.kind !== 'replicator') {
+    return {
+      name: field.name,
+      ...(field.label !== undefined ? { label: field.label } : {}),
+      ui: field.ui,
+      optional: field.optional,
+      ...(field.default !== undefined ? { default: field.default } : {}),
+      ...(field.validation ? { validation: field.validation } : {}),
+      previousName: field.name,
+    };
+  }
+
+  return {
+    name: field.name,
+    ...(field.label !== undefined ? { label: field.label } : {}),
+    previousName: field.name,
+    optional: field.optional,
+    ...(field.default !== undefined ? { default: field.default } : {}),
+    ...(field.validation ? { validation: field.validation } : {}),
+    ui: {
+      kind: 'replicator',
+      sets: field.ui.sets.map((set) => ({
+        name: set.name,
+        ...(set.label !== undefined ? { label: set.label } : {}),
+        previousName: set.name,
+        fields: set.fields.map((nested) => ({
+          name: nested.name,
+          ...(nested.label !== undefined ? { label: nested.label } : {}),
+          ui: nested.ui,
+          optional: nested.optional,
+          ...(nested.default !== undefined ? { default: nested.default } : {}),
+          ...(nested.validation ? { validation: nested.validation } : {}),
+          previousName: nested.name,
+        })),
+      })),
+    },
+  };
+}
+
+function stripNestedEditorField(field: EditorNestedField): NestedFieldDefinition {
+  return {
+    name: field.name,
+    ...(field.label !== undefined ? { label: field.label } : {}),
+    ui: field.ui,
+    optional: field.optional,
+    ...(field.default !== undefined ? { default: field.default } : {}),
+    ...(field.validation ? { validation: field.validation } : {}),
+  };
+}
+
+function stripEditorField(field: EditorField): Record<string, unknown> {
+  const out: Record<string, unknown> = {
+    name: field.name,
+    label: field.label,
+    optional: field.optional,
+  };
+
+  if (field.ui.kind === 'replicator') {
+    out.ui = {
+      kind: 'replicator',
+      sets: field.ui.sets.map((set) => ({
+        name: set.name,
+        label: set.label,
+        fields: set.fields.map(stripNestedEditorField),
+      })),
+    };
+  } else {
+    out.ui = field.ui;
+  }
+
+  if (field.default !== undefined) out.default = field.default;
+  if (field.validation) out.validation = field.validation;
+  if (field.previousName !== null && field.previousName !== field.name) {
+    out.previousName = field.previousName;
+  }
+  return out;
 }
 
 async function save() {
@@ -128,20 +431,7 @@ async function save() {
       handle: handle.value,
       label: label.value,
       singleton: singleton.value,
-      fields: fields.map((f) => {
-        const out: Record<string, unknown> = {
-          name: f.name,
-          label: f.label,
-          ui: f.ui,
-          optional: f.optional,
-        };
-        if (f.default !== undefined) out.default = f.default;
-        if (f.validation) out.validation = f.validation;
-        if (f.previousName !== null && f.previousName !== f.name) {
-          out.previousName = f.previousName;
-        }
-        return out;
-      }),
+      fields: fields.map(stripEditorField),
     };
     if (isCreate.value) {
       await api.createBlueprint(payload as unknown as BlueprintMeta);
@@ -170,14 +460,6 @@ async function save() {
   }
 }
 
-async function destroy() {
-  if (!props.handle) return;
-  if (!confirm(`Delete blueprint '${props.handle}' and ALL its entries?`)) return;
-  await api.deleteBlueprint(props.handle);
-  await store.refresh();
-  toasts.success('Blueprint deleted');
-  router.push('/schema');
-}
 </script>
 
 <template>
@@ -296,7 +578,7 @@ async function destroy() {
               type="button"
               class="rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50"
               :data-testid="`field-remove-${i}`"
-              @click="removeField(i)"
+              @click="openFieldRemovalDialog(i)"
             >
               Remove
             </button>
@@ -332,6 +614,7 @@ async function destroy() {
                 <option value="date">date</option>
                 <option value="boolean">boolean</option>
                 <option value="select">select</option>
+                <option value="replicator">replicator</option>
                 <option value="relationship">relationship</option>
               </select>
             </label>
@@ -412,6 +695,225 @@ async function destroy() {
                 <option v-for="bp in store.list" :key="bp.handle" :value="bp.handle">{{ bp.handle }}</option>
               </select>
             </label>
+
+            <div v-if="f.ui.kind === 'replicator'" class="space-y-3">
+              <div class="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                Set names and nested field names become locked after the blueprint is saved.
+              </div>
+
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-medium text-zinc-600">Sets</span>
+                <button
+                  type="button"
+                  class="rounded border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
+                  :data-testid="`replicator-add-set-${i}`"
+                  @click="addReplicatorSet(i)"
+                >
+                  + Add set
+                </button>
+              </div>
+
+              <div
+                v-if="f.ui.sets.length === 0"
+                class="rounded border border-dashed border-zinc-300 bg-zinc-50 px-3 py-4 text-xs text-zinc-500"
+              >
+                Add at least one set to define repeatable content blocks.
+              </div>
+
+              <div
+                v-for="(set, setIndex) in f.ui.sets"
+                :key="`${set.name || 'new'}-${setIndex}`"
+                class="space-y-3 rounded border border-zinc-200 bg-zinc-50 p-3"
+              >
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                    Set {{ setIndex + 1 }}
+                  </span>
+                  <button
+                    type="button"
+                    class="rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50"
+                    @click="openReplicatorSetRemovalDialog(i, setIndex)"
+                  >
+                    Remove set
+                  </button>
+                </div>
+
+                <div class="grid gap-3 md:grid-cols-2">
+                  <label class="block">
+                    <span class="block text-xs font-medium text-zinc-600">Set name</span>
+                    <input
+                      v-model="set.name"
+                      class="mt-1 w-full rounded border border-zinc-300 px-3 py-1.5 text-sm read-only:bg-zinc-100"
+                      :readonly="set.previousName !== null"
+                    />
+                  </label>
+                  <label class="block">
+                    <span class="block text-xs font-medium text-zinc-600">Set label</span>
+                    <input
+                      v-model="set.label"
+                      class="mt-1 w-full rounded border border-zinc-300 px-3 py-1.5 text-sm"
+                    />
+                  </label>
+                </div>
+
+                <div class="space-y-2">
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-medium text-zinc-600">Set fields</span>
+                    <button
+                      type="button"
+                      class="rounded border border-zinc-300 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
+                      @click="addReplicatorSetField(i, setIndex)"
+                    >
+                      + Add set field
+                    </button>
+                  </div>
+
+                  <div
+                    v-if="set.fields.length === 0"
+                    class="rounded border border-dashed border-zinc-300 bg-white px-3 py-4 text-xs text-zinc-500"
+                  >
+                    Each set needs at least one field.
+                  </div>
+
+                  <div
+                    v-for="(nested, nestedIndex) in set.fields"
+                    :key="`${nested.name || 'new'}-${nestedIndex}`"
+                    class="space-y-3 rounded border border-zinc-200 bg-white p-3"
+                  >
+                    <div class="grid gap-3 md:grid-cols-2">
+                      <label class="block">
+                        <span class="block text-xs font-medium text-zinc-600">Field name</span>
+                        <input
+                          v-model="nested.name"
+                          class="mt-1 w-full rounded border border-zinc-300 px-3 py-1.5 text-sm read-only:bg-zinc-100"
+                          :readonly="nested.previousName !== null"
+                        />
+                      </label>
+                      <label class="block">
+                        <span class="block text-xs font-medium text-zinc-600">Field label</span>
+                        <input
+                          v-model="nested.label"
+                          class="mt-1 w-full rounded border border-zinc-300 px-3 py-1.5 text-sm"
+                        />
+                      </label>
+                    </div>
+
+                    <div class="grid gap-3 md:grid-cols-2">
+                      <label class="block">
+                        <span class="block text-xs font-medium text-zinc-600">Kind</span>
+                        <select
+                          class="mt-1 w-full rounded border border-zinc-300 px-3 py-1.5 text-sm"
+                          :value="nested.ui.kind"
+                          @change="
+                            setNestedKind(
+                              i,
+                              setIndex,
+                              nestedIndex,
+                              ($event.target as HTMLSelectElement).value as NonReplicatorFieldUi['kind'],
+                            )
+                          "
+                        >
+                          <option value="text">text</option>
+                          <option value="textarea">textarea</option>
+                          <option value="blocks">blocks</option>
+                          <option value="date">date</option>
+                          <option value="boolean">boolean</option>
+                          <option value="select">select</option>
+                          <option value="relationship">relationship</option>
+                        </select>
+                      </label>
+
+                      <label class="flex items-center gap-2 pt-6">
+                        <input v-model="nested.optional" type="checkbox" class="rounded border-zinc-300" />
+                        <span class="text-xs font-medium text-zinc-600">Optional</span>
+                      </label>
+                    </div>
+
+                    <div v-if="nested.ui.kind === 'text' || nested.ui.kind === 'textarea'" class="flex gap-3">
+                      <label class="block flex-1">
+                        <span class="block text-xs font-medium text-zinc-600">Min length</span>
+                        <input
+                          type="number"
+                          :value="nested.validation?.min ?? ''"
+                          class="mt-1 w-full rounded border border-zinc-300 px-3 py-1.5 text-sm"
+                          @input="
+                            (function() {
+                              const v = ($event.target as HTMLInputElement).value;
+                              const next: { min?: number; max?: number } = {};
+                              if (v !== '') next.min = Number(v);
+                              if (nested.validation?.max !== undefined) next.max = nested.validation.max;
+                              nested.validation = next;
+                            })()
+                          "
+                        />
+                      </label>
+                      <label class="block flex-1">
+                        <span class="block text-xs font-medium text-zinc-600">Max length</span>
+                        <input
+                          type="number"
+                          :value="nested.validation?.max ?? ''"
+                          class="mt-1 w-full rounded border border-zinc-300 px-3 py-1.5 text-sm"
+                          @input="
+                            (function() {
+                              const v = ($event.target as HTMLInputElement).value;
+                              const next: { min?: number; max?: number } = {};
+                              if (nested.validation?.min !== undefined) next.min = nested.validation.min;
+                              if (v !== '') next.max = Number(v);
+                              nested.validation = next;
+                            })()
+                          "
+                        />
+                      </label>
+                    </div>
+
+                    <div v-if="nested.ui.kind === 'select'">
+                      <span class="block text-xs font-medium text-zinc-600">Options</span>
+                      <textarea
+                        rows="3"
+                        class="mt-1 w-full rounded border border-zinc-300 px-3 py-1.5 font-mono text-xs"
+                        :value="(nested.ui.options ?? []).join('\n')"
+                        @input="
+                          nested.ui = {
+                            kind: 'select',
+                            options: ($event.target as HTMLTextAreaElement).value
+                              .split('\n')
+                              .map((s) => s.trim())
+                              .filter(Boolean),
+                          }
+                        "
+                      />
+                    </div>
+
+                    <label v-if="nested.ui.kind === 'relationship'" class="block">
+                      <span class="block text-xs font-medium text-zinc-600">Target collection</span>
+                      <select
+                        class="mt-1 w-full rounded border border-zinc-300 px-3 py-1.5 text-sm"
+                        :value="nested.ui.to ?? ''"
+                        @change="
+                          nested.ui = {
+                            kind: 'relationship',
+                            to: ($event.target as HTMLSelectElement).value,
+                          }
+                        "
+                      >
+                        <option value="" disabled>Choose a collection</option>
+                        <option v-for="bp in store.list" :key="bp.handle" :value="bp.handle">{{ bp.handle }}</option>
+                      </select>
+                    </label>
+
+                    <div class="flex justify-end">
+                      <button
+                        type="button"
+                        class="rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50"
+                        @click="openReplicatorNestedFieldRemovalDialog(i, setIndex, nestedIndex)"
+                      >
+                        Remove field
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -423,7 +925,7 @@ async function destroy() {
       <div class="flex items-center gap-2">
         <button
           type="submit"
-          class="rounded bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
+          class="vulse-button-primary rounded px-4 py-2 text-sm font-medium disabled:opacity-50"
           :disabled="saving || fields.length === 0"
           :title="fields.length === 0 ? 'Add at least one field before saving.' : undefined"
           data-testid="blueprint-save"
@@ -442,11 +944,51 @@ async function destroy() {
           type="button"
           class="ml-auto rounded border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
           data-testid="blueprint-delete"
-          @click="destroy"
+          @click="openBlueprintRemovalDialog"
         >
           Delete
         </button>
       </div>
     </form>
+
+    <div
+      v-if="removalTarget"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4"
+      data-testid="remove-confirmation-modal"
+    >
+      <div class="w-full max-w-md rounded-2xl border border-zinc-200 bg-white p-5 shadow-xl">
+        <h2 class="text-lg font-semibold text-zinc-900">{{ removalDialogTitle }}</h2>
+        <p class="mt-2 text-sm text-zinc-600">{{ removalDialogMessage }}</p>
+        <p v-if="removalTarget.requiresVerification" class="mt-3 text-sm text-zinc-700">
+          Type <span class="font-mono font-medium">{{ removalTarget.name }}</span> to confirm.
+        </p>
+        <input
+          v-if="removalTarget.requiresVerification"
+          v-model="removalVerification"
+          type="text"
+          class="mt-2 w-full rounded border border-zinc-300 px-3 py-2 text-sm"
+          data-testid="remove-confirmation-input"
+        />
+        <div class="mt-5 flex items-center justify-end gap-2">
+          <button
+            type="button"
+            class="rounded border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+            data-testid="remove-confirmation-cancel"
+            @click="closeRemovalDialog"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="rounded border border-red-300 bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+            :disabled="removalConfirmDisabled"
+            data-testid="remove-confirmation-confirm"
+            @click="confirmRemoval"
+          >
+            {{ removalConfirmLabel }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>

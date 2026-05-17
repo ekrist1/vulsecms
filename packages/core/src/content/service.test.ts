@@ -54,7 +54,27 @@ describe('ContentService', () => {
     await content.create('posts', { title: 'a', body: [] });
     await content.create('posts', { title: 'b', body: [] });
     const list = await content.list('posts');
-    expect(list.map((e) => e.content.title)).toEqual(['a', 'b']);
+    expect(list.items.map((e) => e.content.title)).toEqual(['a', 'b']);
+    expect(list.total).toBe(2);
+    await db.close();
+  });
+
+  it('list supports search and pagination', async () => {
+    const { content, db } = await setup();
+    await content.create('posts', { title: 'Intro to libSQL', body: [] });
+    await content.create('posts', { title: 'Hono routes 101', body: [] });
+    await content.create('posts', { title: 'Advanced libSQL', body: [] });
+
+    const searched = await content.list('posts', { q: 'libsql' });
+    expect(searched.items.map((e) => e.content.title)).toEqual([
+      'Intro to libSQL',
+      'Advanced libSQL',
+    ]);
+    expect(searched.total).toBe(2);
+
+    const paged = await content.list('posts', { limit: 1, offset: 1 });
+    expect(paged.items).toHaveLength(1);
+    expect(paged.total).toBe(3);
     await db.close();
   });
 

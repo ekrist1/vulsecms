@@ -4,6 +4,7 @@ import type { FieldMeta } from '../api/client.js';
 import BlocksField from './fields/BlocksField.vue';
 import BooleanField from './fields/BooleanField.vue';
 import DateField from './fields/DateField.vue';
+import ReplicatorField from './fields/ReplicatorField.vue';
 import RelationshipField from './fields/RelationshipField.vue';
 import SelectField from './fields/SelectField.vue';
 import TextField from './fields/TextField.vue';
@@ -15,6 +16,16 @@ const props = defineProps<{
   error?: string;
 }>();
 defineEmits<{ 'update:modelValue': [unknown] }>();
+
+const options = computed(() =>
+  props.meta.ui.kind === 'select' ? props.meta.ui.options : undefined,
+);
+const sets = computed(() =>
+  props.meta.ui.kind === 'replicator' ? props.meta.ui.sets : undefined,
+);
+const to = computed(() =>
+  props.meta.ui.kind === 'relationship' ? props.meta.ui.to : undefined,
+);
 
 const component = computed<Component>(() => {
   switch (props.meta.ui.kind) {
@@ -30,6 +41,8 @@ const component = computed<Component>(() => {
       return SelectField as Component;
     case 'blocks':
       return BlocksField as Component;
+    case 'replicator':
+      return ReplicatorField as Component;
     case 'relationship':
       return RelationshipField as Component;
   }
@@ -41,8 +54,9 @@ const component = computed<Component>(() => {
     :is="component"
     :name="meta.name"
     :model-value="modelValue"
-    :options="meta.ui.options"
-    :to="meta.ui.to"
+    :options="options"
+    :sets="sets"
+    :to="to"
     :error="error"
     @update:model-value="(v: unknown) => $emit('update:modelValue', v)"
   />

@@ -48,6 +48,23 @@ describe('FieldRenderer', () => {
     expect(w.findAll('option')).toHaveLength(3);
   });
 
+  it('renders a replicator host for ui.kind=replicator', () => {
+    const w = mount(FieldRenderer, {
+      props: {
+        meta: {
+          name: 'content',
+          ui: {
+            kind: 'replicator',
+            sets: [{ name: 'text', label: 'Text', fields: [{ name: 'body', ui: { kind: 'textarea' }, optional: false }] }],
+          },
+          optional: false,
+        },
+        modelValue: [],
+      },
+    });
+    expect(w.find('[data-testid="field-content"]').exists()).toBe(true);
+  });
+
   it('emits update:modelValue on input', async () => {
     const w = mount(FieldRenderer, {
       props: {

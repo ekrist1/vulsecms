@@ -1,6 +1,11 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
-import type { BlueprintDefinition, FieldDefinition } from './definition.js';
+import type {
+  BlueprintDefinition,
+  FieldDefinition,
+  NestedFieldDefinition,
+  ReplicatorSetDefinition,
+} from './definition.js';
 import type { Blueprint } from './types.js';
 
 export function compileBlueprint(def: BlueprintDefinition): Blueprint {
@@ -20,7 +25,14 @@ export function compileBlueprint(def: BlueprintDefinition): Blueprint {
 }
 
 function compileField(f: FieldDefinition): z.ZodTypeAny {
-  let s: z.ZodTypeAny;
+  return compileFieldBase(f, true);
+}
+
+function compileFieldBase(
+  f: FieldDefinition | NestedFieldDefinition,
+  allowReplicator: boolean,
+): z.ZodTypeAny {
+  let s: z.ZodTypeAny = z.never();
   switch (f.ui.kind) {
     case 'text':
     case 'textarea': {
@@ -45,10 +57,38 @@ function compileField(f: FieldDefinition): z.ZodTypeAny {
     case 'relationship':
       s = z.string();
       break;
+    case 'replicator':
+      if (!allowReplicator) {
+        s = z.never();
+        break;
+      }
+      s = compileReplicatorField(f.ui.sets);
+      break;
   }
   if (f.default !== undefined) s = s.default(f.default);
   if (f.optional) s = s.optional();
   return s.meta({ ui: f.ui });
+}
+
+function compileReplicatorField(sets: ReplicatorSetDefinition[]): z.ZodTypeAny {
+  const schemas = sets.map((set) =>
+    z.object({
+      set: z.literal(set.name),
+      content: compileFieldObject(set.fields),
+    }),
+  );
+
+  if (schemas.length === 1) return z.array(schemas[0]!);
+  const [first, second, ...rest] = schemas;
+  return z.array(z.discriminatedUnion('set', [first!, second!, ...rest]));
+}
+
+function compileFieldObject(fields: NestedFieldDefinition[]): z.ZodObject<z.ZodRawShape> {
+  const shape: Record<string, z.ZodTypeAny> = {};
+  for (const field of fields) {
+    shape[field.name] = compileFieldBase(field, false);
+  }
+  return z.object(shape);
 }
 
 export function hashDefinition(def: BlueprintDefinition): string {

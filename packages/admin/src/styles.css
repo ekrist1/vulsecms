@@ -5,6 +5,12 @@
 
 :root {
   --vulse-sidebar-width: 240px;
+  --vulse-color-ink-900: #0b0b0c;
+  --vulse-color-paper: #fafaf7;
+  --vulse-color-accent: #ff5b2e;
+  --vulse-color-accent-hover: #e84a20;
+  --vulse-color-accent-soft: #ffe8df;
+  --vulse-color-danger: #d6322b;
 }
 
 html,
@@ -15,7 +21,59 @@ body,
 body {
   font-family: ui-sans-serif, system-ui, sans-serif;
   color: #18181b;
-  background: #fafafa;
+  background: var(--vulse-color-paper);
+}
+
+.vulse-button-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--vulse-color-accent);
+  color: var(--vulse-color-paper);
+  transition:
+    background-color 150ms ease,
+    opacity 150ms ease;
+}
+
+.vulse-button-primary:hover {
+  background: var(--vulse-color-accent-hover);
+}
+
+.vulse-button-primary:focus-visible,
+.vulse-nav-link:focus-visible {
+  outline: 2px solid var(--vulse-color-accent-soft);
+  outline-offset: 2px;
+}
+
+.vulse-nav-link {
+  position: relative;
+  display: block;
+  padding: 0.5rem 0.75rem 0.5rem 1.75rem;
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
+}
+
+.vulse-nav-link:hover {
+  background: #f2f1ec;
+}
+
+.vulse-nav-link-active {
+  background: var(--vulse-color-accent-soft);
+  color: var(--vulse-color-ink-900);
+  font-weight: 500;
+}
+
+.vulse-nav-link-active::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0.75rem;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+  background: var(--vulse-color-accent);
+  transform: translateY(-50%);
 }
 
 /* TipTap editor content — Tailwind's preflight resets ul/ol/h*; restore here. */
