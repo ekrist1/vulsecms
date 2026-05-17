@@ -37,7 +37,7 @@ async function submit() {
       <button type="submit" class="w-full rounded bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700" :disabled="submitting">
         {{ submitting ? 'Sending…' : 'Send reset link' }}
       </button>
-      <div class="text-center text-xs text-zinc-5000">
+      <div class="text-center text-xs text-zinc-500">
         <RouterLink to="/login" class="hover:text-zinc-900">Back to sign-in</RouterLink>
       </div>
     </form>
