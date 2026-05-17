@@ -4,3 +4,7 @@ export { sessionMiddleware, requireSuper, requirePerm } from './middleware/index
 export { effectivePerms, permsToWire } from './permissions.js';
 export { seedSuperUser, type BootstrapResult } from './bootstrap.js';
 export { meRoute } from './routes/me.js';
+export { usersRoute } from './routes/users.js';
+export { groupsRoute } from './routes/groups.js';
+export * from './services/users.js';
+export * from './services/groups.js';

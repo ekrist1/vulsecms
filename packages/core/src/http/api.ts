@@ -1,4 +1,4 @@
-import { sessionMiddleware, meRoute, requirePerm, requireSuper, type AuthInstance, type AuthVars } from '@vulse/auth';
+import { sessionMiddleware, meRoute, usersRoute, groupsRoute, requirePerm, requireSuper, type AuthInstance, type AuthVars } from '@vulse/auth';
 import type { DatabaseAdapter } from '@vulse/db';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
@@ -27,6 +27,8 @@ export function createApi({ blueprints, content, adapter, authInstance }: ApiDep
   // Mount our /api/auth/me sub-app BEFORE the Better Auth wildcard handler
   // so our custom route takes precedence over Better Auth's 404 fallback.
   app.route('/', meRoute(adapter));
+  app.route('/', usersRoute(adapter));
+  app.route('/', groupsRoute(adapter));
 
   // Mount Better Auth's handler at /api/auth/*
   app.on(['GET', 'POST'], '/api/auth/*', (c) => authInstance.auth.handler(c.req.raw));
