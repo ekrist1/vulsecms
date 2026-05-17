@@ -73,6 +73,19 @@ const label = ref('');
 const singleton = ref(false);
 const fields = reactive<EditorField[]>([]);
 const expandedIndex = ref<number | null>(null);
+const expandedReplicatorSets = reactive<Set<string>>(new Set());
+
+function setKey(fieldIndex: number, setIndex: number): string {
+  return `${fieldIndex}:${setIndex}`;
+}
+function isSetExpanded(fieldIndex: number, setIndex: number): boolean {
+  return expandedReplicatorSets.has(setKey(fieldIndex, setIndex));
+}
+function toggleSetExpanded(fieldIndex: number, setIndex: number) {
+  const key = setKey(fieldIndex, setIndex);
+  if (expandedReplicatorSets.has(key)) expandedReplicatorSets.delete(key);
+  else expandedReplicatorSets.add(key);
+}
 
 const errors = reactive<Record<string, string>>({});
 const submitError = ref<string | null>(null);
@@ -177,9 +190,10 @@ function setNestedKind(
   nestedIndex: number,
   kind: NonReplicatorFieldUi['kind'],
 ) {
-  const nested = fields[fieldIndex]!.ui.kind === 'replicator'
-    ? fields[fieldIndex]!.ui.sets[setIndex]!.fields[nestedIndex]!
-    : null;
+  const nested =
+    fields[fieldIndex]!.ui.kind === 'replicator'
+      ? fields[fieldIndex]!.ui.sets[setIndex]!.fields[nestedIndex]!
+      : null;
   if (!nested) return;
   if (kind === 'select') nested.ui = { kind, options: [] };
   else if (kind === 'relationship') nested.ui = { kind, to: '' };
@@ -195,12 +209,27 @@ function addReplicatorSet(fieldIndex: number) {
     previousName: null,
     fields: [],
   });
+  // Expand the newly added set so the user can fill it in right away.
+  expandedReplicatorSets.add(setKey(fieldIndex, field.ui.sets.length - 1));
 }
 
 function performRemoveReplicatorSet(fieldIndex: number, setIndex: number) {
   const field = fields[fieldIndex];
   if (!field || field.ui.kind !== 'replicator') return;
   field.ui.sets.splice(setIndex, 1);
+  // Rebuild the expanded-set index since indices shift after splice.
+  const remaining = Array.from(expandedReplicatorSets)
+    .filter((key) => {
+      const [f, s] = key.split(':').map(Number);
+      return !(f === fieldIndex && s === setIndex);
+    })
+    .map((key) => {
+      const [f, s] = key.split(':').map(Number);
+      if (f === fieldIndex && s! > setIndex) return setKey(f!, s! - 1);
+      return key;
+    });
+  expandedReplicatorSets.clear();
+  for (const k of remaining) expandedReplicatorSets.add(k);
 }
 
 function addReplicatorSetField(fieldIndex: number, setIndex: number) {
@@ -215,7 +244,11 @@ function addReplicatorSetField(fieldIndex: number, setIndex: number) {
   });
 }
 
-function performRemoveReplicatorSetField(fieldIndex: number, setIndex: number, nestedIndex: number) {
+function performRemoveReplicatorSetField(
+  fieldIndex: number,
+  setIndex: number,
+  nestedIndex: number,
+) {
   const field = fields[fieldIndex];
   if (!field || field.ui.kind !== 'replicator') return;
   field.ui.sets[setIndex]!.fields.splice(nestedIndex, 1);
@@ -459,7 +492,6 @@ async function save() {
     saving.value = false;
   }
 }
-
 </script>
 
 <template>
@@ -723,13 +755,39 @@ async function save() {
 
               <div
                 v-for="(set, setIndex) in f.ui.sets"
-                :key="`${set.name || 'new'}-${setIndex}`"
-                class="space-y-3 rounded border border-zinc-200 bg-zinc-50 p-3"
+                :key="setIndex"
+                class="rounded border border-zinc-200 bg-zinc-50"
               >
-                <div class="flex items-center justify-between">
-                  <span class="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                    Set {{ setIndex + 1 }}
-                  </span>
+                <div class="flex items-center justify-between gap-2 px-3 py-2">
+                  <button
+                    type="button"
+                    class="flex flex-1 items-center gap-2 rounded px-1 py-1 text-left hover:bg-zinc-100"
+                    :data-testid="`replicator-set-toggle-${i}-${setIndex}`"
+                    :aria-expanded="isSetExpanded(i, setIndex)"
+                    @click="toggleSetExpanded(i, setIndex)"
+                  >
+                    <svg
+                      class="h-4 w-4 shrink-0 text-zinc-500 transition-transform"
+                      :class="{ 'rotate-180': isSetExpanded(i, setIndex) }"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                      aria-hidden="true"
+                    >
+                      <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.06l3.71-3.83a.75.75 0 1 1 1.08 1.04l-4.25 4.39a.75.75 0 0 1-1.08 0L5.21 8.27a.75.75 0 0 1 .02-1.06Z" clip-rule="evenodd" />
+                    </svg>
+                    <span class="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                      Set {{ setIndex + 1 }}
+                    </span>
+                    <span v-if="set.name || set.label" class="text-sm font-medium text-zinc-800">
+                      {{ set.label || set.name }}
+                    </span>
+                    <span class="ml-1 rounded bg-zinc-200 px-1.5 py-0.5 text-[10px] font-medium text-zinc-700">
+                      {{ set.fields.length }} field{{ set.fields.length === 1 ? '' : 's' }}
+                    </span>
+                    <span v-if="!isSetExpanded(i, setIndex)" class="ml-auto text-xs font-medium text-zinc-600">
+                      Show fields
+                    </span>
+                  </button>
                   <button
                     type="button"
                     class="rounded px-2 py-1 text-xs text-red-600 hover:bg-red-50"
@@ -739,7 +797,8 @@ async function save() {
                   </button>
                 </div>
 
-                <div class="grid gap-3 md:grid-cols-2">
+                <div v-if="isSetExpanded(i, setIndex)" class="space-y-3 border-t border-zinc-200 p-3">
+                  <div class="grid gap-3 md:grid-cols-2">
                   <label class="block">
                     <span class="block text-xs font-medium text-zinc-600">Set name</span>
                     <input
@@ -778,7 +837,7 @@ async function save() {
 
                   <div
                     v-for="(nested, nestedIndex) in set.fields"
-                    :key="`${nested.name || 'new'}-${nestedIndex}`"
+                    :key="nestedIndex"
                     class="space-y-3 rounded border border-zinc-200 bg-white p-3"
                   >
                     <div class="grid gap-3 md:grid-cols-2">
@@ -913,6 +972,7 @@ async function save() {
                       </button>
                     </div>
                   </div>
+                </div>
                 </div>
               </div>
             </div>

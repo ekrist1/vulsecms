@@ -19,9 +19,7 @@ const emit = defineEmits<{ 'update:modelValue': [ReplicatorItem[]] }>();
 const items = computed<ReplicatorItem[]>(() =>
   Array.isArray(props.modelValue) ? (props.modelValue as ReplicatorItem[]) : [],
 );
-const setMap = computed(
-  () => new Map((props.sets ?? []).map((set) => [set.name, set])),
-);
+const setMap = computed(() => new Map((props.sets ?? []).map((set) => [set.name, set])));
 
 function humanize(value: string): string {
   return value
@@ -34,6 +32,12 @@ function labelForSet(set: ReplicatorSetDefinition): string {
   return set.label?.trim() || humanize(set.name);
 }
 
+function currentLocalDatetime(): string {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 function defaultForField(field: NestedFieldDefinition): unknown {
   if (field.default !== undefined) return field.default;
   switch (field.ui.kind) {
@@ -41,6 +45,8 @@ function defaultForField(field: NestedFieldDefinition): unknown {
       return false;
     case 'blocks':
       return { type: 'doc', content: [{ type: 'paragraph' }] };
+    case 'date':
+      return currentLocalDatetime();
     default:
       return '';
   }
