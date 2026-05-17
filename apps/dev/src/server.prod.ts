@@ -10,13 +10,30 @@ import {
   loadBlueprints,
   seedBlueprintsFromCode,
 } from '@vulse/core';
-import { LibsqlAdapter, MIGRATIONS_DIR, runMigrations } from '@vulse/db';
+import {
+  LibsqlAdapter,
+  MIGRATIONS_DIR,
+  databaseConfigFromEnv,
+  describeConfig,
+  runMigrations,
+} from '@vulse/db';
 import { Hono } from 'hono';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const dbUrl = process.env.VULSE_DB_URL ?? 'file:./dev.db';
-const db = new LibsqlAdapter({ url: dbUrl });
+const dbConfig = databaseConfigFromEnv();
+const dbSummary = describeConfig(dbConfig);
+const dbDetails = [
+  `driver=${dbSummary.driver}`,
+  `scheme=${dbSummary.scheme}`,
+  dbSummary.host ? `host=${dbSummary.host}` : null,
+  dbSummary.embeddedReplica ? `replica-of=${dbSummary.syncUrlHost}` : null,
+  dbSummary.encrypted ? 'encrypted=true' : null,
+]
+  .filter(Boolean)
+  .join(' ');
+console.log(`[vulse:db] ${dbDetails}`);
+const db = new LibsqlAdapter(dbConfig);
 await db.exec('PRAGMA foreign_keys = ON');
 await runMigrations(db, MIGRATIONS_DIR);
 
@@ -42,7 +59,13 @@ await seedSuperUser({
 async function buildApp(): Promise<Hono> {
   const blueprints = await loadBlueprints({ adapter: db });
   const content = createContentService(db, blueprints);
-  const api = createApi({ blueprints, content, adapter: db, authInstance });
+  const api = createApi({
+    blueprints,
+    content,
+    adapter: db,
+    authInstance,
+    databaseSummary: dbSummary,
+  });
   const root = new Hono();
   root.route('/', api);
   root.use('/*', serveStatic({ root: resolve(__dirname, '..', 'dist') }));

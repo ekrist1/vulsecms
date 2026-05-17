@@ -1,5 +1,5 @@
 import { createAuth, seedSuperUser } from '@vulse/auth';
-import { LibsqlAdapter, MIGRATIONS_DIR, runMigrations } from '@vulse/db';
+import { LibsqlAdapter, MIGRATIONS_DIR, describeConfig, runMigrations } from '@vulse/db';
 import type { Plugin, ViteDevServer } from 'vite';
 import { loadBlueprints } from '../blueprints/load.js';
 import { seedBlueprintsFromCode } from '../blueprints/seed.js';
@@ -22,6 +22,7 @@ export function vulseDevPlugin(opts: VulseDevOptions): Plugin {
 
     async configureServer(server: ViteDevServer) {
       adapter = new LibsqlAdapter(opts.database);
+      const databaseSummary = describeConfig(opts.database);
       await adapter.exec('PRAGMA foreign_keys = ON');
       await runMigrations(adapter, MIGRATIONS_DIR);
       await seedBlueprintsFromCode({ adapter, dir: opts.blueprintsDir });
@@ -45,7 +46,13 @@ export function vulseDevPlugin(opts: VulseDevOptions): Plugin {
       async function build() {
         const blueprints = await loadBlueprints({ adapter: adapter! });
         const content = createContentService(adapter!, blueprints);
-        return createApi({ blueprints, content, adapter: adapter!, authInstance: authInstance! });
+        return createApi({
+          blueprints,
+          content,
+          adapter: adapter!,
+          authInstance: authInstance!,
+          databaseSummary,
+        });
       }
 
       let app = await build();

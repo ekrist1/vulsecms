@@ -9,7 +9,8 @@
     "build": "vite build && vite build -c vite.config.server.ts",
     "start": "node dist/server/server.prod.js",
     "check": "vue-tsc -p tsconfig.json --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "db:migrate-to-turso": "node scripts/migrate-to-turso.mjs"
   },
   "dependencies": {
     "@hono/node-server": "^1.13.0",
