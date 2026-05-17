@@ -52,7 +52,7 @@ async function loadEntry() {
     try {
       const entry = await api.get(props.handle, props.id);
       for (const f of bp.fields) state[f.name] = (entry.content as Record<string, unknown>)[f.name];
-      isProtected.value = (entry as unknown as { protected?: boolean }).protected ?? false;
+      isProtected.value = entry.protected ?? false;
       slugTouched.value = true; // existing entries: don't overwrite a saved slug
     } finally {
       loading.value = false;

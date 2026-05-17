@@ -26,6 +26,7 @@ const seedEntries = Array.from({ length: 26 }, (_, index) => ({
   },
   createdAt: `2026-05-${String((index % 28) + 1).padStart(2, '0')} 10:00:00`,
   updatedAt: `2026-05-${String((index % 28) + 1).padStart(2, '0')} 12:00:00`,
+  protected: false,
 }));
 
 beforeEach(() => {

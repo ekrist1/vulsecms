@@ -63,6 +63,7 @@ export interface Entry {
   content: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
+  protected: boolean;
 }
 
 export interface EntryListQuery {

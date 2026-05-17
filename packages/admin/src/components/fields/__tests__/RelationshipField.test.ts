@@ -14,6 +14,7 @@ beforeEach(() => {
       content: { name: 'Ada' },
       createdAt: '',
       updatedAt: '',
+      protected: false,
     },
     {
       id: 'b',
@@ -24,6 +25,7 @@ beforeEach(() => {
       content: { name: 'Bob' },
       createdAt: '',
       updatedAt: '',
+      protected: false,
     },
   ]);
 });
