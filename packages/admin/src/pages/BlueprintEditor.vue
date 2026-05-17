@@ -616,6 +616,7 @@ async function save() {
                 <option value="select">select</option>
                 <option value="replicator">replicator</option>
                 <option value="relationship">relationship</option>
+                <option value="asset">asset</option>
               </select>
             </label>
             <label class="flex items-center gap-2">
@@ -820,6 +821,7 @@ async function save() {
                           <option value="boolean">boolean</option>
                           <option value="select">select</option>
                           <option value="relationship">relationship</option>
+                          <option value="asset">asset</option>
                         </select>
                       </label>
 

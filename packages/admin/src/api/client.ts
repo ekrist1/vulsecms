@@ -5,7 +5,8 @@ export type NonReplicatorFieldUi =
   | { kind: 'date' }
   | { kind: 'boolean' }
   | { kind: 'select'; options: readonly string[] }
-  | { kind: 'relationship'; to: string };
+  | { kind: 'relationship'; to: string }
+  | { kind: 'asset' };
 
 export interface NestedFieldDefinition {
   name: string;
@@ -124,6 +125,52 @@ export interface GroupDTO {
   }[];
 }
 
+export interface AssetItem {
+  id: string;
+  key: string;
+  bucket: string;
+  url: string;
+  contentType: string | null;
+  size: number | null;
+  originalName: string | null;
+  createdAt: string;
+}
+
+export interface AssetListResponse {
+  items: AssetItem[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface AssetSignResponse {
+  key: string;
+  bucket: string;
+  uploadUrl: string;
+  publicUrl: string;
+  requiredHeaders: Record<string, string>;
+}
+
+export interface S3SettingsPublic {
+  configured: boolean;
+  accessKeyId: string | null;
+  region: string | null;
+  bucket: string | null;
+  endpoint: string | null;
+  publicBaseUrl: string | null;
+  forcePathStyle: boolean;
+}
+
+export interface S3SettingsInput {
+  accessKeyId: string;
+  secretAccessKey: string;
+  region: string;
+  bucket: string;
+  endpoint?: string;
+  publicBaseUrl?: string;
+  forcePathStyle?: boolean;
+}
+
 function normalizeEntryList(data: Entry[] | EntryListResponse): EntryListResponse {
   if (Array.isArray(data)) {
     return {
@@ -217,6 +264,35 @@ class ApiClient {
   }
   async deleteGroup(handle: string) {
     return this.request<void>('DELETE', `/api/groups/${handle}`);
+  }
+
+  // ---- Assets / S3 ----
+  async listAssets(opts?: { limit?: number; offset?: number }): Promise<AssetListResponse> {
+    const qs = new URLSearchParams();
+    qs.set('limit', String(opts?.limit ?? 50));
+    qs.set('offset', String(opts?.offset ?? 0));
+    return this.request<AssetListResponse>('GET', `/api/assets?${qs}`);
+  }
+  async getAsset(id: string): Promise<AssetItem> {
+    return this.request<AssetItem>('GET', `/api/assets/${id}`);
+  }
+  async signAssetUpload(body: { filename: string; contentType?: string; prefix?: string }): Promise<AssetSignResponse> {
+    return this.request<AssetSignResponse>('POST', '/api/assets/sign', body);
+  }
+  async registerAsset(body: { key: string; bucket: string; url: string; contentType?: string | null; size?: number | null; originalName?: string | null }): Promise<AssetItem> {
+    return this.request<AssetItem>('POST', '/api/assets', body);
+  }
+  async deleteAsset(id: string): Promise<void> {
+    return this.request<void>('DELETE', `/api/assets/${id}`);
+  }
+  async getS3Settings(): Promise<S3SettingsPublic> {
+    return this.request<S3SettingsPublic>('GET', '/api/settings/s3');
+  }
+  async saveS3Settings(body: S3SettingsInput): Promise<S3SettingsPublic> {
+    return this.request<S3SettingsPublic>('PUT', '/api/settings/s3', body);
+  }
+  async clearS3Settings(): Promise<void> {
+    return this.request<void>('DELETE', '/api/settings/s3');
   }
 
   me(): Promise<MeResponse> {

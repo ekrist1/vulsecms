@@ -10,6 +10,7 @@ import { createBlueprint, deleteBlueprint, updateBlueprint } from '../blueprints
 import type { Blueprint } from '../blueprints/types.js';
 import type { ContentService } from '../content/types.js';
 import { ConflictError, NotFoundError, ValidationError } from '../errors.js';
+import { assetRoutes } from '../assets/routes.js';
 import { toMeta } from './meta.js';
 
 export interface ApiDeps {
@@ -29,6 +30,7 @@ export function createApi({ blueprints, content, adapter, authInstance }: ApiDep
   app.route('/', meRoute(adapter));
   app.route('/', usersRoute(adapter));
   app.route('/', groupsRoute(adapter));
+  app.route('/', assetRoutes(adapter));
 
   // Mount Better Auth's handler at /api/auth/*
   app.on(['GET', 'POST'], '/api/auth/*', (c) => authInstance.auth.handler(c.req.raw));

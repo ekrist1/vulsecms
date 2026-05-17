@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { type Component, computed } from 'vue';
 import type { FieldMeta } from '../api/client.js';
+import AssetField from './fields/AssetField.vue';
 import BlocksField from './fields/BlocksField.vue';
 import BooleanField from './fields/BooleanField.vue';
 import DateField from './fields/DateField.vue';
@@ -45,6 +46,8 @@ const component = computed<Component>(() => {
       return ReplicatorField as Component;
     case 'relationship':
       return RelationshipField as Component;
+    case 'asset':
+      return AssetField as Component;
   }
 });
 </script>
