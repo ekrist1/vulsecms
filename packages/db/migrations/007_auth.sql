@@ -72,3 +72,5 @@ CREATE TABLE group_permissions (
 
 CREATE INDEX idx_user_groups_user ON user_groups(user_id);
 CREATE INDEX idx_group_permissions_group ON group_permissions(group_id);
+CREATE INDEX idx_sessions_user_id ON sessions(user_id);
+CREATE INDEX idx_accounts_user_id ON accounts(user_id);
