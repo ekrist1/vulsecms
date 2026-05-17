@@ -49,16 +49,23 @@ export async function seedSuperUser(opts: BootstrapOptions): Promise<BootstrapRe
   const accountId = ulid();
   const hashed = await hashPassword(password);
 
-  await opts.adapter.exec(
-    `INSERT INTO users (id, email, email_verified, name, role, is_super, created_at, updated_at)
-     VALUES (?, ?, 0, NULL, 'editor', 1, datetime('now'), datetime('now'))`,
-    [userId, email],
-  );
-  await opts.adapter.exec(
-    `INSERT INTO accounts (id, user_id, account_id, provider_id, password, created_at, updated_at)
-     VALUES (?, ?, ?, 'credential', ?, datetime('now'), datetime('now'))`,
-    [accountId, userId, email, hashed],
-  );
+  await opts.adapter.exec('BEGIN');
+  try {
+    await opts.adapter.exec(
+      `INSERT INTO users (id, email, email_verified, name, role, is_super, created_at, updated_at)
+       VALUES (?, ?, 0, NULL, 'editor', 1, datetime('now'), datetime('now'))`,
+      [userId, email],
+    );
+    await opts.adapter.exec(
+      `INSERT INTO accounts (id, user_id, account_id, provider_id, password, created_at, updated_at)
+       VALUES (?, ?, ?, 'credential', ?, datetime('now'), datetime('now'))`,
+      [accountId, userId, email, hashed],
+    );
+    await opts.adapter.exec('COMMIT');
+  } catch (err) {
+    await opts.adapter.exec('ROLLBACK');
+    throw err;
+  }
 
   if (generated) {
     process.stdout.write(
