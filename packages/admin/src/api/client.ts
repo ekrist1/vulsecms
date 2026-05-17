@@ -1,8 +1,33 @@
-export interface FieldUi {
-  kind: 'text' | 'textarea' | 'blocks' | 'date' | 'boolean' | 'select' | 'relationship';
-  options?: readonly string[];
-  to?: string;
+export type NonReplicatorFieldUi =
+  | { kind: 'text' }
+  | { kind: 'textarea' }
+  | { kind: 'blocks' }
+  | { kind: 'date' }
+  | { kind: 'boolean' }
+  | { kind: 'select'; options: readonly string[] }
+  | { kind: 'relationship'; to: string };
+
+export interface NestedFieldDefinition {
+  name: string;
+  label?: string;
+  ui: NonReplicatorFieldUi;
+  optional: boolean;
+  default?: unknown;
+  validation?: { min?: number; max?: number };
 }
+
+export interface ReplicatorSetDefinition {
+  name: string;
+  label?: string;
+  fields: NestedFieldDefinition[];
+}
+
+export type FieldUi =
+  | NonReplicatorFieldUi
+  | {
+      kind: 'replicator';
+      sets: ReplicatorSetDefinition[];
+    };
 
 export interface FieldDefinition {
   name: string;
@@ -40,10 +65,49 @@ export interface Entry {
   updatedAt: string;
 }
 
+export interface EntryListQuery {
+  limit?: number;
+  offset?: number;
+  q?: string;
+  field?: string;
+}
+
+export interface EntryListResponse {
+  items: Entry[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
 export interface ApiError {
   error: string;
   issues?: Array<{ path: (string | number)[]; message: string }>;
   message?: string;
+}
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  name: string | null;
+  role: 'editor' | 'external_user';
+  isSuper: boolean;
+}
+
+export interface MeResponse {
+  user: AuthUser | null;
+  perms: Record<string, ('read' | 'create' | 'update' | 'delete')[]>;
+}
+
+function normalizeEntryList(data: Entry[] | EntryListResponse): EntryListResponse {
+  if (Array.isArray(data)) {
+    return {
+      items: data,
+      total: data.length,
+      limit: data.length,
+      offset: 0,
+    };
+  }
+  return data;
 }
 
 class ApiClient {
@@ -52,8 +116,20 @@ class ApiClient {
   async meta(): Promise<BlueprintMeta[]> {
     return this.request<BlueprintMeta[]>('GET', '/api/_meta/collections');
   }
-  list(handle: string): Promise<Entry[]> {
-    return this.request<Entry[]>('GET', `/api/collections/${handle}`);
+  list(handle: string, query: EntryListQuery = {}): Promise<EntryListResponse> {
+    const params = new URLSearchParams();
+    if (query.limit !== undefined) params.set('limit', String(query.limit));
+    if (query.offset !== undefined) params.set('offset', String(query.offset));
+    if (query.q) params.set('q', query.q);
+    if (query.field) params.set('field', query.field);
+    const suffix = params.size > 0 ? `?${params.toString()}` : '';
+    return this.request<Entry[] | EntryListResponse>('GET', `/api/collections/${handle}${suffix}`).then(
+      normalizeEntryList,
+    );
+  }
+  async listAll(handle: string, limit = 500): Promise<Entry[]> {
+    const result = await this.list(handle, { limit, offset: 0 });
+    return result.items;
   }
   get(handle: string, id: string): Promise<Entry> {
     return this.request<Entry>('GET', `/api/collections/${handle}/${id}`);
@@ -84,8 +160,27 @@ class ApiClient {
     return this.request<void>('DELETE', `/api/blueprints/${handle}`);
   }
 
+  me(): Promise<MeResponse> {
+    return this.request<MeResponse>('GET', '/api/auth/me');
+  }
+  login(email: string, password: string): Promise<void> {
+    return this.request<void>('POST', '/api/auth/sign-in/email', { email, password });
+  }
+  logout(): Promise<void> {
+    return this.request<void>('POST', '/api/auth/sign-out');
+  }
+  forgotPassword(email: string): Promise<void> {
+    return this.request<void>('POST', '/api/auth/forget-password', {
+      email,
+      redirectTo: `${location.origin}/reset-password`,
+    });
+  }
+  resetPassword(token: string, newPassword: string): Promise<void> {
+    return this.request<void>('POST', '/api/auth/reset-password', { token, newPassword });
+  }
+
   private async request<T>(method: string, path: string, body?: unknown): Promise<T> {
-    const init: RequestInit = { method };
+    const init: RequestInit = { method, credentials: 'include' };
     if (body !== undefined) {
       init.headers = { 'content-type': 'application/json' };
       init.body = JSON.stringify(body);
