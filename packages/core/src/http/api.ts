@@ -1,4 +1,4 @@
-import { sessionMiddleware, meRoute, type AuthInstance, type AuthVars } from '@vulse/auth';
+import { sessionMiddleware, meRoute, requirePerm, requireSuper, type AuthInstance, type AuthVars } from '@vulse/auth';
 import type { DatabaseAdapter } from '@vulse/db';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
@@ -44,7 +44,7 @@ export function createApi({ blueprints, content, adapter, authInstance }: ApiDep
 
   // ---- Content routes (wildcard so admin mutations are reflected immediately) ----
 
-  app.get('/api/collections/:handle', async (c) => {
+  app.get('/api/collections/:handle', requirePerm({ action: 'read', adapter }), async (c) => {
     const handle = c.req.param('handle');
     if (!blueprints.has(handle)) throw new NotFoundError(`unknown collection: ${handle}`);
     const limit = Number(c.req.query('limit') ?? '100');
@@ -61,7 +61,7 @@ export function createApi({ blueprints, content, adapter, authInstance }: ApiDep
     );
   });
 
-  app.get('/api/collections/:handle/:id', async (c) => {
+  app.get('/api/collections/:handle/:id', requirePerm({ action: 'read', adapter }), async (c) => {
     const handle = c.req.param('handle');
     if (!blueprints.has(handle)) throw new NotFoundError(`unknown collection: ${handle}`);
     const entry = await content.get(handle, c.req.param('id'));
@@ -69,7 +69,7 @@ export function createApi({ blueprints, content, adapter, authInstance }: ApiDep
     return c.json(entry);
   });
 
-  app.post('/api/collections/:handle', async (c) => {
+  app.post('/api/collections/:handle', requirePerm({ action: 'create', adapter }), async (c) => {
     const handle = c.req.param('handle');
     if (!blueprints.has(handle)) throw new NotFoundError(`unknown collection: ${handle}`);
     const input = await c.req.json();
@@ -77,7 +77,7 @@ export function createApi({ blueprints, content, adapter, authInstance }: ApiDep
     return c.json(entry, 201);
   });
 
-  app.patch('/api/collections/:handle/:id', async (c) => {
+  app.patch('/api/collections/:handle/:id', requirePerm({ action: 'update', adapter }), async (c) => {
     const handle = c.req.param('handle');
     if (!blueprints.has(handle)) throw new NotFoundError(`unknown collection: ${handle}`);
     const input = await c.req.json();
@@ -85,7 +85,7 @@ export function createApi({ blueprints, content, adapter, authInstance }: ApiDep
     return c.json(entry);
   });
 
-  app.delete('/api/collections/:handle/:id', async (c) => {
+  app.delete('/api/collections/:handle/:id', requirePerm({ action: 'delete', adapter }), async (c) => {
     const handle = c.req.param('handle');
     if (!blueprints.has(handle)) throw new NotFoundError(`unknown collection: ${handle}`);
     await content.delete(handle, c.req.param('id'));
@@ -95,6 +95,7 @@ export function createApi({ blueprints, content, adapter, authInstance }: ApiDep
   // ---- Blueprint routes ----
 
   app.get('/api/blueprints', async (c) => {
+    if (!c.get('user')) return c.json({ error: 'auth_required' }, 401);
     const rows = await adapter.query<{ definition: string | null }>(
       'SELECT definition FROM collections WHERE definition IS NOT NULL ORDER BY created_at ASC',
     );
@@ -102,6 +103,7 @@ export function createApi({ blueprints, content, adapter, authInstance }: ApiDep
   });
 
   app.get('/api/blueprints/:handle', async (c) => {
+    if (!c.get('user')) return c.json({ error: 'auth_required' }, 401);
     const row = await adapter.queryOne<{ definition: string | null }>(
       'SELECT definition FROM collections WHERE handle = ?',
       [c.req.param('handle')],
@@ -110,7 +112,7 @@ export function createApi({ blueprints, content, adapter, authInstance }: ApiDep
     return c.json(JSON.parse(row.definition));
   });
 
-  app.post('/api/blueprints', async (c) => {
+  app.post('/api/blueprints', requireSuper(), async (c) => {
     const body = await c.req.json();
     const parsed = BlueprintDefinitionSchema.safeParse(body);
     if (!parsed.success) throw new ValidationError(parsed.error.issues);
@@ -118,7 +120,7 @@ export function createApi({ blueprints, content, adapter, authInstance }: ApiDep
     return c.json(out, 201);
   });
 
-  app.patch('/api/blueprints/:handle', async (c) => {
+  app.patch('/api/blueprints/:handle', requireSuper(), async (c) => {
     const body = await c.req.json();
     const parsed = BlueprintDefinitionWithRenamesSchema.safeParse(body);
     if (!parsed.success) throw new ValidationError(parsed.error.issues);
@@ -126,12 +128,15 @@ export function createApi({ blueprints, content, adapter, authInstance }: ApiDep
     return c.json(out);
   });
 
-  app.delete('/api/blueprints/:handle', async (c) => {
+  app.delete('/api/blueprints/:handle', requireSuper(), async (c) => {
     await deleteBlueprint(adapter, c.req.param('handle'));
     return c.body(null, 204);
   });
 
-  app.get('/api/_meta/collections', (c) => c.json([...blueprints.values()].map(toMeta)));
+  app.get('/api/_meta/collections', (c) => {
+    if (!c.get('user')) return c.json({ error: 'auth_required' }, 401);
+    return c.json([...blueprints.values()].map(toMeta));
+  });
 
   return app;
 }

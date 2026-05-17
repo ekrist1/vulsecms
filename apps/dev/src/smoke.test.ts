@@ -8,11 +8,15 @@ const root = resolve(__dirname, '..');
 
 let server: ViteDevServer;
 let base: string;
+let superCookie: string;
 
 beforeAll(async () => {
   // Isolated in-memory DB so the smoke test never collides with a running
   // `pnpm dev` (which would otherwise hit SQLITE_READONLY_DBMOVED on writes).
   process.env.VULSE_DB_URL = ':memory:';
+  // Provide known bootstrap credentials so we can sign in during the test.
+  process.env.VULSE_BOOTSTRAP_EMAIL = 'admin@vulse.local';
+  process.env.VULSE_BOOTSTRAP_PASSWORD = 'smoke-test-pw-12345';
   server = await createServer({
     configFile: resolve(root, 'vite.config.ts'),
     root,
@@ -22,6 +26,17 @@ beforeAll(async () => {
   const address = server.httpServer?.address();
   const port = typeof address === 'object' && address ? address.port : 0;
   base = `http://127.0.0.1:${port}`;
+
+  // Sign in as the bootstrap super user so collection/blueprint routes pass auth.
+  const signin = await fetch(`${base}/api/auth/sign-in/email`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      email: 'admin@vulse.local',
+      password: 'smoke-test-pw-12345',
+    }),
+  });
+  superCookie = signin.headers.get('set-cookie') ?? '';
 });
 
 afterAll(async () => {
@@ -30,7 +45,9 @@ afterAll(async () => {
 
 describe('apps/dev smoke', () => {
   it('serves /api/_meta/collections with both fixture blueprints', async () => {
-    const res = await fetch(`${base}/api/_meta/collections`);
+    const res = await fetch(`${base}/api/_meta/collections`, {
+      headers: { cookie: superCookie },
+    });
     expect(res.status).toBe(200);
     const body = (await res.json()) as { handle: string }[];
     expect(body.map((b) => b.handle).sort()).toEqual(['authors', 'posts']);
@@ -39,7 +56,7 @@ describe('apps/dev smoke', () => {
   it('round-trips a POST + GET against /api/collections/posts', async () => {
     const created = await fetch(`${base}/api/collections/posts`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', cookie: superCookie },
       body: JSON.stringify({
         title: 'Hello',
         slug: 'hello',
@@ -50,7 +67,9 @@ describe('apps/dev smoke', () => {
     expect(created.status).toBe(201);
     const entry = (await created.json()) as { id: string };
 
-    const got = await fetch(`${base}/api/collections/posts/${entry.id}`);
+    const got = await fetch(`${base}/api/collections/posts/${entry.id}`, {
+      headers: { cookie: superCookie },
+    });
     expect(got.status).toBe(200);
     const back = (await got.json()) as { id: string; content: { title: string } };
     expect(back.id).toBe(entry.id);
@@ -59,7 +78,9 @@ describe('apps/dev smoke', () => {
 
   it('renames a field on a blueprint and reflects it in /api/_meta/collections', async () => {
     // Read the current Posts definition
-    const getRes = await fetch(`${base}/api/blueprints/posts`);
+    const getRes = await fetch(`${base}/api/blueprints/posts`, {
+      headers: { cookie: superCookie },
+    });
     expect(getRes.status).toBe(200);
     const current = (await getRes.json()) as {
       handle: string;
@@ -79,13 +100,15 @@ describe('apps/dev smoke', () => {
     };
     const patchRes = await fetch(`${base}/api/blueprints/posts`, {
       method: 'PATCH',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', cookie: superCookie },
       body: JSON.stringify(renamed),
     });
     expect(patchRes.status).toBe(200);
 
     // The content meta must reflect the new field name on the next request.
-    const metaRes = await fetch(`${base}/api/_meta/collections`);
+    const metaRes = await fetch(`${base}/api/_meta/collections`, {
+      headers: { cookie: superCookie },
+    });
     const meta = (await metaRes.json()) as { handle: string; fields: { name: string }[] }[];
     const posts = meta.find((m) => m.handle === 'posts')!;
     expect(posts.fields.map((f) => f.name)).toContain('headline');
@@ -94,7 +117,7 @@ describe('apps/dev smoke', () => {
     // Posting content with the new field name succeeds.
     const created = await fetch(`${base}/api/collections/posts`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', cookie: superCookie },
       body: JSON.stringify({
         headline: 'After Rename',
         slug: 'after',
