@@ -1,3 +1,4 @@
+import { createAuth, seedSuperUser } from '@vulse/auth';
 import { LibsqlAdapter, MIGRATIONS_DIR, runMigrations } from '@vulse/db';
 import type { Plugin, ViteDevServer } from 'vite';
 import { loadBlueprints } from '../blueprints/load.js';
@@ -13,6 +14,7 @@ export interface VulseDevOptions {
 
 export function vulseDevPlugin(opts: VulseDevOptions): Plugin {
   let adapter: LibsqlAdapter | null = null;
+  let authInstance: ReturnType<typeof createAuth> | null = null;
 
   return {
     name: 'vulse:dev',
@@ -24,10 +26,29 @@ export function vulseDevPlugin(opts: VulseDevOptions): Plugin {
       await runMigrations(adapter, MIGRATIONS_DIR);
       await seedBlueprintsFromCode({ adapter, dir: opts.blueprintsDir });
 
+      const dbUrl = typeof opts.database === 'string'
+        ? opts.database
+        : (opts.database.url ?? ':memory:');
+      authInstance = createAuth({
+        libsqlUrl: dbUrl,
+        env: {
+          authSecret: process.env.VULSE_AUTH_SECRET ?? 'dev-insecure-secret-do-not-use-in-prod',
+          baseUrl: process.env.VULSE_AUTH_BASE_URL ?? 'http://localhost:5173',
+          allowPublicSignup: (process.env.VULSE_ALLOW_PUBLIC_SIGNUP ?? 'true') !== 'false',
+          smtpUrl: process.env.VULSE_SMTP_URL,
+        },
+      });
+      await seedSuperUser({
+        adapter,
+        bootstrapEmail: process.env.VULSE_BOOTSTRAP_EMAIL,
+        bootstrapPassword: process.env.VULSE_BOOTSTRAP_PASSWORD,
+        isProd: false,
+      });
+
       async function build() {
         const blueprints = await loadBlueprints({ adapter: adapter! });
         const content = createContentService(adapter!, blueprints);
-        return createApi({ blueprints, content, adapter: adapter! });
+        return createApi({ blueprints, content, adapter: adapter!, authInstance: authInstance! });
       }
 
       let app = await build();
@@ -67,6 +88,7 @@ export function vulseDevPlugin(opts: VulseDevOptions): Plugin {
     },
 
     async closeBundle() {
+      authInstance?.close();
       await adapter?.close();
     },
   };

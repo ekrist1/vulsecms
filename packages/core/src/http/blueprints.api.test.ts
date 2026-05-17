@@ -1,5 +1,6 @@
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createAuth } from '@vulse/auth';
 import { LibsqlAdapter, MIGRATIONS_DIR, runMigrations } from '@vulse/db';
 import { describe, expect, it } from 'vitest';
 import { loadBlueprints } from '../blueprints/load.js';
@@ -16,39 +17,46 @@ async function setup() {
   await seedBlueprintsFromCode({ adapter: db, dir: fixturesDir });
   const blueprints = await loadBlueprints({ adapter: db });
   const content = createContentService(db, blueprints);
-  const app = createApi({ blueprints, content, adapter: db });
-  return { db, app };
+  const authInstance = createAuth({
+    libsqlUrl: ':memory:',
+    env: { authSecret: 'x', baseUrl: 'http://x', allowPublicSignup: true, smtpUrl: undefined },
+  });
+  const app = createApi({ blueprints, content, adapter: db, authInstance });
+  return { db, app, authInstance };
 }
 
 describe('blueprints API', () => {
   it('lists seeded blueprints', async () => {
-    const { app, db } = await setup();
+    const { app, db, authInstance } = await setup();
     const res = await app.request('http://x/api/blueprints');
     expect(res.status).toBe(200);
     const body = (await res.json()) as { handle: string }[];
     expect(body.map((b) => b.handle).sort()).toEqual(['authors', 'posts']);
+    authInstance.close();
     await db.close();
   });
 
   it('GET /api/blueprints/:handle returns the definition', async () => {
-    const { app, db } = await setup();
+    const { app, db, authInstance } = await setup();
     const res = await app.request('http://x/api/blueprints/posts');
     expect(res.status).toBe(200);
     const body = (await res.json()) as { handle: string; fields: { name: string }[] };
     expect(body.handle).toBe('posts');
     expect(body.fields.find((f) => f.name === 'title')).toBeDefined();
+    authInstance.close();
     await db.close();
   });
 
   it('GET /api/blueprints/:handle returns 404 for unknown handle', async () => {
-    const { app, db } = await setup();
+    const { app, db, authInstance } = await setup();
     const res = await app.request('http://x/api/blueprints/ghost');
     expect(res.status).toBe(404);
+    authInstance.close();
     await db.close();
   });
 
   it('POST creates a new blueprint', async () => {
-    const { app, db } = await setup();
+    const { app, db, authInstance } = await setup();
     const res = await app.request('http://x/api/blueprints', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -62,11 +70,12 @@ describe('blueprints API', () => {
     expect(res.status).toBe(201);
     const body = (await res.json()) as { handle: string };
     expect(body.handle).toBe('pages');
+    authInstance.close();
     await db.close();
   });
 
   it('POST returns 422 on validation failure', async () => {
-    const { app, db } = await setup();
+    const { app, db, authInstance } = await setup();
     const res = await app.request('http://x/api/blueprints', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -80,11 +89,12 @@ describe('blueprints API', () => {
     expect(res.status).toBe(422);
     const body = await res.json();
     expect(body.error).toBe('validation');
+    authInstance.close();
     await db.close();
   });
 
   it('PATCH updates a blueprint and applies a rename', async () => {
-    const { app, db } = await setup();
+    const { app, db, authInstance } = await setup();
     await db.exec(
       'INSERT INTO entries (id, collection_handle, content) VALUES (\'e1\', \'posts\', \'{"title":"Hello","body":[]}\')',
     );
@@ -106,13 +116,15 @@ describe('blueprints API', () => {
       "SELECT content FROM entries WHERE id = 'e1'",
     );
     expect(JSON.parse(row!.content).headline).toBe('Hello');
+    authInstance.close();
     await db.close();
   });
 
   it('DELETE removes a blueprint', async () => {
-    const { app, db } = await setup();
+    const { app, db, authInstance } = await setup();
     const res = await app.request('http://x/api/blueprints/authors', { method: 'DELETE' });
     expect(res.status).toBe(204);
+    authInstance.close();
     await db.close();
   });
 });

@@ -1,3 +1,4 @@
+import { sessionMiddleware, meRoute, type AuthInstance, type AuthVars } from '@vulse/auth';
 import type { DatabaseAdapter } from '@vulse/db';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
@@ -15,11 +16,19 @@ export interface ApiDeps {
   blueprints: Map<string, Blueprint>;
   content: ContentService;
   adapter: DatabaseAdapter;
+  authInstance: AuthInstance;
 }
 
-export function createApi({ blueprints, content, adapter }: ApiDeps): Hono {
-  const app = new Hono();
-  app.use('*', cors());
+export function createApi({ blueprints, content, adapter, authInstance }: ApiDeps): Hono<{ Variables: AuthVars }> {
+  const app = new Hono<{ Variables: AuthVars }>();
+  app.use('*', cors({ origin: (origin) => origin ?? '*', credentials: true }));
+  app.use('*', sessionMiddleware(authInstance));
+
+  // Mount Better Auth's handler at /api/auth/*
+  app.on(['GET', 'POST'], '/api/auth/*', (c) => authInstance.auth.handler(c.req.raw));
+
+  // Mount our /api/auth/me sub-app
+  app.route('/', meRoute());
 
   app.onError((err, c) => {
     if (err instanceof ValidationError) {
@@ -39,7 +48,16 @@ export function createApi({ blueprints, content, adapter }: ApiDeps): Hono {
     if (!blueprints.has(handle)) throw new NotFoundError(`unknown collection: ${handle}`);
     const limit = Number(c.req.query('limit') ?? '100');
     const offset = Number(c.req.query('offset') ?? '0');
-    return c.json(await content.list(handle, { limit, offset }));
+    const q = c.req.query('q') ?? undefined;
+    const field = c.req.query('field') ?? undefined;
+    return c.json(
+      await content.list(handle, {
+        limit,
+        offset,
+        ...(q ? { q } : {}),
+        ...(field ? { field } : {}),
+      }),
+    );
   });
 
   app.get('/api/collections/:handle/:id', async (c) => {

@@ -15,6 +15,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@vulse/auth": "workspace:*",
     "@vulse/db": "workspace:*",
     "hono": "^4.6.0",
     "ulid": "^2.3.0",

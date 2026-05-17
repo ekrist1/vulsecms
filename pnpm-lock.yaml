@@ -26,6 +26,9 @@ importers:
       '@vulse/admin':
         specifier: workspace:*
         version: link:../../packages/admin
+      '@vulse/auth':
+        specifier: workspace:*
+        version: link:../../packages/auth
       '@vulse/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -173,6 +176,9 @@ importers:
 
   packages/core:
     dependencies:
+      '@vulse/auth':
+        specifier: workspace:*
+        version: link:../auth
       '@vulse/db':
         specifier: workspace:*
         version: link:../db
@@ -2952,14 +2958,6 @@ snapshots:
       chai: 5.3.3
       tinyrainbow: 1.2.0
 
-  '@vitest/mocker@2.1.9(vite@5.4.21(@types/node@22.19.19)(lightningcss@1.32.0))':
-    dependencies:
-      '@vitest/spy': 2.1.9
-      estree-walker: 3.0.3
-      magic-string: 0.30.21
-    optionalDependencies:
-      vite: 5.4.21(@types/node@22.19.19)(lightningcss@1.32.0)
-
   '@vitest/mocker@2.1.9(vite@5.4.21(@types/node@25.8.0)(lightningcss@1.32.0))':
     dependencies:
       '@vitest/spy': 2.1.9
@@ -3972,7 +3970,7 @@ snapshots:
   vitest@2.1.9(@types/node@22.19.19)(jsdom@25.0.1)(lightningcss@1.32.0):
     dependencies:
       '@vitest/expect': 2.1.9
-      '@vitest/mocker': 2.1.9(vite@5.4.21(@types/node@22.19.19)(lightningcss@1.32.0))
+      '@vitest/mocker': 2.1.9(vite@5.4.21(@types/node@25.8.0)(lightningcss@1.32.0))
       '@vitest/pretty-format': 2.1.9
       '@vitest/runner': 2.1.9
       '@vitest/snapshot': 2.1.9
