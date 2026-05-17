@@ -1,4 +1,6 @@
 import { Node, mergeAttributes } from '@tiptap/core';
+import { VueNodeViewRenderer } from '@tiptap/vue-3';
+import VulseCalloutNodeView from './VulseCalloutNodeView.vue';
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
@@ -30,6 +32,10 @@ export const VulseCalloutExtension = Node.create({
 
   renderHTML({ HTMLAttributes }) {
     return ['aside', mergeAttributes(HTMLAttributes, { 'data-vulse-callout': '' }), 0];
+  },
+
+  addNodeView() {
+    return VueNodeViewRenderer(VulseCalloutNodeView);
   },
 
   addCommands() {

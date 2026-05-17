@@ -4,11 +4,13 @@ import Node from '../Node.vue';
 import type { BlockNode } from '../types.js';
 
 const props = defineProps<{ node: BlockNode }>();
-const tone = computed(() => (props.node.attrs?.tone as string | undefined) ?? 'info');
+const summary = computed(() => String(props.node.attrs?.summary ?? 'Accordion'));
+const open = computed(() => Boolean(props.node.attrs?.open));
 </script>
 
 <template>
-  <aside data-vulse-callout :data-tone="tone">
+  <details data-vulse-accordion :open="open || undefined">
+    <summary>{{ summary }}</summary>
     <Node v-for="(child, i) in node.content ?? []" :key="i" :node="child" />
-  </aside>
+  </details>
 </template>

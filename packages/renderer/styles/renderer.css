@@ -32,20 +32,3 @@
   color: #2563eb;
   text-decoration: underline;
 }
-
-.vulse-callout {
-  border-radius: 8px;
-  padding: 0.75em 1em;
-  margin: 1em 0;
-  border: 1px solid;
-}
-.vulse-callout--info {
-  background: #eff6ff;
-  border-color: #bfdbfe;
-  color: #1e3a8a;
-}
-.vulse-callout--warn {
-  background: #fff7ed;
-  border-color: #fed7aa;
-  color: #9a3412;
-}

@@ -1,6 +1,7 @@
 <script lang="ts">
 import { type PropType, defineComponent, h } from 'vue';
 import type { BlockMark, BlockNode } from '../types.js';
+import { sanitizeLinkHref } from '../url.js';
 
 const markTag: Record<string, string> = {
   bold: 'strong',
@@ -19,8 +20,8 @@ export default defineComponent({
       let acc: ReturnType<typeof h> | string = props.node.text ?? '';
       for (const mark of marks) {
         if (mark.type === 'link') {
-          const href = (mark.attrs?.href as string) ?? '#';
-          acc = h('a', { class: 'vulse-link', href }, acc);
+          const href = sanitizeLinkHref(mark.attrs?.href);
+          if (href) acc = h('a', { class: 'vulse-link', href }, acc);
         } else if (markTag[mark.type]) {
           acc = h(markTag[mark.type]!, acc);
         }
