@@ -42,7 +42,7 @@ watch(schemaOpen, (v) => {
 
 <template>
   <div class="flex h-full">
-    <aside class="w-[var(--vulse-sidebar-width)] border-r border-zinc-200 bg-white">
+    <aside v-if="auth.user" class="w-[var(--vulse-sidebar-width)] border-r border-zinc-200 bg-white">
       <div class="px-4 py-3 font-semibold tracking-tight">
         <img class="inline-block h-8 w-8" :src="logoUrl" alt="Logo" />
         Vulse
