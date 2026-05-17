@@ -83,7 +83,7 @@ function compileReplicatorField(sets: ReplicatorSetDefinition[]): z.ZodTypeAny {
   return z.array(z.discriminatedUnion('set', [first!, second!, ...rest]));
 }
 
-function compileFieldObject(fields: NestedFieldDefinition[]): z.ZodObject<z.ZodRawShape> {
+export function compileFieldObject(fields: NestedFieldDefinition[]): z.ZodObject<z.ZodRawShape> {
   const shape: Record<string, z.ZodTypeAny> = {};
   for (const field of fields) {
     shape[field.name] = compileFieldBase(field, false);
