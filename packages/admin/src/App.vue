@@ -103,6 +103,24 @@ watch(schemaOpen, (v) => {
             + New collection
           </RouterLink>
         </div>
+        <RouterLink
+          v-if="auth.user?.isSuper"
+          to="/settings/users"
+          class="block rounded px-2 py-1.5 text-sm hover:bg-zinc-100"
+          active-class="bg-zinc-100 font-medium"
+          data-testid="settings-users-link"
+        >
+          Users
+        </RouterLink>
+        <RouterLink
+          v-if="auth.user?.isSuper"
+          to="/settings/groups"
+          class="block rounded px-2 py-1.5 text-sm hover:bg-zinc-100"
+          active-class="bg-zinc-100 font-medium"
+          data-testid="settings-groups-link"
+        >
+          Groups
+        </RouterLink>
       </nav>
     </aside>
     <main class="flex-1 overflow-auto">

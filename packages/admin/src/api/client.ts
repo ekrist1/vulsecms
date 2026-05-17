@@ -98,6 +98,31 @@ export interface MeResponse {
   perms: Record<string, ('read' | 'create' | 'update' | 'delete')[]>;
 }
 
+export interface UserDTO {
+  id: string;
+  email: string;
+  name: string | null;
+  role: 'editor' | 'external_user';
+  isSuper: boolean;
+  createdAt: string;
+  updatedAt: string;
+  groupIds: string[];
+}
+
+export interface GroupDTO {
+  id: string;
+  handle: string;
+  label: string;
+  createdAt: string;
+  permissions: {
+    collectionHandle: string;
+    canRead: boolean;
+    canCreate: boolean;
+    canUpdate: boolean;
+    canDelete: boolean;
+  }[];
+}
+
 function normalizeEntryList(data: Entry[] | EntryListResponse): EntryListResponse {
   if (Array.isArray(data)) {
     return {
@@ -158,6 +183,39 @@ class ApiClient {
   }
   deleteBlueprint(handle: string): Promise<void> {
     return this.request<void>('DELETE', `/api/blueprints/${handle}`);
+  }
+
+  async listUsers(opts?: { role?: string; limit?: number; offset?: number }) {
+    const qs = new URLSearchParams();
+    if (opts?.role) qs.set('role', opts.role);
+    qs.set('limit', String(opts?.limit ?? 50));
+    qs.set('offset', String(opts?.offset ?? 0));
+    return this.request<{ items: UserDTO[]; total: number; limit: number; offset: number }>('GET', `/api/users?${qs}`);
+  }
+  async getUser(id: string) { return this.request<UserDTO>('GET', `/api/users/${id}`); }
+  async createUser(body: { email: string; password: string; name?: string | null; role: 'editor' | 'external_user'; isSuper: boolean; groupIds?: string[] }) {
+    return this.request<UserDTO>('POST', '/api/users', body);
+  }
+  async updateUser(id: string, body: Partial<{ name: string | null; role: 'editor' | 'external_user'; isSuper: boolean; groupIds: string[] }>) {
+    return this.request<UserDTO>('PATCH', `/api/users/${id}`, body);
+  }
+  async deleteUser(id: string) {
+    return this.request<void>('DELETE', `/api/users/${id}`);
+  }
+
+  async listGroups() { return this.request<GroupDTO[]>('GET', '/api/groups'); }
+  async getGroup(handle: string) { return this.request<GroupDTO>('GET', `/api/groups/${handle}`); }
+  async createGroup(body: { handle: string; label: string }) {
+    return this.request<GroupDTO>('POST', '/api/groups', body);
+  }
+  async updateGroup(handle: string, body: { label?: string }) {
+    return this.request<GroupDTO>('PATCH', `/api/groups/${handle}`, body);
+  }
+  async setGroupPermissions(handle: string, rows: GroupDTO['permissions']) {
+    return this.request<GroupDTO>('PUT', `/api/groups/${handle}/permissions`, { rows });
+  }
+  async deleteGroup(handle: string) {
+    return this.request<void>('DELETE', `/api/groups/${handle}`);
   }
 
   me(): Promise<MeResponse> {

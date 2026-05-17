@@ -25,6 +25,12 @@ const routes: RouteRecordRaw[] = [
   { path: '/schema', component: BlueprintList, meta: { requiresAuth: true } },
   { path: '/schema/new', component: BlueprintEditor, props: () => ({ handle: null }), meta: { requiresAuth: true, requiresSuper: true } },
   { path: '/schema/:handle', component: BlueprintEditor, props: true, meta: { requiresAuth: true, requiresSuper: true } },
+  { path: '/settings/users', component: () => import('./pages/UserList.vue'), meta: { requiresAuth: true, requiresSuper: true } },
+  { path: '/settings/users/new', component: () => import('./pages/UserEditor.vue'), props: () => ({ id: null }), meta: { requiresAuth: true, requiresSuper: true } },
+  { path: '/settings/users/:id', component: () => import('./pages/UserEditor.vue'), props: true, meta: { requiresAuth: true, requiresSuper: true } },
+  { path: '/settings/groups', component: () => import('./pages/GroupList.vue'), meta: { requiresAuth: true, requiresSuper: true } },
+  { path: '/settings/groups/new', component: () => import('./pages/GroupEditor.vue'), props: () => ({ handle: null }), meta: { requiresAuth: true, requiresSuper: true } },
+  { path: '/settings/groups/:handle', component: () => import('./pages/GroupEditor.vue'), props: true, meta: { requiresAuth: true, requiresSuper: true } },
 ];
 
 export const router = createRouter({
