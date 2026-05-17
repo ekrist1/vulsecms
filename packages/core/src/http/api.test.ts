@@ -173,4 +173,69 @@ describe('createApi', () => {
     authInstance.close();
     await db.close();
   });
+
+  it('GET /api/auth/me returns perms for editor in a group', async () => {
+    const { app, db, authInstance, cookie: superCookie } = await setup();
+
+    const editorEmail = 'editor@x.com';
+    const editorPassword = 'hunter2hunter2';
+
+    // Create the editor user via the sign-up endpoint.
+    const signup = await app.request('http://x/api/auth/sign-up/email', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email: editorEmail, password: editorPassword, name: 'Editor' }),
+    });
+    expect(signup.status).toBe(200);
+
+    // Promote to editor + add to a group with read perm on posts.
+    await db.exec(`UPDATE users SET role = 'editor' WHERE email = ?`, [editorEmail]);
+    const userRow = await db.queryOne<{ id: string }>('SELECT id FROM users WHERE email = ?', [editorEmail]);
+
+    // Ensure the posts collection row exists.
+    await db.exec(
+      `INSERT OR IGNORE INTO collections (handle, blueprint_hash, definition) VALUES ('posts', '', '{"handle":"posts","label":"Posts","singleton":false,"fields":[]}')`,
+    );
+
+    // Create a group with read permission on posts.
+    const { ulid } = await import('ulid');
+    const groupId = ulid();
+    await db.exec(`INSERT INTO groups (id, handle, label) VALUES (?, 'editors', 'Editors')`, [groupId]);
+    await db.exec(`INSERT INTO user_groups (user_id, group_id) VALUES (?, ?)`, [userRow!.id, groupId]);
+    await db.exec(
+      `INSERT INTO group_permissions (group_id, collection_handle, can_read, can_create, can_update, can_delete) VALUES (?, 'posts', 1, 0, 0, 0)`,
+      [groupId],
+    );
+
+    // Sign in as the editor.
+    const signin = await app.request('http://x/api/auth/sign-in/email', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email: editorEmail, password: editorPassword }),
+    });
+    const editorCookie = signin.headers.get('set-cookie') ?? '';
+
+    // /api/auth/me should reflect the perm.
+    const me = await app.request('http://x/api/auth/me', { headers: { cookie: editorCookie } });
+    expect(me.status).toBe(200);
+    const body = (await me.json()) as { user: { email: string; role: string }; perms: Record<string, string[]> };
+    expect(body.user.email).toBe(editorEmail);
+    expect(body.user.role).toBe('editor');
+    expect(body.perms.posts).toEqual(['read']);
+
+    // Super user gets the wildcard.
+    const meSuper = await app.request('http://x/api/auth/me', { headers: { cookie: superCookie } });
+    const superBody = (await meSuper.json()) as { perms: Record<string, string[]> };
+    expect(superBody.perms['*']).toEqual(['read', 'create', 'update', 'delete']);
+
+    // Unauthenticated returns null user and empty perms.
+    const anon = await app.request('http://x/api/auth/me');
+    expect(anon.status).toBe(200);
+    const anonBody = (await anon.json()) as { user: null; perms: Record<string, never> };
+    expect(anonBody.user).toBeNull();
+    expect(anonBody.perms).toEqual({});
+
+    authInstance.close();
+    await db.close();
+  });
 });

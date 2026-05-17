@@ -26,7 +26,7 @@ export function createApi({ blueprints, content, adapter, authInstance }: ApiDep
 
   // Mount our /api/auth/me sub-app BEFORE the Better Auth wildcard handler
   // so our custom route takes precedence over Better Auth's 404 fallback.
-  app.route('/', meRoute());
+  app.route('/', meRoute(adapter));
 
   // Mount Better Auth's handler at /api/auth/*
   app.on(['GET', 'POST'], '/api/auth/*', (c) => authInstance.auth.handler(c.req.raw));
