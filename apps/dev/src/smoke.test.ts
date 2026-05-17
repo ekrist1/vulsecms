@@ -167,3 +167,45 @@ describe('auth Phase A', () => {
     expect(signout.status).toBe(200);
   });
 });
+
+describe('protected entries', () => {
+  it('anonymous cannot read a protected entry; signed-in can', async () => {
+    // Create a protected entry as super.
+    const created = await fetch(`${base}/api/collections/posts`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: superCookie },
+      body: JSON.stringify({
+        headline: 'Secret',
+        slug: 'secret',
+        body: { type: 'doc', content: [{ type: 'paragraph' }] },
+        status: 'draft',
+        protected: true,
+      }),
+    });
+    expect(created.status).toBe(201);
+    const entry = (await created.json()) as { id: string; protected: boolean };
+    expect(entry.protected).toBe(true);
+
+    // Anonymous: 401.
+    const anonRes = await fetch(`${base}/api/collections/posts/${entry.id}`);
+    expect(anonRes.status).toBe(401);
+
+    // Signed-in: 200.
+    const authedRes = await fetch(`${base}/api/collections/posts/${entry.id}`, { headers: { cookie: superCookie } });
+    expect(authedRes.status).toBe(200);
+    const body = (await authedRes.json()) as { protected: boolean; content: { headline: string } };
+    expect(body.protected).toBe(true);
+    expect(body.content.headline).toBe('Secret');
+
+    // Anonymous list omits the protected entry.
+    const listRes = await fetch(`${base}/api/collections/posts`);
+    expect(listRes.status).toBe(200);
+    const list = (await listRes.json()) as { items: { id: string }[] };
+    expect(list.items.find((e) => e.id === entry.id)).toBeUndefined();
+
+    // Signed-in list includes it.
+    const authedListRes = await fetch(`${base}/api/collections/posts`, { headers: { cookie: superCookie } });
+    const authedList = (await authedListRes.json()) as { items: { id: string }[] };
+    expect(authedList.items.find((e) => e.id === entry.id)).toBeDefined();
+  });
+});
