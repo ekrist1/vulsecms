@@ -22,6 +22,12 @@ export type { ContentService, Entry } from './content/types.js';
 export { createApi, type ApiDeps } from './http/api.js';
 export { toMeta, type BlueprintMeta } from './http/meta.js';
 export { ValidationError, NotFoundError, ConflictError } from './errors.js';
+export {
+  snapshotRevision,
+  listRevisions,
+  getRevision,
+} from './revisions/service.js';
+export type { RevisionDTO, RevisionSummary, MutationContext } from './revisions/types.js';
 export { assetRoutes } from './assets/routes.js';
 export {
   getS3Config,

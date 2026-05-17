@@ -2,6 +2,7 @@ import type { DatabaseAdapter } from '@vulse/db';
 import { ulid } from 'ulid';
 import type { Blueprint } from '../blueprints/types.js';
 import { ConflictError, NotFoundError, ValidationError } from '../errors.js';
+import { snapshotRevision } from '../revisions/service.js';
 import type { ContentService, Entry, ListEntriesOptions } from './types.js';
 
 interface EntryRow {
@@ -91,7 +92,9 @@ export function createContentService(
       for (const fieldName of searchableFields) addJsonLike(fieldName);
     }
 
-    return clauses.length > 0 ? { sql: ` AND (${clauses.join(' OR ')})`, params } : { sql: '', params: [] };
+    return clauses.length > 0
+      ? { sql: ` AND (${clauses.join(' OR ')})`, params }
+      : { sql: '', params: [] };
   }
 
   return {
@@ -132,7 +135,7 @@ export function createContentService(
       return row ? rowToEntry(row) : null;
     },
 
-    async create(handle, input) {
+    async create(handle, input, ctx) {
       const b = blueprint(handle);
       if (b.singleton) {
         const existing = await db.queryOne<{ id: string }>(
@@ -167,11 +170,12 @@ export function createContentService(
          VALUES (?, ?, ?, ?, 'published', ?, ?)`,
         [id, handle, parentId, sortOrder, isProtected, JSON.stringify(validated)],
       );
+      await snapshotRevision(db, id, validated, ctx?.actor ?? null);
       const row = await db.queryOne<EntryRow>('SELECT * FROM entries WHERE id = ?', [id]);
       return rowToEntry(row!);
     },
 
-    async update(handle, id, input) {
+    async update(handle, id, input, ctx) {
       const b = blueprint(handle);
       const existing = await db.queryOne<EntryRow>(
         'SELECT * FROM entries WHERE collection_handle = ? AND id = ?',
@@ -187,6 +191,7 @@ export function createContentService(
         params.push((input as { protected: boolean }).protected ? 1 : 0);
       }
       await db.exec(`UPDATE entries SET ${fields.join(', ')} WHERE id = ?`, [...params, id]);
+      await snapshotRevision(db, id, validated, ctx?.actor ?? null);
       const row = await db.queryOne<EntryRow>('SELECT * FROM entries WHERE id = ?', [id]);
       return rowToEntry(row!);
     },

@@ -25,10 +25,14 @@ export interface ListEntriesResult {
   offset: number;
 }
 
+export interface MutationContext {
+  actor?: { userId: string } | null;
+}
+
 export interface ContentService {
   list(handle: string, opts?: ListEntriesOptions): Promise<ListEntriesResult>;
   get(handle: string, id: string): Promise<Entry | null>;
-  create(handle: string, input: unknown): Promise<Entry>;
-  update(handle: string, id: string, input: unknown): Promise<Entry>;
+  create(handle: string, input: unknown, ctx?: MutationContext): Promise<Entry>;
+  update(handle: string, id: string, input: unknown, ctx?: MutationContext): Promise<Entry>;
   delete(handle: string, id: string): Promise<void>;
 }
