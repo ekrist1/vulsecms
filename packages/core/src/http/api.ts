@@ -1,4 +1,4 @@
-import { sessionMiddleware, meRoute, usersRoute, groupsRoute, requirePerm, requireSuper, type AuthInstance, type AuthVars } from '@vulse/auth';
+import { sessionMiddleware, meRoute, usersRoute, groupsRoute, requirePerm, requireSuper, effectivePerms, type AuthInstance, type AuthVars } from '@vulse/auth';
 import type { DatabaseAdapter } from '@vulse/db';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
@@ -46,9 +46,19 @@ export function createApi({ blueprints, content, adapter, authInstance }: ApiDep
 
   // ---- Content routes (wildcard so admin mutations are reflected immediately) ----
 
-  app.get('/api/collections/:handle', requirePerm({ action: 'read', adapter }), async (c) => {
+  app.get('/api/collections/:handle', async (c) => {
     const handle = c.req.param('handle');
     if (!blueprints.has(handle)) throw new NotFoundError(`unknown collection: ${handle}`);
+    const user = c.get('user');
+
+    // Editors (non-super) need explicit read permission on this collection.
+    if (user && user.role === 'editor' && !user.isSuper) {
+      const perms = await effectivePerms(user, adapter);
+      if (!perms.get(handle)?.has('read')) {
+        return c.json({ error: 'forbidden' }, 403);
+      }
+    }
+
     const limit = Number(c.req.query('limit') ?? '100');
     const offset = Number(c.req.query('offset') ?? '0');
     const q = c.req.query('q') ?? undefined;
@@ -59,15 +69,28 @@ export function createApi({ blueprints, content, adapter, authInstance }: ApiDep
         offset,
         ...(q ? { q } : {}),
         ...(field ? { field } : {}),
+        includeProtected: user !== null, // signed-in users see all entries
       }),
     );
   });
 
-  app.get('/api/collections/:handle/:id', requirePerm({ action: 'read', adapter }), async (c) => {
+  app.get('/api/collections/:handle/:id', async (c) => {
     const handle = c.req.param('handle');
     if (!blueprints.has(handle)) throw new NotFoundError(`unknown collection: ${handle}`);
+    const user = c.get('user');
+
+    if (user && user.role === 'editor' && !user.isSuper) {
+      const perms = await effectivePerms(user, adapter);
+      if (!perms.get(handle)?.has('read')) {
+        return c.json({ error: 'forbidden' }, 403);
+      }
+    }
+
     const entry = await content.get(handle, c.req.param('id'));
     if (!entry) throw new NotFoundError('entry not found');
+    if (entry.protected && !user) {
+      return c.json({ error: 'auth_required' }, 401);
+    }
     return c.json(entry);
   });
 

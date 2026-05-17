@@ -4,6 +4,7 @@ export interface Entry {
   parentId: string | null;
   sortOrder: number;
   status: string;
+  protected: boolean;
   content: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
@@ -14,6 +15,7 @@ export interface ListEntriesOptions {
   offset?: number;
   q?: string;
   field?: string;
+  includeProtected?: boolean;
 }
 
 export interface ListEntriesResult {

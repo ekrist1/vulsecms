@@ -158,10 +158,13 @@ describe('createApi', () => {
     await db.close();
   });
 
-  it('returns 401 on unauthenticated access to collection routes', async () => {
+  it('returns 200 with filtered (unprotected) entries for anonymous access to collection list', async () => {
     const { app, db, authInstance } = await setup();
     const res = await app.request('http://x/api/collections/posts');
-    expect(res.status).toBe(401);
+    // Anonymous reads are now allowed; protected entries are filtered out.
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { items: unknown[] };
+    expect(Array.isArray(body.items)).toBe(true);
     authInstance.close();
     await db.close();
   });

@@ -10,6 +10,7 @@ interface EntryRow {
   parent_id: string | null;
   sort_order: number;
   status: string;
+  protected: number;
   content: string;
   created_at: string;
   updated_at: string;
@@ -40,6 +41,7 @@ export function createContentService(
       parentId: row.parent_id,
       sortOrder: row.sort_order,
       status: row.status,
+      protected: row.protected === 1,
       content: JSON.parse(row.content),
       createdAt: row.created_at,
       updatedAt: row.updated_at,
@@ -98,7 +100,8 @@ export function createContentService(
       const limit = Math.max(1, Math.min(opts.limit ?? 25, 500));
       const offset = Math.max(0, opts.offset ?? 0);
       const search = buildSearchSql(b, opts);
-      const whereSql = `WHERE collection_handle = ?${search.sql}`;
+      const protectedClause = opts.includeProtected ? '' : ' AND protected = 0';
+      const whereSql = `WHERE collection_handle = ?${protectedClause}${search.sql}`;
       const whereParams = [handle, ...search.params];
 
       const totalRow = await db.queryOne<{ total: number }>(
@@ -149,10 +152,11 @@ export function createContentService(
       }
 
       const sortOrder = (max?.m ?? 0) + 1;
+      const isProtected = (input as { protected?: boolean }).protected ? 1 : 0;
       await db.exec(
-        `INSERT INTO entries (id, collection_handle, parent_id, sort_order, status, content)
-         VALUES (?, ?, ?, ?, 'published', ?)`,
-        [id, handle, parentId, sortOrder, JSON.stringify(validated)],
+        `INSERT INTO entries (id, collection_handle, parent_id, sort_order, status, protected, content)
+         VALUES (?, ?, ?, ?, 'published', ?, ?)`,
+        [id, handle, parentId, sortOrder, isProtected, JSON.stringify(validated)],
       );
       const row = await db.queryOne<EntryRow>('SELECT * FROM entries WHERE id = ?', [id]);
       return rowToEntry(row!);
@@ -167,10 +171,13 @@ export function createContentService(
       if (!existing) throw new NotFoundError(`entry not found: ${id}`);
       const merged = { ...JSON.parse(existing.content), ...(input as object) };
       const validated = validate(b, merged);
-      await db.exec(`UPDATE entries SET content = ?, updated_at = datetime('now') WHERE id = ?`, [
-        JSON.stringify(validated),
-        id,
-      ]);
+      const fields: string[] = ['content = ?', `updated_at = datetime('now')`];
+      const params: unknown[] = [JSON.stringify(validated)];
+      if ('protected' in (input as object)) {
+        fields.push('protected = ?');
+        params.push((input as { protected: boolean }).protected ? 1 : 0);
+      }
+      await db.exec(`UPDATE entries SET ${fields.join(', ')} WHERE id = ?`, [...params, id]);
       const row = await db.queryOne<EntryRow>('SELECT * FROM entries WHERE id = ?', [id]);
       return rowToEntry(row!);
     },
