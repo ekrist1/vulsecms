@@ -7,11 +7,20 @@ import type {
   ReplicatorSetDefinition,
 } from './definition.js';
 import type { Blueprint } from './types.js';
+import type { CompiledSet } from '../sets/compile.js';
+import { validateSetNodes } from '../sets/validate-tree.js';
 
-export function compileBlueprint(def: BlueprintDefinition): Blueprint {
+export interface CompileBlueprintOptions {
+  sets?: Map<string, CompiledSet>;
+}
+
+export function compileBlueprint(
+  def: BlueprintDefinition,
+  options: CompileBlueprintOptions = {},
+): Blueprint {
   const shape: Record<string, z.ZodTypeAny> = {};
   for (const f of def.fields) {
-    shape[f.name] = compileField(f);
+    shape[f.name] = compileField(f, options.sets);
   }
   const schema = z.object(shape);
   return {
@@ -24,13 +33,17 @@ export function compileBlueprint(def: BlueprintDefinition): Blueprint {
   };
 }
 
-function compileField(f: FieldDefinition): z.ZodTypeAny {
-  return compileFieldBase(f, true);
+function compileField(
+  f: FieldDefinition,
+  sets: Map<string, CompiledSet> | undefined,
+): z.ZodTypeAny {
+  return compileFieldBase(f, true, sets);
 }
 
 function compileFieldBase(
   f: FieldDefinition | NestedFieldDefinition,
   allowReplicator: boolean,
+  sets: Map<string, CompiledSet> | undefined,
 ): z.ZodTypeAny {
   let s: z.ZodTypeAny = z.never();
   switch (f.ui.kind) {
@@ -51,9 +64,17 @@ function compileFieldBase(
     case 'select':
       s = z.enum(f.ui.options as [string, ...string[]]);
       break;
-    case 'blocks':
-      s = z.any();
+    case 'blocks': {
+      const declaredSets = (f.ui as { sets?: string[] }).sets;
+      if (declaredSets?.length && sets) {
+        s = z.any().superRefine((value, refinementCtx) => {
+          validateSetNodes(value, [], sets, refinementCtx);
+        });
+      } else {
+        s = z.any();
+      }
       break;
+    }
     case 'relationship':
       s = z.string();
       break;
@@ -86,7 +107,7 @@ function compileReplicatorField(sets: ReplicatorSetDefinition[]): z.ZodTypeAny {
 export function compileFieldObject(fields: NestedFieldDefinition[]): z.ZodObject<z.ZodRawShape> {
   const shape: Record<string, z.ZodTypeAny> = {};
   for (const field of fields) {
-    shape[field.name] = compileFieldBase(field, false);
+    shape[field.name] = compileFieldBase(field, false, undefined);
   }
   return z.object(shape);
 }

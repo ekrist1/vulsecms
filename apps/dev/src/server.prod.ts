@@ -61,7 +61,7 @@ await seedSuperUser({
 let sets = await loadSets({ adapter: db });
 
 async function buildApp(): Promise<Hono> {
-  const blueprints = await loadBlueprints({ adapter: db });
+  const blueprints = await loadBlueprints({ adapter: db, sets });
   const content = createContentService(db, blueprints);
   const api = createApi({
     blueprints,

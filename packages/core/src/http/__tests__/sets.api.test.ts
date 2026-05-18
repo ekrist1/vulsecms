@@ -20,8 +20,8 @@ async function setup() {
     bootstrapPassword: 'hunter2hunter2',
     isProd: false,
   });
-  const blueprints = await loadBlueprints({ adapter: db });
   const sets = await loadSets({ adapter: db });
+  const blueprints = await loadBlueprints({ adapter: db, sets });
   const content = createContentService(db, blueprints);
   const app = createApi({ blueprints, content, adapter: db, authInstance, sets });
   const signin = await app.request('http://x/api/auth/sign-in/email', {

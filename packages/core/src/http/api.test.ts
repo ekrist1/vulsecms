@@ -24,8 +24,8 @@ async function setup(seed?: (db: LibsqlAdapter) => Promise<void>) {
     isProd: false,
   });
   if (seed) await seed(db);
-  const blueprints = await loadBlueprints({ adapter: db });
   const sets = await loadSets({ adapter: db });
+  const blueprints = await loadBlueprints({ adapter: db, sets });
   const content = createContentService(db, blueprints);
   const authInstance = createAuth({
     client: db.client,

@@ -2,9 +2,11 @@ import type { DatabaseAdapter } from '@vulse/db';
 import { compileBlueprint } from './compile.js';
 import { type BlueprintDefinition, BlueprintDefinitionSchema } from './definition.js';
 import type { Blueprint } from './types.js';
+import type { CompiledSet } from '../sets/compile.js';
 
 export interface LoadOptions {
   adapter: DatabaseAdapter;
+  sets?: Map<string, CompiledSet>;
 }
 
 export async function loadBlueprints(opts: LoadOptions): Promise<Map<string, Blueprint>> {
@@ -20,7 +22,7 @@ export async function loadBlueprints(opts: LoadOptions): Promise<Map<string, Blu
     }
     const parsed = JSON.parse(row.definition);
     const def: BlueprintDefinition = BlueprintDefinitionSchema.parse(parsed);
-    map.set(def.handle, compileBlueprint(def));
+    map.set(def.handle, compileBlueprint(def, opts.sets ? { sets: opts.sets } : {}));
   }
   return map;
 }
@@ -35,5 +37,5 @@ export async function reloadBlueprint(
   );
   if (!row || !row.definition) return null;
   const def: BlueprintDefinition = BlueprintDefinitionSchema.parse(JSON.parse(row.definition));
-  return compileBlueprint(def);
+  return compileBlueprint(def, opts.sets ? { sets: opts.sets } : {});
 }

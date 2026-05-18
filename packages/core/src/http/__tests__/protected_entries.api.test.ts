@@ -23,8 +23,8 @@ describe('protected entries', () => {
     await db.exec(`INSERT INTO entries (id, collection_handle, sort_order, status, protected, content) VALUES (?, 'posts', 2, 'published', 1, ?)`, [e2, JSON.stringify({ title: 'Secret' })]);
     const authInstance = createAuth({ client: db.client, env: { authSecret: 's', baseUrl: 'http://x', allowPublicSignup: true, smtpUrl: undefined } });
     await seedSuperUser({ adapter: db, bootstrapEmail: 'admin@x.com', bootstrapPassword: 'hunter2hunter2', isProd: false });
-    const blueprints = await loadBlueprints({ adapter: db });
     const sets = await loadSets({ adapter: db });
+    const blueprints = await loadBlueprints({ adapter: db, sets });
     const content = createContentService(db, blueprints);
     app = createApi({ blueprints, content, adapter: db, authInstance, sets });
   });
