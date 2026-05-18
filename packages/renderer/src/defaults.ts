@@ -12,6 +12,7 @@ import VulseAccordion from './blocks/VulseAccordion.vue';
 import VulseAccordionGroup from './blocks/VulseAccordionGroup.vue';
 import VulseCallout from './blocks/VulseCallout.vue';
 import VulseIframe from './blocks/VulseIframe.vue';
+import VulseSet from './blocks/VulseSet.vue';
 import VulseVideo from './blocks/VulseVideo.vue';
 import type { BlockComponentMap } from './types.js';
 
@@ -31,4 +32,5 @@ export const defaultComponents: BlockComponentMap = {
   vulseAccordion: VulseAccordion,
   vulseIframe: VulseIframe,
   vulseVideo: VulseVideo,
+  vulseSet: VulseSet,
 };
