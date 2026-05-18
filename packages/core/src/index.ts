@@ -17,6 +17,11 @@ export {
   deleteBlueprint,
 } from './blueprints/mutations.js';
 export { blueprintEvents } from './events.js';
+export { SetDefinitionSchema, type SetDefinition } from './sets/definition.js';
+export { compileSet, type CompiledSet } from './sets/compile.js';
+export { loadSets, reloadSet } from './sets/load.js';
+export { createSet, listSets, getSet, updateSet, deleteSet, type SetDTO } from './sets/service.js';
+export { setsEvents, type SetsChangeEvent } from './sets/events.js';
 export { createContentService } from './content/service.js';
 export type { ContentService, Entry } from './content/types.js';
 export { createApi, type ApiDeps } from './http/api.js';

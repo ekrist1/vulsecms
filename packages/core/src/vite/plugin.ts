@@ -6,6 +6,8 @@ import { seedBlueprintsFromCode } from '../blueprints/seed.js';
 import { createContentService } from '../content/service.js';
 import { blueprintEvents } from '../events.js';
 import { createApi } from '../http/api.js';
+import { loadSets } from '../sets/load.js';
+import { setsEvents } from '../sets/events.js';
 
 export interface VulseDevOptions {
   blueprintsDir: string;
@@ -43,6 +45,8 @@ export function vulseDevPlugin(opts: VulseDevOptions): Plugin {
         isProd: false,
       });
 
+      let sets = await loadSets({ adapter });
+
       async function build() {
         const blueprints = await loadBlueprints({ adapter: adapter! });
         const content = createContentService(adapter!, blueprints);
@@ -52,6 +56,7 @@ export function vulseDevPlugin(opts: VulseDevOptions): Plugin {
           adapter: adapter!,
           authInstance: authInstance!,
           databaseSummary,
+          sets,
         });
       }
 
@@ -62,6 +67,13 @@ export function vulseDevPlugin(opts: VulseDevOptions): Plugin {
         server.ws.send({ type: 'custom', event: 'vulse:blueprints-changed' });
       };
       blueprintEvents.on('change', onChange);
+
+      const onSetsChange = async () => {
+        sets = await loadSets({ adapter: adapter! });
+        app = await build();
+        server.ws.send({ type: 'custom', event: 'vulse:sets-changed' });
+      };
+      setsEvents.on('change', onSetsChange);
 
       server.middlewares.use(async (req, res, next) => {
         if (!req.url || !req.url.startsWith('/api/')) return next();

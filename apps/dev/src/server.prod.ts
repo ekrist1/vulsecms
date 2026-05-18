@@ -8,7 +8,9 @@ import {
   createApi,
   createContentService,
   loadBlueprints,
+  loadSets,
   seedBlueprintsFromCode,
+  setsEvents,
 } from '@vulse/core';
 import {
   LibsqlAdapter,
@@ -56,6 +58,8 @@ await seedSuperUser({
   isProd: process.env.NODE_ENV === 'production',
 });
 
+let sets = await loadSets({ adapter: db });
+
 async function buildApp(): Promise<Hono> {
   const blueprints = await loadBlueprints({ adapter: db });
   const content = createContentService(db, blueprints);
@@ -65,6 +69,7 @@ async function buildApp(): Promise<Hono> {
     adapter: db,
     authInstance,
     databaseSummary: dbSummary,
+    sets,
   });
   const root = new Hono();
   root.route('/', api);
@@ -74,6 +79,10 @@ async function buildApp(): Promise<Hono> {
 
 let app = await buildApp();
 blueprintEvents.on('change', async () => {
+  app = await buildApp();
+});
+setsEvents.on('change', async () => {
+  sets = await loadSets({ adapter: db });
   app = await buildApp();
 });
 
