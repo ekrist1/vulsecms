@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import { RouterLink } from 'vue-router';
 import { type Entry, type EntryListResponse, type FieldDefinition, api } from '../api/client.js';
 import CollectionKindIcon from '../components/CollectionKindIcon.vue';
+import CollectionTree from '../components/CollectionTree.vue';
 import { useBlueprintsStore } from '../stores/blueprints.js';
 
 const props = defineProps<{ handle: string }>();
@@ -99,6 +100,7 @@ const showingStart = computed(() => (entries.value.total === 0 ? 0 : entries.val
 const showingEnd = computed(() => entries.value.offset + entries.value.items.length);
 const collectionLabel = computed(() => blueprint.value?.label ?? props.handle);
 const isSingleton = computed(() => blueprint.value?.singleton ?? false);
+const isTree = computed(() => blueprint.value?.tree === true);
 const collectionTypeLabel = computed(() =>
   isSingleton.value ? 'Singleton collection' : 'Collection',
 );
@@ -159,7 +161,9 @@ function restoreVisibleColumns(handle: string) {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) throw new Error('invalid column state');
     const allowed = new Set(columns.map((column) => column.key));
-    const next = parsed.filter((key): key is ColumnKey => typeof key === 'string' && allowed.has(key as ColumnKey));
+    const next = parsed.filter(
+      (key): key is ColumnKey => typeof key === 'string' && allowed.has(key as ColumnKey),
+    );
     visibleColumnKeys.value =
       next.length > 0 ? next : defaultVisibleColumns(columns).map((column) => column.key);
   } catch {
@@ -193,7 +197,7 @@ function toggleColumn(key: ColumnKey) {
 }
 
 function fieldNameFromColumn(column: ColumnOption): string | null {
-  return column.kind === 'field' ? column.field?.name ?? null : null;
+  return column.kind === 'field' ? (column.field?.name ?? null) : null;
 }
 
 function valueForColumn(entry: Entry, column: ColumnOption): string {
@@ -356,6 +360,9 @@ onBeforeUnmount(() => {
       </RouterLink>
     </div>
 
+    <CollectionTree v-if="isTree" :handle="handle" />
+
+    <template v-else>
     <div class="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-zinc-200 bg-white p-3">
       <label class="min-w-[16rem] flex-1">
         <span class="block text-xs font-medium uppercase tracking-wide text-zinc-500">Search</span>
@@ -518,5 +525,6 @@ onBeforeUnmount(() => {
         </button>
       </div>
     </div>
+    </template>
   </div>
 </template>

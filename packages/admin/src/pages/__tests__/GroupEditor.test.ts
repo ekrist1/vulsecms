@@ -13,22 +13,41 @@ const router = createRouter({
 beforeEach(() => {
   setActivePinia(createPinia());
   vi.spyOn(client.api, 'getGroup').mockResolvedValue({
-    id: 'g1', handle: 'marketing', label: 'Marketing', createdAt: '',
-    permissions: [{ collectionHandle: 'posts', canRead: true, canCreate: false, canUpdate: true, canDelete: false }],
+    id: 'g1',
+    handle: 'marketing',
+    label: 'Marketing',
+    createdAt: '',
+    permissions: [
+      {
+        collectionHandle: 'posts',
+        canRead: true,
+        canCreate: false,
+        canUpdate: true,
+        canDelete: false,
+      },
+    ],
   });
   vi.spyOn(client.api, 'meta').mockResolvedValue([
-    { handle: 'posts', label: 'Posts', singleton: false, fields: [] },
-    { handle: 'authors', label: 'Authors', singleton: false, fields: [] },
+    { handle: 'posts', label: 'Posts', singleton: false, tree: false, fields: [] },
+    { handle: 'authors', label: 'Authors', singleton: false, tree: false, fields: [] },
   ]);
 });
 
 describe('GroupEditor', () => {
   it('saves the permission matrix in the expected wire shape', async () => {
     const setPerms = vi.spyOn(client.api, 'setGroupPermissions').mockResolvedValue({
-      id: 'g1', handle: 'marketing', label: 'Marketing', createdAt: '', permissions: [],
+      id: 'g1',
+      handle: 'marketing',
+      label: 'Marketing',
+      createdAt: '',
+      permissions: [],
     });
     vi.spyOn(client.api, 'updateGroup').mockResolvedValue({
-      id: 'g1', handle: 'marketing', label: 'Marketing', createdAt: '', permissions: [],
+      id: 'g1',
+      handle: 'marketing',
+      label: 'Marketing',
+      createdAt: '',
+      permissions: [],
     });
     const w = mount(GroupEditor, {
       props: { handle: 'marketing' },
@@ -41,8 +60,20 @@ describe('GroupEditor', () => {
     await w.find('[data-testid="group-save"]').trigger('click');
     await flushPromises();
     expect(setPerms).toHaveBeenCalledWith('marketing', [
-      { collectionHandle: 'posts', canRead: true, canCreate: true, canUpdate: true, canDelete: false },
-      { collectionHandle: 'authors', canRead: true, canCreate: false, canUpdate: false, canDelete: false },
+      {
+        collectionHandle: 'posts',
+        canRead: true,
+        canCreate: true,
+        canUpdate: true,
+        canDelete: false,
+      },
+      {
+        collectionHandle: 'authors',
+        canRead: true,
+        canCreate: false,
+        canUpdate: false,
+        canDelete: false,
+      },
     ]);
   });
 });

@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue';
-import { RouterLink, useRouter } from 'vue-router';
-import { type ApiError, api } from '../api/client.js';
+import { RouterLink, useRoute, useRouter } from 'vue-router';
+import { type ApiError, type Entry, api } from '../api/client.js';
+import EntryBreadcrumb from '../components/EntryBreadcrumb.vue';
 import FieldRenderer from '../components/FieldRenderer.vue';
 import RevisionsPanel from '../components/RevisionsPanel.vue';
 import { useBlueprintsStore } from '../stores/blueprints.js';
@@ -9,6 +10,7 @@ import { useToastsStore } from '../stores/toasts.js';
 
 const props = defineProps<{ handle: string; id: string | null }>();
 const router = useRouter();
+const route = useRoute();
 const store = useBlueprintsStore();
 const toasts = useToastsStore();
 
@@ -20,7 +22,25 @@ const submitError = ref<string | null>(null);
 const isProtected = ref(false);
 const activeTab = ref<'edit' | 'revisions'>('edit');
 
+// Tree-collection bits (only meaningful when blueprint.tree === true).
+const parentId = ref<string | null>(null);
+const originalParentId = ref<string | null>(null);
+const candidates = ref<Entry[]>([]);
+const ancestors = ref<Array<{ id: string; label: string }>>([]);
+const children = ref<Entry[]>([]);
+
 const blueprint = computed(() => store.get(props.handle));
+const isTreeCollection = computed(() => blueprint.value?.tree === true);
+
+function entryLabel(entry: { id: string; content: Record<string, unknown> }): string {
+  const c = entry.content;
+  return (
+    (c.title as string | undefined) ??
+    (c.name as string | undefined) ??
+    (c.label as string | undefined) ??
+    entry.id
+  );
+}
 
 // Slug auto-gen: when a blueprint has both `title` (text) and `slug` (text),
 // derive the slug from the title until the user types directly into slug.
@@ -45,6 +65,10 @@ async function loadEntry() {
   for (const k of Object.keys(state)) delete state[k];
   for (const k of Object.keys(errors)) delete errors[k];
   slugTouched.value = false;
+  parentId.value = null;
+  originalParentId.value = null;
+  ancestors.value = [];
+  children.value = [];
 
   const bp = blueprint.value;
   if (!bp) return;
@@ -56,14 +80,112 @@ async function loadEntry() {
       for (const f of bp.fields) state[f.name] = (entry.content as Record<string, unknown>)[f.name];
       isProtected.value = entry.protected ?? false;
       slugTouched.value = true; // existing entries: don't overwrite a saved slug
+      if (bp.tree) {
+        parentId.value = entry.parentId;
+        originalParentId.value = entry.parentId;
+        await Promise.all([loadTreeCandidates(), loadAncestors(entry), loadChildren(entry.id)]);
+      }
     } finally {
       loading.value = false;
     }
   } else {
     for (const f of bp.fields) state[f.name] = f.default ?? defaultFor(f.ui.kind);
     isProtected.value = false;
+    // For a new tree entry, allow query `?parent_id=<id>` to pre-fill the parent
+    // (used by the "Add child" action on the parent's editor).
+    if (bp.tree) {
+      const qpid = route.query.parent_id;
+      const pid = typeof qpid === 'string' && qpid !== '' ? qpid : null;
+      parentId.value = pid;
+      originalParentId.value = pid;
+      await loadTreeCandidates();
+      if (pid) {
+        try {
+          const parent = await api.get(props.handle, pid);
+          await loadAncestors({ ...parent, parentId: parent.parentId });
+          // Push the parent itself as the last "trail" item so the new entry
+          // shows as nesting under it.
+          ancestors.value = [...ancestors.value, { id: parent.id, label: entryLabel(parent) }];
+        } catch {
+          // ignore — parent lookup failure shouldn't block the editor
+        }
+      }
+    }
   }
 }
+
+async function loadTreeCandidates() {
+  // For the parent picker. Capped at 500 to match listAll's default.
+  candidates.value = await api.listAll(props.handle, 500);
+}
+
+async function loadAncestors(entry: { parentId: string | null }) {
+  const chain: Array<{ id: string; label: string }> = [];
+  let cursor: string | null = entry.parentId;
+  const seen = new Set<string>();
+  while (cursor !== null && !seen.has(cursor)) {
+    seen.add(cursor);
+    try {
+      const parent = await api.get(props.handle, cursor);
+      chain.unshift({ id: parent.id, label: entryLabel(parent) });
+      cursor = parent.parentId;
+    } catch {
+      break;
+    }
+  }
+  ancestors.value = chain;
+}
+
+async function loadChildren(id: string) {
+  const result = await api.list(props.handle, { parentId: id, limit: 200 });
+  children.value = result.items;
+}
+
+// Compute the set of descendant ids of the current entry — those can't be its
+// new parent. Built from the candidates list (a flat fetch of the collection).
+const descendantIds = computed<Set<string>>(() => {
+  if (!props.id) return new Set();
+  const byParent = new Map<string | null, Entry[]>();
+  for (const e of candidates.value) {
+    const bucket = byParent.get(e.parentId) ?? [];
+    bucket.push(e);
+    byParent.set(e.parentId, bucket);
+  }
+  const out = new Set<string>([props.id]);
+  const queue: string[] = [props.id];
+  while (queue.length > 0) {
+    const next = queue.shift()!;
+    for (const child of byParent.get(next) ?? []) {
+      if (!out.has(child.id)) {
+        out.add(child.id);
+        queue.push(child.id);
+      }
+    }
+  }
+  return out;
+});
+
+// Indented list of valid parent candidates for the picker (excluding the
+// entry itself and its descendants).
+const parentOptions = computed<Array<{ id: string; label: string; depth: number }>>(() => {
+  const byParent = new Map<string | null, Entry[]>();
+  for (const e of candidates.value) {
+    const bucket = byParent.get(e.parentId) ?? [];
+    bucket.push(e);
+    byParent.set(e.parentId, bucket);
+  }
+  for (const list of byParent.values()) list.sort((a, b) => a.sortOrder - b.sortOrder);
+  const out: Array<{ id: string; label: string; depth: number }> = [];
+  function walk(parent: string | null, depth: number) {
+    for (const entry of byParent.get(parent) ?? []) {
+      if (descendantIds.value.has(entry.id)) continue;
+      out.push({ id: entry.id, label: entryLabel(entry), depth });
+      walk(entry.id, depth + 1);
+    }
+  }
+  walk(null, 0);
+  return out;
+});
 
 function defaultFor(kind: string): unknown {
   if (kind === 'boolean') return false;
@@ -95,9 +217,27 @@ async function save() {
   submitError.value = null;
   saving.value = true;
   try {
-    const entry = props.id
-      ? await api.update(props.handle, props.id, { ...state, protected: isProtected.value })
-      : await api.create(props.handle, { ...state, protected: isProtected.value });
+    let entry: Entry;
+    if (props.id) {
+      entry = await api.update(props.handle, props.id, {
+        ...state,
+        protected: isProtected.value,
+      });
+      // If the parent changed in the picker, apply the move after the content update.
+      if (isTreeCollection.value && parentId.value !== originalParentId.value) {
+        entry = await api.moveEntry(props.handle, props.id, { parentId: parentId.value });
+        originalParentId.value = parentId.value;
+      }
+    } else {
+      const payload: Record<string, unknown> = {
+        ...state,
+        protected: isProtected.value,
+      };
+      if (isTreeCollection.value && parentId.value !== null) {
+        payload.parentId = parentId.value;
+      }
+      entry = await api.create(props.handle, payload);
+    }
     toasts.success('Entry saved');
     if (!props.id) router.replace(`/collections/${props.handle}/${entry.id}`);
   } catch (err) {
@@ -122,6 +262,7 @@ async function save() {
   <div class="p-6" :data-testid="`collection-entry-${handle}`">
     <div v-if="!blueprint" class="text-sm text-zinc-500">Unknown collection.</div>
     <template v-else>
+      <EntryBreadcrumb v-if="isTreeCollection" :handle="handle" :items="ancestors" />
       <h1 class="mb-4 text-xl font-semibold">{{ id ? 'Edit' : 'New' }} {{ blueprint.label }}</h1>
       <div v-if="id" class="mb-4 flex gap-1 border-b border-zinc-200" role="tablist">
         <button
@@ -156,6 +297,21 @@ async function save() {
         class="max-w-2xl space-y-4"
         @submit.prevent="save"
       >
+        <label v-if="isTreeCollection" class="block rounded border border-zinc-200 bg-white p-3">
+          <span class="block text-sm font-semibold text-zinc-700">Parent</span>
+          <span class="block text-xs text-zinc-500">Choose where this entry sits in the tree.</span>
+          <select
+            class="mt-2 w-full rounded border border-zinc-300 px-3 py-2 text-sm"
+            data-testid="entry-parent"
+            :value="parentId ?? ''"
+            @change="parentId = ($event.target as HTMLSelectElement).value === '' ? null : ($event.target as HTMLSelectElement).value"
+          >
+            <option value="">— Root (no parent)</option>
+            <option v-for="opt in parentOptions" :key="opt.id" :value="opt.id">
+              {{ '— '.repeat(opt.depth) }}{{ opt.label }}
+            </option>
+          </select>
+        </label>
         <FieldRenderer
           v-for="f in blueprint.fields"
           :key="f.name"
@@ -192,6 +348,41 @@ async function save() {
           </RouterLink>
         </div>
       </form>
+
+      <div
+        v-if="isTreeCollection && id && activeTab === 'edit' && !loading"
+        class="mt-6 max-w-2xl"
+        data-testid="entry-children"
+      >
+        <div class="rounded border border-zinc-200 bg-white p-3">
+          <div class="mb-2 flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-zinc-700">Children</h3>
+            <RouterLink
+              :to="{ path: `/collections/${handle}/new`, query: { parent_id: id } }"
+              class="rounded border border-zinc-300 bg-white px-3 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
+              data-testid="add-child"
+            >
+              + Add child
+            </RouterLink>
+          </div>
+          <ul v-if="children.length > 0" class="divide-y divide-zinc-100">
+            <li
+              v-for="child in children"
+              :key="child.id"
+              class="flex items-center justify-between py-1.5"
+            >
+              <RouterLink
+                :to="`/collections/${handle}/${child.id}`"
+                class="text-sm text-zinc-700 hover:text-zinc-900 hover:underline"
+              >
+                {{ entryLabel(child) }}
+              </RouterLink>
+              <span class="text-xs text-zinc-400">#{{ child.sortOrder }}</span>
+            </li>
+          </ul>
+          <p v-else class="text-sm text-zinc-500">No children yet.</p>
+        </div>
+      </div>
     </template>
   </div>
 </template>

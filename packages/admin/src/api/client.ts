@@ -46,6 +46,8 @@ export interface BlueprintMeta {
   handle: string;
   label: string;
   singleton: boolean;
+  tree: boolean;
+  maxDepth?: number;
   fields: FieldDefinition[];
 }
 
@@ -67,11 +69,17 @@ export interface Entry {
   protected: boolean;
 }
 
+export interface EntryNode extends Entry {
+  children: EntryNode[];
+}
+
 export interface EntryListQuery {
   limit?: number;
   offset?: number;
   q?: string;
   field?: string;
+  /** Filter to a parent: `null` for root entries, an id for direct children. Omit for all. */
+  parentId?: string | null;
 }
 
 export interface EntryListResponse {
@@ -241,6 +249,9 @@ class ApiClient {
     if (query.offset !== undefined) params.set('offset', String(query.offset));
     if (query.q) params.set('q', query.q);
     if (query.field) params.set('field', query.field);
+    if ('parentId' in query) {
+      params.set('parent_id', query.parentId === null ? 'root' : (query.parentId as string));
+    }
     const suffix = params.size > 0 ? `?${params.toString()}` : '';
     return this.request<Entry[] | EntryListResponse>(
       'GET',
@@ -262,6 +273,16 @@ class ApiClient {
   }
   delete(handle: string, id: string): Promise<void> {
     return this.request<void>('DELETE', `/api/collections/${handle}/${id}`);
+  }
+  getTree(handle: string): Promise<EntryNode[]> {
+    return this.request<EntryNode[]>('GET', `/api/collections/${handle}/tree`);
+  }
+  moveEntry(
+    handle: string,
+    id: string,
+    input: { parentId: string | null; sortOrder?: number },
+  ): Promise<Entry> {
+    return this.request<Entry>('PATCH', `/api/collections/${handle}/${id}/move`, input);
   }
 
   listBlueprints(): Promise<BlueprintMeta[]> {

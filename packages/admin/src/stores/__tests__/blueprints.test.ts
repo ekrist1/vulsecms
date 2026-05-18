@@ -6,8 +6,8 @@ import { useBlueprintsStore } from '../blueprints.js';
 beforeEach(() => {
   setActivePinia(createPinia());
   vi.spyOn(client.api, 'meta').mockResolvedValue([
-    { handle: 'posts', label: 'Posts', singleton: false, fields: [] },
-    { handle: 'authors', label: 'Authors', singleton: false, fields: [] },
+    { handle: 'posts', label: 'Posts', singleton: false, tree: false, fields: [] },
+    { handle: 'authors', label: 'Authors', singleton: false, tree: false, fields: [] },
   ]);
 });
 
