@@ -1,41 +1,84 @@
-import type { AuthVars } from '@vulse/auth';
-import { requireSuper } from '@vulse/auth';
+import { withSuper } from '@vulse/auth';
 import type { DatabaseAdapter } from '@vulse/db';
-import { Hono } from 'hono';
+import {
+  type Router,
+  createRouter,
+  defineEventHandler,
+  getRouterParam,
+  readBody,
+  setResponseStatus,
+} from 'h3';
 import { ValidationError } from '../errors.js';
 import { SetDefinitionSchema } from '../sets/definition.js';
 import { createSet, deleteSet, getSet, listSets, updateSet } from '../sets/service.js';
+import { safe } from './safe.js';
 
-export function setsRoute(adapter: DatabaseAdapter): Hono<{ Variables: AuthVars }> {
-  const app = new Hono<{ Variables: AuthVars }>();
+export function setsRoute(adapter: DatabaseAdapter): Router {
+  const router = createRouter();
 
   // Reads: any signed-in user (admin's blueprint editor needs the list).
-  app.get('/api/sets', async (c) => {
-    if (!c.get('user')) return c.json({ error: 'auth_required' }, 401);
-    return c.json(await listSets(adapter));
-  });
-  app.get('/api/sets/:handle', async (c) => {
-    if (!c.get('user')) return c.json({ error: 'auth_required' }, 401);
-    const out = await getSet(adapter, c.req.param('handle'));
-    if (!out) return c.json({ error: 'not_found' }, 404);
-    return c.json(out);
-  });
+  router.get(
+    '/api/sets',
+    defineEventHandler(async (event) => {
+      if (!event.context.user) {
+        setResponseStatus(event, 401);
+        return { error: 'auth_required' };
+      }
+      return await listSets(adapter);
+    }),
+  );
+  router.get(
+    '/api/sets/:handle',
+    defineEventHandler(async (event) => {
+      if (!event.context.user) {
+        setResponseStatus(event, 401);
+        return { error: 'auth_required' };
+      }
+      const handle = getRouterParam(event, 'handle') as string;
+      const out = await getSet(adapter, handle);
+      if (!out) {
+        setResponseStatus(event, 404);
+        return { error: 'not_found' };
+      }
+      return out;
+    }),
+  );
 
   // Writes: super only.
-  app.post('/api/sets', requireSuper(), async (c) => {
-    const body = await c.req.json();
-    const parsed = SetDefinitionSchema.safeParse(body);
-    if (!parsed.success) throw new ValidationError(parsed.error.issues);
-    return c.json(await createSet(adapter, parsed.data), 201);
-  });
-  app.patch('/api/sets/:handle', requireSuper(), async (c) => {
-    const body = await c.req.json();
-    return c.json(await updateSet(adapter, c.req.param('handle'), body));
-  });
-  app.delete('/api/sets/:handle', requireSuper(), async (c) => {
-    await deleteSet(adapter, c.req.param('handle'));
-    return c.body(null, 204);
-  });
+  router.post(
+    '/api/sets',
+    withSuper(
+      safe(async (event) => {
+        const body = await readBody(event);
+        const parsed = SetDefinitionSchema.safeParse(body);
+        if (!parsed.success) throw new ValidationError(parsed.error.issues);
+        const out = await createSet(adapter, parsed.data);
+        setResponseStatus(event, 201);
+        return out;
+      }),
+    ),
+  );
+  router.patch(
+    '/api/sets/:handle',
+    withSuper(
+      safe(async (event) => {
+        const handle = getRouterParam(event, 'handle') as string;
+        const body = await readBody(event);
+        return await updateSet(adapter, handle, body);
+      }),
+    ),
+  );
+  router.delete(
+    '/api/sets/:handle',
+    withSuper(
+      safe(async (event) => {
+        const handle = getRouterParam(event, 'handle') as string;
+        await deleteSet(adapter, handle);
+        setResponseStatus(event, 204);
+        return null;
+      }),
+    ),
+  );
 
-  return app;
+  return router;
 }

@@ -23,8 +23,19 @@ export type Action = 'read' | 'create' | 'update' | 'delete';
 
 export type EffectivePerms = Map<string, Set<Action>>;
 
+// Backwards-compatibility alias — the live source of truth is `H3EventContext`
+// (augmented below). Kept so downstream code that imported the shape still
+// compiles during the Hono → h3 transition.
 export interface AuthVars {
   user: AuthUser | null;
   session: AuthSession | null;
   perms?: EffectivePerms;
+}
+
+declare module 'h3' {
+  interface H3EventContext {
+    user: AuthUser | null;
+    session: AuthSession | null;
+    perms?: EffectivePerms;
+  }
 }

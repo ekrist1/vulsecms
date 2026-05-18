@@ -13,12 +13,11 @@
     "db:migrate-to-turso": "node scripts/migrate-to-turso.mjs"
   },
   "dependencies": {
-    "@hono/node-server": "^1.13.0",
     "@vulse/admin": "workspace:*",
     "@vulse/auth": "workspace:*",
     "@vulse/core": "workspace:*",
     "@vulse/db": "workspace:*",
-    "hono": "^4.6.0",
+    "h3": "^1.15.11",
     "pinia": "^2.2.4",
     "vue": "^3.5.0",
     "vue-router": "^4.4.5",

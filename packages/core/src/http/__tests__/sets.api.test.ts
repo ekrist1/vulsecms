@@ -1,5 +1,6 @@
 import { createAuth, seedSuperUser } from '@vulse/auth';
 import { LibsqlAdapter, MIGRATIONS_DIR, runMigrations } from '@vulse/db';
+import { toWebHandler } from 'h3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { loadBlueprints } from '../../blueprints/load.js';
 import { createContentService } from '../../content/service.js';
@@ -23,7 +24,11 @@ async function setup() {
   const sets = await loadSets({ adapter: db });
   const blueprints = await loadBlueprints({ adapter: db, sets });
   const content = createContentService(db, blueprints);
-  const app = createApi({ blueprints, content, adapter: db, authInstance, sets });
+  const rawApp = createApi({ blueprints, content, adapter: db, authInstance, sets });
+  const handler = toWebHandler(rawApp);
+  const app = {
+    request: (url: string, init?: RequestInit) => handler(new Request(url, init)),
+  };
   const signin = await app.request('http://x/api/auth/sign-in/email', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
@@ -35,8 +40,12 @@ async function setup() {
 
 describe('/api/sets', () => {
   let ctx: Awaited<ReturnType<typeof setup>>;
-  beforeEach(async () => { ctx = await setup(); });
-  afterEach(async () => { ctx.authInstance.close(); });
+  beforeEach(async () => {
+    ctx = await setup();
+  });
+  afterEach(async () => {
+    ctx.authInstance.close();
+  });
 
   const setBody = {
     handle: 'quote',
@@ -70,23 +79,38 @@ describe('/api/sets', () => {
   });
 
   it('super updates and gets a set', async () => {
-    await ctx.app.request('http://x/api/sets', { method: 'POST', headers: { 'content-type': 'application/json', cookie: ctx.cookie }, body: JSON.stringify(setBody) });
+    await ctx.app.request('http://x/api/sets', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: ctx.cookie },
+      body: JSON.stringify(setBody),
+    });
     const upd = await ctx.app.request('http://x/api/sets/quote', {
       method: 'PATCH',
       headers: { 'content-type': 'application/json', cookie: ctx.cookie },
       body: JSON.stringify({ ...setBody, label: 'Quote v2' }),
     });
     expect(upd.status).toBe(200);
-    const got = await ctx.app.request('http://x/api/sets/quote', { headers: { cookie: ctx.cookie } });
+    const got = await ctx.app.request('http://x/api/sets/quote', {
+      headers: { cookie: ctx.cookie },
+    });
     const body = (await got.json()) as { label: string };
     expect(body.label).toBe('Quote v2');
   });
 
   it('super deletes a set', async () => {
-    await ctx.app.request('http://x/api/sets', { method: 'POST', headers: { 'content-type': 'application/json', cookie: ctx.cookie }, body: JSON.stringify(setBody) });
-    const del = await ctx.app.request('http://x/api/sets/quote', { method: 'DELETE', headers: { cookie: ctx.cookie } });
+    await ctx.app.request('http://x/api/sets', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: ctx.cookie },
+      body: JSON.stringify(setBody),
+    });
+    const del = await ctx.app.request('http://x/api/sets/quote', {
+      method: 'DELETE',
+      headers: { cookie: ctx.cookie },
+    });
     expect(del.status).toBe(204);
-    const got = await ctx.app.request('http://x/api/sets/quote', { headers: { cookie: ctx.cookie } });
+    const got = await ctx.app.request('http://x/api/sets/quote', {
+      headers: { cookie: ctx.cookie },
+    });
     expect(got.status).toBe(404);
   });
 });

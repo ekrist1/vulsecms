@@ -1,45 +1,98 @@
 import type { DatabaseAdapter } from '@vulse/db';
-import { Hono } from 'hono';
-import { requireSuper } from '../middleware/require-super.js';
 import {
-  createGroup, deleteGroup, getGroup, listGroups, setPermissions, updateGroup,
+  type Router,
+  createRouter,
+  defineEventHandler,
+  getRouterParam,
+  readBody,
+  setResponseStatus,
+} from 'h3';
+import { withSuper } from '../middleware/require-super.js';
+import {
+  createGroup,
+  deleteGroup,
+  getGroup,
+  listGroups,
+  setPermissions,
+  updateGroup,
 } from '../services/groups.js';
-import type { AuthVars } from '../types.js';
 
-export function groupsRoute(adapter: DatabaseAdapter): Hono<{ Variables: AuthVars }> {
-  const app = new Hono<{ Variables: AuthVars }>();
-  app.use('/api/groups/*', requireSuper());
-  app.use('/api/groups', requireSuper());
+export function groupsRoute(adapter: DatabaseAdapter): Router {
+  const router = createRouter();
 
-  app.get('/api/groups', async (c) => c.json(await listGroups(adapter)));
-  app.post('/api/groups', async (c) => {
-    const body = await c.req.json();
-    return c.json(await createGroup(adapter, body), 201);
-  });
-  app.get('/api/groups/:handle', async (c) => {
-    const g = await getGroup(adapter, c.req.param('handle'));
-    if (!g) return c.json({ error: 'not_found' }, 404);
-    return c.json(g);
-  });
-  app.patch('/api/groups/:handle', async (c) => {
-    const body = await c.req.json();
-    const g = await getGroup(adapter, c.req.param('handle'));
-    if (!g) return c.json({ error: 'not_found' }, 404);
-    await updateGroup(adapter, g.id, body);
-    return c.json(await getGroup(adapter, g.handle));
-  });
-  app.put('/api/groups/:handle/permissions', async (c) => {
-    const body = (await c.req.json()) as { rows: Parameters<typeof setPermissions>[2] };
-    const g = await getGroup(adapter, c.req.param('handle'));
-    if (!g) return c.json({ error: 'not_found' }, 404);
-    await setPermissions(adapter, g.id, body.rows);
-    return c.json(await getGroup(adapter, g.handle));
-  });
-  app.delete('/api/groups/:handle', async (c) => {
-    const g = await getGroup(adapter, c.req.param('handle'));
-    if (!g) return c.json({ error: 'not_found' }, 404);
-    await deleteGroup(adapter, g.id);
-    return c.body(null, 204);
-  });
-  return app;
+  router.get('/api/groups', withSuper(defineEventHandler(async () => await listGroups(adapter))));
+  router.post(
+    '/api/groups',
+    withSuper(
+      defineEventHandler(async (event) => {
+        const body = await readBody(event);
+        const out = await createGroup(adapter, body);
+        setResponseStatus(event, 201);
+        return out;
+      }),
+    ),
+  );
+  router.get(
+    '/api/groups/:handle',
+    withSuper(
+      defineEventHandler(async (event) => {
+        const handle = getRouterParam(event, 'handle') as string;
+        const g = await getGroup(adapter, handle);
+        if (!g) {
+          setResponseStatus(event, 404);
+          return { error: 'not_found' };
+        }
+        return g;
+      }),
+    ),
+  );
+  router.patch(
+    '/api/groups/:handle',
+    withSuper(
+      defineEventHandler(async (event) => {
+        const handle = getRouterParam(event, 'handle') as string;
+        const body = await readBody(event);
+        const g = await getGroup(adapter, handle);
+        if (!g) {
+          setResponseStatus(event, 404);
+          return { error: 'not_found' };
+        }
+        await updateGroup(adapter, g.id, body);
+        return await getGroup(adapter, g.handle);
+      }),
+    ),
+  );
+  router.put(
+    '/api/groups/:handle/permissions',
+    withSuper(
+      defineEventHandler(async (event) => {
+        const handle = getRouterParam(event, 'handle') as string;
+        const body = (await readBody(event)) as { rows: Parameters<typeof setPermissions>[2] };
+        const g = await getGroup(adapter, handle);
+        if (!g) {
+          setResponseStatus(event, 404);
+          return { error: 'not_found' };
+        }
+        await setPermissions(adapter, g.id, body.rows);
+        return await getGroup(adapter, g.handle);
+      }),
+    ),
+  );
+  router.delete(
+    '/api/groups/:handle',
+    withSuper(
+      defineEventHandler(async (event) => {
+        const handle = getRouterParam(event, 'handle') as string;
+        const g = await getGroup(adapter, handle);
+        if (!g) {
+          setResponseStatus(event, 404);
+          return { error: 'not_found' };
+        }
+        await deleteGroup(adapter, g.id);
+        setResponseStatus(event, 204);
+        return null;
+      }),
+    ),
+  );
+  return router;
 }

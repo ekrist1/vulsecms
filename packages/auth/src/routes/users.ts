@@ -1,36 +1,76 @@
 import type { DatabaseAdapter } from '@vulse/db';
-import { Hono } from 'hono';
-import { requireSuper } from '../middleware/require-super.js';
+import {
+  type Router,
+  createRouter,
+  defineEventHandler,
+  getQuery,
+  getRouterParam,
+  readBody,
+  setResponseStatus,
+} from 'h3';
+import { withSuper } from '../middleware/require-super.js';
 import { createUser, deleteUser, getUser, listUsers, updateUser } from '../services/users.js';
-import type { AuthVars } from '../types.js';
 
-export function usersRoute(adapter: DatabaseAdapter): Hono<{ Variables: AuthVars }> {
-  const app = new Hono<{ Variables: AuthVars }>();
-  app.use('/api/users/*', requireSuper());
-  app.use('/api/users', requireSuper());
+export function usersRoute(adapter: DatabaseAdapter): Router {
+  const router = createRouter();
 
-  app.get('/api/users', async (c) => {
-    const limit = Number(c.req.query('limit') ?? '50');
-    const offset = Number(c.req.query('offset') ?? '0');
-    const role = c.req.query('role') as 'editor' | 'external_user' | undefined;
-    return c.json(await listUsers(adapter, { limit, offset, ...(role ? { role } : {}) }));
-  });
-  app.post('/api/users', async (c) => {
-    const body = await c.req.json();
-    return c.json(await createUser(adapter, body), 201);
-  });
-  app.get('/api/users/:id', async (c) => {
-    const u = await getUser(adapter, c.req.param('id'));
-    if (!u) return c.json({ error: 'not_found' }, 404);
-    return c.json(u);
-  });
-  app.patch('/api/users/:id', async (c) => {
-    const body = await c.req.json();
-    return c.json(await updateUser(adapter, c.req.param('id'), body));
-  });
-  app.delete('/api/users/:id', async (c) => {
-    await deleteUser(adapter, c.req.param('id'));
-    return c.body(null, 204);
-  });
-  return app;
+  router.get(
+    '/api/users',
+    withSuper(
+      defineEventHandler(async (event) => {
+        const query = getQuery(event);
+        const limit = Number(query.limit ?? '50');
+        const offset = Number(query.offset ?? '0');
+        const role = query.role as 'editor' | 'external_user' | undefined;
+        return await listUsers(adapter, { limit, offset, ...(role ? { role } : {}) });
+      }),
+    ),
+  );
+  router.post(
+    '/api/users',
+    withSuper(
+      defineEventHandler(async (event) => {
+        const body = await readBody(event);
+        const out = await createUser(adapter, body);
+        setResponseStatus(event, 201);
+        return out;
+      }),
+    ),
+  );
+  router.get(
+    '/api/users/:id',
+    withSuper(
+      defineEventHandler(async (event) => {
+        const id = getRouterParam(event, 'id') as string;
+        const u = await getUser(adapter, id);
+        if (!u) {
+          setResponseStatus(event, 404);
+          return { error: 'not_found' };
+        }
+        return u;
+      }),
+    ),
+  );
+  router.patch(
+    '/api/users/:id',
+    withSuper(
+      defineEventHandler(async (event) => {
+        const id = getRouterParam(event, 'id') as string;
+        const body = await readBody(event);
+        return await updateUser(adapter, id, body);
+      }),
+    ),
+  );
+  router.delete(
+    '/api/users/:id',
+    withSuper(
+      defineEventHandler(async (event) => {
+        const id = getRouterParam(event, 'id') as string;
+        await deleteUser(adapter, id);
+        setResponseStatus(event, 204);
+        return null;
+      }),
+    ),
+  );
+  return router;
 }

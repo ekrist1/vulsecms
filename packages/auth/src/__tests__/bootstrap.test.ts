@@ -45,7 +45,12 @@ describe('seedSuperUser', () => {
 
   it('throws in prod when bootstrap env vars are unset', async () => {
     await expect(
-      seedSuperUser({ adapter, bootstrapEmail: undefined, bootstrapPassword: undefined, isProd: true }),
+      seedSuperUser({
+        adapter,
+        bootstrapEmail: undefined,
+        bootstrapPassword: undefined,
+        isProd: true,
+      }),
     ).rejects.toThrow(/VULSE_BOOTSTRAP/);
   });
 

@@ -1,13 +1,14 @@
 import { createAuth, seedSuperUser } from '@vulse/auth';
 import { LibsqlAdapter, MIGRATIONS_DIR, describeConfig, runMigrations } from '@vulse/db';
+import { toNodeListener } from 'h3';
 import type { Plugin, ViteDevServer } from 'vite';
 import { loadBlueprints } from '../blueprints/load.js';
 import { seedBlueprintsFromCode } from '../blueprints/seed.js';
 import { createContentService } from '../content/service.js';
 import { blueprintEvents } from '../events.js';
 import { createApi } from '../http/api.js';
-import { loadSets } from '../sets/load.js';
 import { setsEvents } from '../sets/events.js';
+import { loadSets } from '../sets/load.js';
 
 export interface VulseDevOptions {
   blueprintsDir: string;
@@ -60,48 +61,24 @@ export function vulseDevPlugin(opts: VulseDevOptions): Plugin {
         });
       }
 
-      let app = await build();
+      let listener = toNodeListener(await build());
 
       const onChange = async () => {
-        app = await build();
+        listener = toNodeListener(await build());
         server.ws.send({ type: 'custom', event: 'vulse:blueprints-changed' });
       };
       blueprintEvents.on('change', onChange);
 
       const onSetsChange = async () => {
         sets = await loadSets({ adapter: adapter! });
-        app = await build();
+        listener = toNodeListener(await build());
         server.ws.send({ type: 'custom', event: 'vulse:sets-changed' });
       };
       setsEvents.on('change', onSetsChange);
 
-      server.middlewares.use(async (req, res, next) => {
+      server.middlewares.use((req, res, next) => {
         if (!req.url || !req.url.startsWith('/api/')) return next();
-        try {
-          const url = new URL(req.url, `http://${req.headers.host ?? 'localhost'}`);
-          const headers = new Headers();
-          for (const [k, v] of Object.entries(req.headers)) {
-            if (typeof v === 'string') headers.set(k, v);
-            else if (Array.isArray(v)) headers.set(k, v.join(','));
-          }
-          const method = req.method ?? 'GET';
-          const hasBody = method !== 'GET' && method !== 'HEAD';
-          const init: RequestInit = { method, headers };
-          if (hasBody) {
-            const buf = await readBody(req);
-            if (buf.byteLength > 0) {
-              init.body = new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength) as BodyInit;
-            }
-          }
-          const fetchReq = new Request(url.toString(), init);
-          const fetchRes = await app.fetch(fetchReq);
-          res.statusCode = fetchRes.status;
-          fetchRes.headers.forEach((v, k) => res.setHeader(k, v));
-          const buf = Buffer.from(await fetchRes.arrayBuffer());
-          res.end(buf);
-        } catch (err) {
-          next(err as Error);
-        }
+        Promise.resolve(listener(req, res)).catch(next);
       });
     },
 
@@ -110,14 +87,4 @@ export function vulseDevPlugin(opts: VulseDevOptions): Plugin {
       await adapter?.close();
     },
   };
-}
-
-import type { IncomingMessage } from 'node:http';
-function readBody(req: IncomingMessage): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    req.on('data', (c) => chunks.push(c));
-    req.on('end', () => resolve(Buffer.concat(chunks)));
-    req.on('error', reject);
-  });
 }

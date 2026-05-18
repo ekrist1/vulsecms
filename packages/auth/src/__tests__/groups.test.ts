@@ -1,6 +1,13 @@
 import { LibsqlAdapter, MIGRATIONS_DIR, runMigrations } from '@vulse/db';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createGroup, deleteGroup, getGroup, listGroups, setPermissions, updateGroup } from '../services/groups.js';
+import {
+  createGroup,
+  deleteGroup,
+  getGroup,
+  listGroups,
+  setPermissions,
+  updateGroup,
+} from '../services/groups.js';
 
 describe('groups service', () => {
   let adapter: LibsqlAdapter;
@@ -28,11 +35,23 @@ describe('groups service', () => {
   it('setPermissions replaces rows', async () => {
     const g = await createGroup(adapter, { handle: 'a', label: 'A' });
     await setPermissions(adapter, g.id, [
-      { collectionHandle: 'posts', canRead: true, canCreate: true, canUpdate: false, canDelete: false },
+      {
+        collectionHandle: 'posts',
+        canRead: true,
+        canCreate: true,
+        canUpdate: false,
+        canDelete: false,
+      },
     ]);
     const got = await getGroup(adapter, 'a');
     expect(got?.permissions).toEqual([
-      { collectionHandle: 'posts', canRead: true, canCreate: true, canUpdate: false, canDelete: false },
+      {
+        collectionHandle: 'posts',
+        canRead: true,
+        canCreate: true,
+        canUpdate: false,
+        canDelete: false,
+      },
     ]);
     // Replace with empty.
     await setPermissions(adapter, g.id, []);
@@ -48,7 +67,13 @@ describe('groups service', () => {
   it('deletes group and cascades', async () => {
     const g = await createGroup(adapter, { handle: 'a', label: 'A' });
     await setPermissions(adapter, g.id, [
-      { collectionHandle: 'posts', canRead: true, canCreate: false, canUpdate: false, canDelete: false },
+      {
+        collectionHandle: 'posts',
+        canRead: true,
+        canCreate: false,
+        canUpdate: false,
+        canDelete: false,
+      },
     ]);
     await deleteGroup(adapter, g.id);
     expect(await getGroup(adapter, 'a')).toBeNull();
