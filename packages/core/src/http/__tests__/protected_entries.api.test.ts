@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { ulid } from 'ulid';
 import { loadBlueprints } from '../../blueprints/load.js';
 import { createContentService } from '../../content/service.js';
+import { loadSets } from '../../sets/load.js';
 import { createApi } from '../api.js';
 
 describe('protected entries', () => {
@@ -23,8 +24,9 @@ describe('protected entries', () => {
     const authInstance = createAuth({ client: db.client, env: { authSecret: 's', baseUrl: 'http://x', allowPublicSignup: true, smtpUrl: undefined } });
     await seedSuperUser({ adapter: db, bootstrapEmail: 'admin@x.com', bootstrapPassword: 'hunter2hunter2', isProd: false });
     const blueprints = await loadBlueprints({ adapter: db });
+    const sets = await loadSets({ adapter: db });
     const content = createContentService(db, blueprints);
-    app = createApi({ blueprints, content, adapter: db, authInstance });
+    app = createApi({ blueprints, content, adapter: db, authInstance, sets });
   });
 
   it('anonymous list filters out protected entries', async () => {

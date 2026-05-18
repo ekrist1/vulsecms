@@ -1,6 +1,7 @@
 import type { DatabaseAdapter } from '@vulse/db';
 import { ValidationError } from '../errors.js';
 import { type SetDefinition, SetDefinitionSchema } from './definition.js';
+import { setsEvents } from './events.js';
 
 export interface SetDTO extends SetDefinition {
   createdAt: string;
@@ -31,6 +32,7 @@ export async function createSet(
   );
   const created = await getSet(adapter, def.handle);
   if (!created) throw new Error(`set not found after create: ${def.handle}`);
+  setsEvents.emit('change', { handle: def.handle, kind: 'create' });
   return created;
 }
 
@@ -71,9 +73,11 @@ export async function updateSet(
   );
   const out = await getSet(adapter, handle);
   if (!out) throw new Error(`set not found: ${handle}`);
+  setsEvents.emit('change', { handle, kind: 'update' });
   return out;
 }
 
 export async function deleteSet(adapter: DatabaseAdapter, handle: string): Promise<void> {
   await adapter.exec(`DELETE FROM sets WHERE handle = ?`, [handle]);
+  setsEvents.emit('change', { handle, kind: 'delete' });
 }

@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { loadBlueprints } from '../blueprints/load.js';
 import { seedBlueprintsFromCode } from '../blueprints/seed.js';
 import { createContentService } from '../content/service.js';
+import { loadSets } from '../sets/load.js';
 import { createApi } from '../http/api.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -22,12 +23,13 @@ async function setup() {
     isProd: false,
   });
   const blueprints = await loadBlueprints({ adapter: db });
+  const sets = await loadSets({ adapter: db });
   const content = createContentService(db, blueprints);
   const authInstance = createAuth({
     client: db.client,
     env: { authSecret: 'x', baseUrl: 'http://x', allowPublicSignup: true, smtpUrl: undefined },
   });
-  const app = createApi({ blueprints, content, adapter: db, authInstance });
+  const app = createApi({ blueprints, content, adapter: db, authInstance, sets });
 
   const signin = await app.request('http://x/api/auth/sign-in/email', {
     method: 'POST',

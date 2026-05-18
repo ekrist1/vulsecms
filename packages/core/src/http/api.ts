@@ -22,7 +22,9 @@ import type { Blueprint } from '../blueprints/types.js';
 import type { ContentService } from '../content/types.js';
 import { ConflictError, NotFoundError, ValidationError } from '../errors.js';
 import { getRevision, listRevisions } from '../revisions/service.js';
+import type { CompiledSet } from '../sets/compile.js';
 import { toMeta } from './meta.js';
+import { setsRoute } from './sets.js';
 
 export interface ApiDeps {
   blueprints: Map<string, Blueprint>;
@@ -30,6 +32,7 @@ export interface ApiDeps {
   adapter: DatabaseAdapter;
   authInstance: AuthInstance;
   databaseSummary?: DatabaseConfigSummary;
+  sets?: Map<string, CompiledSet>;
 }
 
 export function createApi({
@@ -38,6 +41,7 @@ export function createApi({
   adapter,
   authInstance,
   databaseSummary,
+  sets = new Map(),
 }: ApiDeps): Hono<{ Variables: AuthVars }> {
   const app = new Hono<{ Variables: AuthVars }>();
   app.use('*', cors({ origin: (origin) => origin ?? '*', credentials: true }));
@@ -48,6 +52,7 @@ export function createApi({
   app.route('/', meRoute(adapter));
   app.route('/', usersRoute(adapter));
   app.route('/', groupsRoute(adapter));
+  app.route('/', setsRoute(adapter));
   app.route('/', assetRoutes(adapter));
 
   // Mount Better Auth's handler at /api/auth/*
