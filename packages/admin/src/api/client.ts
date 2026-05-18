@@ -200,6 +200,23 @@ export interface S3SettingsInput {
   forcePathStyle?: boolean;
 }
 
+export interface SetFieldDef {
+  name: string;
+  label?: string;
+  ui: { kind: string } & Record<string, unknown>;
+  optional: boolean;
+  default?: unknown;
+  validation?: { min?: number; max?: number };
+}
+
+export interface SetDTO {
+  handle: string;
+  label: string;
+  fields: SetFieldDef[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 function normalizeEntryList(data: Entry[] | EntryListResponse): EntryListResponse {
   if (Array.isArray(data)) {
     return {
@@ -389,6 +406,10 @@ class ApiClient {
   }
   async clearS3Settings(): Promise<void> {
     return this.request<void>('DELETE', '/api/settings/s3');
+  }
+
+  async listSets(): Promise<SetDTO[]> {
+    return this.request<SetDTO[]>('GET', '/api/sets');
   }
 
   me(): Promise<MeResponse> {
