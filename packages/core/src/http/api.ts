@@ -86,8 +86,13 @@ export function createApi(deps: ApiDeps): App {
   const { blueprints, content, adapter, authInstance, databaseSummary } = deps;
 
   const app = createApp({
-    onError: (err) => {
+    onError: (err, event) => {
       console.error(err);
+      setResponseStatus(event, 500);
+      return {
+        error: 'internal',
+        message: err instanceof Error ? err.message : String(err),
+      };
     },
   });
 
