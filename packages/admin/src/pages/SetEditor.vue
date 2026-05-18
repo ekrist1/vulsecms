@@ -128,6 +128,7 @@ onMounted(load);
               <option value="boolean">boolean</option>
               <option value="select">select</option>
               <option value="relationship">relationship</option>
+              <option value="asset">asset</option>
             </select>
             <label class="flex items-center gap-1 text-xs">
               <input type="checkbox" v-model="f.optional" /> optional
