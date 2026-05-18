@@ -12,11 +12,13 @@ import {
   api,
 } from '../api/client.js';
 import { useBlueprintsStore } from '../stores/blueprints.js';
+import { useSetsStore } from '../stores/sets.js';
 import { useToastsStore } from '../stores/toasts.js';
 
 const props = defineProps<{ handle: string | null }>();
 const router = useRouter();
 const store = useBlueprintsStore();
+const setsStore = useSetsStore();
 const toasts = useToastsStore();
 
 interface EditorNestedField extends NestedFieldDefinition {
@@ -142,7 +144,9 @@ async function load() {
   }
 }
 
-onMounted(load);
+onMounted(async () => {
+  await Promise.all([load(), setsStore.hydrate()]);
+});
 watch(() => props.handle, load);
 
 function addField() {
@@ -198,6 +202,20 @@ function setNestedKind(
   if (kind === 'select') nested.ui = { kind, options: [] };
   else if (kind === 'relationship') nested.ui = { kind, to: '' };
   else nested.ui = { kind };
+}
+
+function toggleSet(fieldIndex: number, handle: string, checked: boolean) {
+  const field = fields[fieldIndex]!;
+  if (field.ui.kind !== 'blocks') return;
+  const current = field.ui.sets ?? [];
+  const next = checked ? [...current, handle] : current.filter((h) => h !== handle);
+  field.ui = { kind: 'blocks', ...(next.length ? { sets: next } : {}) };
+}
+
+function blocksSetHandles(fieldIndex: number): string[] {
+  const field = fields[fieldIndex];
+  if (!field || field.ui.kind !== 'blocks') return [];
+  return field.ui.sets ?? [];
 }
 
 function addReplicatorSet(fieldIndex: number) {
@@ -728,6 +746,34 @@ async function save() {
                 <option v-for="bp in store.list" :key="bp.handle" :value="bp.handle">{{ bp.handle }}</option>
               </select>
             </label>
+
+            <!-- blocks: available sets chip picker -->
+            <div v-if="f.ui.kind === 'blocks'" class="mt-2">
+              <span class="block text-xs font-medium text-zinc-600">Available sets</span>
+              <div v-if="setsStore.list.length === 0" class="mt-1 text-xs text-zinc-500">
+                No sets defined yet.
+                <RouterLink to="/settings/sets/new" class="text-zinc-700 underline">Create one</RouterLink>.
+              </div>
+              <div v-else class="mt-1 grid grid-cols-2 gap-1">
+                <label
+                  v-for="s in setsStore.list"
+                  :key="s.handle"
+                  class="flex items-center gap-1 text-sm"
+                >
+                  <input
+                    type="checkbox"
+                    :value="s.handle"
+                    :checked="blocksSetHandles(i).includes(s.handle)"
+                    :data-testid="`set-picker-${i}-${s.handle}`"
+                    @change="toggleSet(i, s.handle, ($event.target as HTMLInputElement).checked)"
+                  />
+                  <span>
+                    {{ s.label }}
+                    <span class="font-mono text-xs text-zinc-500">({{ s.handle }})</span>
+                  </span>
+                </label>
+              </div>
+            </div>
 
             <div v-if="f.ui.kind === 'replicator'" class="space-y-3">
               <div class="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">

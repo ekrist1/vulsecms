@@ -16,6 +16,7 @@ const router = createRouter({
 beforeEach(() => {
   setActivePinia(createPinia());
   vi.spyOn(client.api, 'meta').mockResolvedValue([]);
+  vi.spyOn(client.api, 'listSets').mockResolvedValue([]);
   vi.spyOn(client.api, 'getBlueprint').mockResolvedValue({
     handle: 'posts',
     label: 'Posts',
