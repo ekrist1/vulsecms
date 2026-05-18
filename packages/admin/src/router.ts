@@ -84,6 +84,23 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true, requiresSuper: true },
   },
   {
+    path: '/settings/sets',
+    component: () => import('./pages/SetList.vue'),
+    meta: { requiresAuth: true, requiresSuper: true },
+  },
+  {
+    path: '/settings/sets/new',
+    component: () => import('./pages/SetEditor.vue'),
+    props: () => ({ handle: null }),
+    meta: { requiresAuth: true, requiresSuper: true },
+  },
+  {
+    path: '/settings/sets/:handle',
+    component: () => import('./pages/SetEditor.vue'),
+    props: true,
+    meta: { requiresAuth: true, requiresSuper: true },
+  },
+  {
     path: '/assets',
     component: () => import('./pages/AssetList.vue'),
     meta: { requiresAuth: true },

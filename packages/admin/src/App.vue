@@ -126,6 +126,16 @@ watch(schemaOpen, (v) => {
           >
             + New collection
           </RouterLink>
+          <div class="my-1 border-t border-zinc-100"></div>
+          <RouterLink
+            v-if="auth.user?.isSuper"
+            to="/settings/sets"
+            class="block rounded px-2 py-1.5 text-sm hover:bg-zinc-100"
+            active-class="bg-zinc-100 font-medium"
+            data-testid="schema-nav-sets"
+          >
+            Sets
+          </RouterLink>
         </div>
         <RouterLink
           v-if="auth.user?.isSuper"
