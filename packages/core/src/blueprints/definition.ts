@@ -5,7 +5,10 @@ import { z } from 'zod';
 
 const textFieldUiSchema = z.object({ kind: z.literal('text') });
 const textareaFieldUiSchema = z.object({ kind: z.literal('textarea') });
-const blocksFieldUiSchema = z.object({ kind: z.literal('blocks') });
+const blocksFieldUiSchema = z.object({
+  kind: z.literal('blocks'),
+  sets: z.array(z.string().regex(/^[a-z][a-z0-9_-]*$/)).optional(),
+});
 const dateFieldUiSchema = z.object({ kind: z.literal('date') });
 const booleanFieldUiSchema = z.object({ kind: z.literal('boolean') });
 const selectFieldUiSchema = z.object({
