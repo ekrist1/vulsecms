@@ -61,10 +61,7 @@ const replicatorFieldUiSchema = z.object({
   sets: z.array(ReplicatorSetSchema).min(1),
 });
 
-const fieldUiSchemas = [
-  ...nonReplicatorFieldUiSchemas,
-  replicatorFieldUiSchema,
-] as const;
+const fieldUiSchemas = [...nonReplicatorFieldUiSchemas, replicatorFieldUiSchema] as const;
 
 export const FieldUiSchema = z.discriminatedUnion('kind', fieldUiSchemas);
 
@@ -77,12 +74,37 @@ export const FieldDefinitionSchema = z.object({
   validation: FieldValidationSchema,
 });
 
-export const BlueprintDefinitionSchema = z.object({
+const BlueprintDefinitionObjectSchema = z.object({
   handle: z.string().regex(/^[a-z][a-z0-9_-]*$/),
   label: z.string().min(1),
   singleton: z.boolean(),
+  tree: z.boolean().optional(),
+  maxDepth: z.number().int().positive().optional(),
   fields: z.array(FieldDefinitionSchema).min(1),
 });
+
+function checkBlueprintConstraints(
+  d: { singleton: boolean; tree?: boolean | undefined; maxDepth?: number | undefined },
+  ctx: z.RefinementCtx,
+) {
+  if (d.singleton && d.tree) {
+    ctx.addIssue({
+      code: 'custom',
+      message: 'A blueprint cannot be both singleton and tree-structured.',
+      path: ['tree'],
+    });
+  }
+  if (d.maxDepth !== undefined && !d.tree) {
+    ctx.addIssue({
+      code: 'custom',
+      message: 'maxDepth requires tree: true.',
+      path: ['maxDepth'],
+    });
+  }
+}
+
+export const BlueprintDefinitionSchema =
+  BlueprintDefinitionObjectSchema.superRefine(checkBlueprintConstraints);
 
 export type NonReplicatorFieldUi = z.infer<typeof NonReplicatorFieldUiSchema>;
 export type NestedFieldDefinition = z.infer<typeof NestedFieldDefinitionSchema>;
@@ -95,8 +117,8 @@ export type BlueprintDefinition = z.infer<typeof BlueprintDefinitionSchema>;
 export const FieldDefinitionWithRenameSchema = FieldDefinitionSchema.extend({
   previousName: z.string().optional(),
 });
-export const BlueprintDefinitionWithRenamesSchema = BlueprintDefinitionSchema.extend({
+export const BlueprintDefinitionWithRenamesSchema = BlueprintDefinitionObjectSchema.extend({
   fields: z.array(FieldDefinitionWithRenameSchema).min(1),
-});
+}).superRefine(checkBlueprintConstraints);
 export type FieldDefinitionWithRename = z.infer<typeof FieldDefinitionWithRenameSchema>;
 export type BlueprintDefinitionWithRenames = z.infer<typeof BlueprintDefinitionWithRenamesSchema>;

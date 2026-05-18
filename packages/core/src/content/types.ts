@@ -16,6 +16,21 @@ export interface ListEntriesOptions {
   q?: string;
   field?: string;
   includeProtected?: boolean;
+  /**
+   * Filter to a specific parent. Pass `null` for root-level entries (no parent),
+   * a string id for that parent's direct children. Omit to disable the filter
+   * (list everything in the collection regardless of parent).
+   */
+  parentId?: string | null;
+}
+
+export interface MoveEntryInput {
+  parentId: string | null;
+  sortOrder?: number;
+}
+
+export interface EntryNode extends Entry {
+  children: EntryNode[];
 }
 
 export interface ListEntriesResult {
@@ -35,4 +50,15 @@ export interface ContentService {
   create(handle: string, input: unknown, ctx?: MutationContext): Promise<Entry>;
   update(handle: string, id: string, input: unknown, ctx?: MutationContext): Promise<Entry>;
   delete(handle: string, id: string): Promise<void>;
+  /**
+   * Move an entry within a tree-enabled collection. Updates `parent_id` and
+   * `sort_order`. Throws `ValidationError` for non-tree collections, missing
+   * parents, cycles, or `maxDepth` violations.
+   */
+  move(handle: string, id: string, input: MoveEntryInput): Promise<Entry>;
+  /**
+   * Return the full tree of entries for a collection (roots → children → …),
+   * ordered by sort_order at each level. Tree-enabled collections only.
+   */
+  tree(handle: string, opts?: { includeProtected?: boolean }): Promise<EntryNode[]>;
 }

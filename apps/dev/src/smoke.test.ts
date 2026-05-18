@@ -50,7 +50,7 @@ describe('apps/dev smoke', () => {
     });
     expect(res.status).toBe(200);
     const body = (await res.json()) as { handle: string }[];
-    expect(body.map((b) => b.handle).sort()).toEqual(['authors', 'posts']);
+    expect(body.map((b) => b.handle).sort()).toEqual(['authors', 'pages', 'posts']);
   });
 
   it('round-trips a POST + GET against /api/collections/posts', async () => {
