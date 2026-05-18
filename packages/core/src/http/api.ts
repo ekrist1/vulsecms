@@ -111,6 +111,7 @@ export function createApi(deps: ApiDeps): App {
         );
         const reqHeaders = getRequestHeader(event, 'access-control-request-headers');
         if (reqHeaders) appendResponseHeader(event, 'access-control-allow-headers', reqHeaders);
+        appendResponseHeader(event, 'access-control-max-age', '5');
         setResponseStatus(event, 204);
         return null;
       }
