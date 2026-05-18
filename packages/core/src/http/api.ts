@@ -1,17 +1,29 @@
 import {
   type AuthInstance,
-  type AuthVars,
   effectivePerms,
   groupsRoute,
   meRoute,
-  requirePerm,
-  requireSuper,
   sessionMiddleware,
   usersRoute,
+  withPerm,
+  withSuper,
 } from '@vulse/auth';
 import type { DatabaseAdapter, DatabaseConfigSummary } from '@vulse/db';
-import { Hono } from 'hono';
-import { cors } from 'hono/cors';
+import {
+  type App,
+  type H3Event,
+  appendResponseHeader,
+  createApp,
+  createRouter,
+  defineEventHandler,
+  getQuery,
+  getRequestHeader,
+  getRequestURL,
+  getRequestWebStream,
+  getRouterParam,
+  readBody,
+  setResponseStatus,
+} from 'h3';
 import { assetRoutes } from '../assets/routes.js';
 import {
   BlueprintDefinitionSchema,
@@ -20,10 +32,11 @@ import {
 import { createBlueprint, deleteBlueprint, updateBlueprint } from '../blueprints/mutations.js';
 import type { Blueprint } from '../blueprints/types.js';
 import type { ContentService } from '../content/types.js';
-import { ConflictError, NotFoundError, ValidationError } from '../errors.js';
+import { NotFoundError, ValidationError } from '../errors.js';
 import { getRevision, listRevisions } from '../revisions/service.js';
 import type { CompiledSet } from '../sets/compile.js';
 import { toMeta } from './meta.js';
+import { safe } from './safe.js';
 import { setsRoute } from './sets.js';
 
 export interface ApiDeps {
@@ -35,238 +48,334 @@ export interface ApiDeps {
   sets?: Map<string, CompiledSet>;
 }
 
-export function createApi({
-  blueprints,
-  content,
-  adapter,
-  authInstance,
-  databaseSummary,
-  sets = new Map(),
-}: ApiDeps): Hono<{ Variables: AuthVars }> {
-  const app = new Hono<{ Variables: AuthVars }>();
-  app.use('*', cors({ origin: (origin) => origin ?? '*', credentials: true }));
-  app.use('*', sessionMiddleware(authInstance));
+function deny(event: Parameters<typeof setResponseStatus>[0], status: number, body: object) {
+  setResponseStatus(event, status);
+  return body;
+}
 
-  // Mount our /api/auth/me sub-app BEFORE the Better Auth wildcard handler
-  // so our custom route takes precedence over Better Auth's 404 fallback.
-  app.route('/', meRoute(adapter));
-  app.route('/', usersRoute(adapter));
-  app.route('/', groupsRoute(adapter));
-  app.route('/', setsRoute(adapter));
-  app.route('/', assetRoutes(adapter));
+// Build a Web Request for Better Auth. h3's `toWebRequest` attaches a body
+// stream for every POST/PATCH/PUT/DELETE even when there's no body, which
+// makes Better Auth's body parser return 415 on bodyless requests (e.g.
+// /api/auth/sign-out). Strip the body when content-length is 0/absent.
+function buildWebRequest(event: H3Event): Request {
+  if (event.web?.request) return event.web.request;
+  const url = getRequestURL(event);
+  const contentLength = getRequestHeader(event, 'content-length');
+  const hasBody =
+    (event.method === 'POST' ||
+      event.method === 'PATCH' ||
+      event.method === 'PUT' ||
+      event.method === 'DELETE') &&
+    contentLength !== undefined &&
+    contentLength !== '0';
+  const init: RequestInit & { duplex?: 'half' } = {
+    method: event.method,
+    headers: event.headers,
+  };
+  if (hasBody) {
+    const stream = getRequestWebStream(event);
+    if (stream) {
+      init.body = stream;
+      init.duplex = 'half';
+    }
+  }
+  return new Request(url, init);
+}
 
-  // Mount Better Auth's handler at /api/auth/*
-  app.on(['GET', 'POST'], '/api/auth/*', (c) => authInstance.auth.handler(c.req.raw));
+export function createApi(deps: ApiDeps): App {
+  const { blueprints, content, adapter, authInstance, databaseSummary } = deps;
 
-  app.onError((err, c) => {
-    if (err instanceof ValidationError) {
-      return c.json({ error: 'validation', issues: err.issues }, 422);
-    }
-    if (err instanceof NotFoundError) {
-      return c.json({ error: 'not_found', message: err.message }, 404);
-    }
-    if (err instanceof ConflictError) {
-      return c.json({ error: 'conflict', message: err.message }, 409);
-    }
-    console.error(err);
-    return c.json({ error: 'internal', message: err.message }, 500);
+  const app = createApp({
+    onError: (err) => {
+      console.error(err);
+    },
   });
 
-  // ---- Content routes (wildcard so admin mutations are reflected immediately) ----
-
-  app.get('/api/collections/:handle', async (c) => {
-    const handle = c.req.param('handle');
-    if (!blueprints.has(handle)) throw new NotFoundError(`unknown collection: ${handle}`);
-    const user = c.get('user');
-
-    // Editors (non-super) need explicit read permission on this collection.
-    if (user && user.role === 'editor' && !user.isSuper) {
-      const perms = await effectivePerms(user, adapter);
-      if (!perms.get(handle)?.has('read')) {
-        return c.json({ error: 'forbidden' }, 403);
+  // ---- CORS (echo origin, allow credentials) ----
+  app.use(
+    defineEventHandler((event) => {
+      const origin = getRequestHeader(event, 'origin');
+      if (origin) appendResponseHeader(event, 'access-control-allow-origin', origin);
+      appendResponseHeader(event, 'access-control-allow-credentials', 'true');
+      appendResponseHeader(event, 'vary', 'Origin');
+      if (event.method === 'OPTIONS') {
+        appendResponseHeader(
+          event,
+          'access-control-allow-methods',
+          'GET,POST,PATCH,PUT,DELETE,OPTIONS',
+        );
+        const reqHeaders = getRequestHeader(event, 'access-control-request-headers');
+        if (reqHeaders) appendResponseHeader(event, 'access-control-allow-headers', reqHeaders);
+        setResponseStatus(event, 204);
+        return null;
       }
-    }
+    }),
+  );
 
-    const limit = Number(c.req.query('limit') ?? '100');
-    const offset = Number(c.req.query('offset') ?? '0');
-    const q = c.req.query('q') ?? undefined;
-    const field = c.req.query('field') ?? undefined;
-    return c.json(
-      await content.list(handle, {
+  // ---- Session (sets event.context.user / .session) ----
+  app.use(sessionMiddleware(authInstance));
+
+  // ---- Sub-routers (auth me/users/groups, sets, assets) ----
+  app.use(meRoute(adapter).handler);
+  app.use(usersRoute(adapter).handler);
+  app.use(groupsRoute(adapter).handler);
+  app.use(setsRoute(adapter).handler);
+  app.use(assetRoutes(adapter).handler);
+
+  // ---- Better Auth wildcard ----
+  app.use(
+    '/api/auth',
+    defineEventHandler(async (event) => {
+      const request = buildWebRequest(event);
+      const response = await authInstance.auth.handler(request);
+      return response;
+    }),
+  );
+
+  // ---- Content / blueprint / system routes ----
+  const router = createRouter();
+
+  router.get(
+    '/api/collections/:handle',
+    safe(async (event) => {
+      const handle = getRouterParam(event, 'handle') as string;
+      if (!blueprints.has(handle)) throw new NotFoundError(`unknown collection: ${handle}`);
+      const user = event.context.user;
+
+      if (user && user.role === 'editor' && !user.isSuper) {
+        const perms = await effectivePerms(user, adapter);
+        if (!perms.get(handle)?.has('read')) return deny(event, 403, { error: 'forbidden' });
+      }
+
+      const query = getQuery(event);
+      const limit = Number(query.limit ?? '100');
+      const offset = Number(query.offset ?? '0');
+      const q = (query.q as string | undefined) ?? undefined;
+      const field = (query.field as string | undefined) ?? undefined;
+      return await content.list(handle, {
         limit,
         offset,
         ...(q ? { q } : {}),
         ...(field ? { field } : {}),
-        includeProtected: user !== null, // signed-in users see all entries
-      }),
-    );
-  });
+        includeProtected: user !== null,
+      });
+    }),
+  );
 
-  app.get('/api/collections/:handle/:id', async (c) => {
-    const handle = c.req.param('handle');
-    if (!blueprints.has(handle)) throw new NotFoundError(`unknown collection: ${handle}`);
-    const user = c.get('user');
+  router.get(
+    '/api/collections/:handle/:id',
+    safe(async (event) => {
+      const handle = getRouterParam(event, 'handle') as string;
+      const id = getRouterParam(event, 'id') as string;
+      if (!blueprints.has(handle)) throw new NotFoundError(`unknown collection: ${handle}`);
+      const user = event.context.user;
 
-    if (user && user.role === 'editor' && !user.isSuper) {
-      const perms = await effectivePerms(user, adapter);
-      if (!perms.get(handle)?.has('read')) {
-        return c.json({ error: 'forbidden' }, 403);
+      if (user && user.role === 'editor' && !user.isSuper) {
+        const perms = await effectivePerms(user, adapter);
+        if (!perms.get(handle)?.has('read')) return deny(event, 403, { error: 'forbidden' });
       }
-    }
 
-    const entry = await content.get(handle, c.req.param('id'));
-    if (!entry) throw new NotFoundError('entry not found');
-    if (entry.protected && !user) {
-      return c.json({ error: 'auth_required' }, 401);
-    }
-    return c.json(entry);
-  });
-
-  app.post('/api/collections/:handle', requirePerm({ action: 'create', adapter }), async (c) => {
-    const handle = c.req.param('handle');
-    if (!blueprints.has(handle)) throw new NotFoundError(`unknown collection: ${handle}`);
-    const input = await c.req.json();
-    const userId = c.get('user')?.id;
-    const entry = await content.create(handle, input, userId ? { actor: { userId } } : undefined);
-    return c.json(entry, 201);
-  });
-
-  app.patch(
-    '/api/collections/:handle/:id',
-    requirePerm({ action: 'update', adapter }),
-    async (c) => {
-      const handle = c.req.param('handle');
-      if (!blueprints.has(handle)) throw new NotFoundError(`unknown collection: ${handle}`);
-      const input = await c.req.json();
-      const userId = c.get('user')?.id;
-      const entry = await content.update(
-        handle,
-        c.req.param('id'),
-        input,
-        userId ? { actor: { userId } } : undefined,
-      );
-      return c.json(entry);
-    },
+      const entry = await content.get(handle, id);
+      if (!entry) throw new NotFoundError('entry not found');
+      if (entry.protected && !user) return deny(event, 401, { error: 'auth_required' });
+      return entry;
+    }),
   );
 
-  app.delete(
-    '/api/collections/:handle/:id',
-    requirePerm({ action: 'delete', adapter }),
-    async (c) => {
-      const handle = c.req.param('handle');
-      if (!blueprints.has(handle)) throw new NotFoundError(`unknown collection: ${handle}`);
-      await content.delete(handle, c.req.param('id'));
-      return c.body(null, 204);
-    },
+  router.post(
+    '/api/collections/:handle',
+    withPerm(
+      { action: 'create', adapter },
+      safe(async (event) => {
+        const handle = getRouterParam(event, 'handle') as string;
+        if (!blueprints.has(handle)) throw new NotFoundError(`unknown collection: ${handle}`);
+        const input = await readBody(event);
+        const userId = event.context.user?.id;
+        const entry = await content.create(
+          handle,
+          input,
+          userId ? { actor: { userId } } : undefined,
+        );
+        setResponseStatus(event, 201);
+        return entry;
+      }),
+    ),
   );
 
-  // ---- Revision routes ----
+  router.patch(
+    '/api/collections/:handle/:id',
+    withPerm(
+      { action: 'update', adapter },
+      safe(async (event) => {
+        const handle = getRouterParam(event, 'handle') as string;
+        const id = getRouterParam(event, 'id') as string;
+        if (!blueprints.has(handle)) throw new NotFoundError(`unknown collection: ${handle}`);
+        const input = await readBody(event);
+        const userId = event.context.user?.id;
+        return await content.update(handle, id, input, userId ? { actor: { userId } } : undefined);
+      }),
+    ),
+  );
 
-  app.get('/api/collections/:handle/:id/revisions', async (c) => {
-    const handle = c.req.param('handle');
-    const id = c.req.param('id');
-    if (!blueprints.has(handle)) throw new NotFoundError(`unknown collection: ${handle}`);
-    const user = c.get('user');
-    if (!user) return c.json({ error: 'auth_required' }, 401);
-    if (user.role === 'editor' && !user.isSuper) {
-      const perms = await effectivePerms(user, adapter);
-      if (!perms.get(handle)?.has('read')) return c.json({ error: 'forbidden' }, 403);
-    }
-    const entry = await content.get(handle, id);
-    if (!entry) throw new NotFoundError('entry not found');
-    const limit = Number(c.req.query('limit') ?? '50');
-    const offset = Number(c.req.query('offset') ?? '0');
-    return c.json(await listRevisions(adapter, id, { limit, offset }));
-  });
+  router.delete(
+    '/api/collections/:handle/:id',
+    withPerm(
+      { action: 'delete', adapter },
+      safe(async (event) => {
+        const handle = getRouterParam(event, 'handle') as string;
+        const id = getRouterParam(event, 'id') as string;
+        if (!blueprints.has(handle)) throw new NotFoundError(`unknown collection: ${handle}`);
+        await content.delete(handle, id);
+        setResponseStatus(event, 204);
+        return null;
+      }),
+    ),
+  );
 
-  app.get('/api/collections/:handle/:id/revisions/:revisionId', async (c) => {
-    const handle = c.req.param('handle');
-    const id = c.req.param('id');
-    if (!blueprints.has(handle)) throw new NotFoundError(`unknown collection: ${handle}`);
-    const user = c.get('user');
-    if (!user) return c.json({ error: 'auth_required' }, 401);
-    if (user.role === 'editor' && !user.isSuper) {
-      const perms = await effectivePerms(user, adapter);
-      if (!perms.get(handle)?.has('read')) return c.json({ error: 'forbidden' }, 403);
-    }
-    const revision = await getRevision(adapter, id, c.req.param('revisionId'));
-    if (!revision) throw new NotFoundError('revision not found');
-    return c.json(revision);
-  });
-
-  app.post(
-    '/api/collections/:handle/:id/revisions/:revisionId/restore',
-    requirePerm({ action: 'update', adapter }),
-    async (c) => {
-      const handle = c.req.param('handle');
-      const id = c.req.param('id');
+  // ---- Revisions ----
+  router.get(
+    '/api/collections/:handle/:id/revisions',
+    safe(async (event) => {
+      const handle = getRouterParam(event, 'handle') as string;
+      const id = getRouterParam(event, 'id') as string;
       if (!blueprints.has(handle)) throw new NotFoundError(`unknown collection: ${handle}`);
-      const revision = await getRevision(adapter, id, c.req.param('revisionId'));
+      const user = event.context.user;
+      if (!user) return deny(event, 401, { error: 'auth_required' });
+      if (user.role === 'editor' && !user.isSuper) {
+        const perms = await effectivePerms(user, adapter);
+        if (!perms.get(handle)?.has('read')) return deny(event, 403, { error: 'forbidden' });
+      }
+      const entry = await content.get(handle, id);
+      if (!entry) throw new NotFoundError('entry not found');
+      const query = getQuery(event);
+      const limit = Number(query.limit ?? '50');
+      const offset = Number(query.offset ?? '0');
+      return await listRevisions(adapter, id, { limit, offset });
+    }),
+  );
+
+  router.get(
+    '/api/collections/:handle/:id/revisions/:revisionId',
+    safe(async (event) => {
+      const handle = getRouterParam(event, 'handle') as string;
+      const id = getRouterParam(event, 'id') as string;
+      const revisionId = getRouterParam(event, 'revisionId') as string;
+      if (!blueprints.has(handle)) throw new NotFoundError(`unknown collection: ${handle}`);
+      const user = event.context.user;
+      if (!user) return deny(event, 401, { error: 'auth_required' });
+      if (user.role === 'editor' && !user.isSuper) {
+        const perms = await effectivePerms(user, adapter);
+        if (!perms.get(handle)?.has('read')) return deny(event, 403, { error: 'forbidden' });
+      }
+      const revision = await getRevision(adapter, id, revisionId);
       if (!revision) throw new NotFoundError('revision not found');
-      const userId = c.get('user')?.id;
-      const entry = await content.update(
-        handle,
-        id,
-        revision.content,
-        userId ? { actor: { userId } } : undefined,
-      );
-      return c.json(entry);
-    },
+      return revision;
+    }),
   );
 
-  // ---- Blueprint routes ----
+  router.post(
+    '/api/collections/:handle/:id/revisions/:revisionId/restore',
+    withPerm(
+      { action: 'update', adapter },
+      safe(async (event) => {
+        const handle = getRouterParam(event, 'handle') as string;
+        const id = getRouterParam(event, 'id') as string;
+        const revisionId = getRouterParam(event, 'revisionId') as string;
+        if (!blueprints.has(handle)) throw new NotFoundError(`unknown collection: ${handle}`);
+        const revision = await getRevision(adapter, id, revisionId);
+        if (!revision) throw new NotFoundError('revision not found');
+        const userId = event.context.user?.id;
+        return await content.update(
+          handle,
+          id,
+          revision.content,
+          userId ? { actor: { userId } } : undefined,
+        );
+      }),
+    ),
+  );
 
-  app.get('/api/blueprints', async (c) => {
-    if (!c.get('user')) return c.json({ error: 'auth_required' }, 401);
-    const rows = await adapter.query<{ definition: string | null }>(
-      'SELECT definition FROM collections WHERE definition IS NOT NULL ORDER BY created_at ASC',
-    );
-    return c.json(rows.map((r) => JSON.parse(r.definition!)));
-  });
+  // ---- Blueprints ----
+  router.get(
+    '/api/blueprints',
+    safe(async (event) => {
+      if (!event.context.user) return deny(event, 401, { error: 'auth_required' });
+      const rows = await adapter.query<{ definition: string | null }>(
+        'SELECT definition FROM collections WHERE definition IS NOT NULL ORDER BY created_at ASC',
+      );
+      return rows.map((r) => JSON.parse(r.definition!));
+    }),
+  );
+  router.get(
+    '/api/blueprints/:handle',
+    safe(async (event) => {
+      if (!event.context.user) return deny(event, 401, { error: 'auth_required' });
+      const handle = getRouterParam(event, 'handle') as string;
+      const row = await adapter.queryOne<{ definition: string | null }>(
+        'SELECT definition FROM collections WHERE handle = ?',
+        [handle],
+      );
+      if (!row || !row.definition) throw new NotFoundError('blueprint not found');
+      return JSON.parse(row.definition);
+    }),
+  );
+  router.post(
+    '/api/blueprints',
+    withSuper(
+      safe(async (event) => {
+        const body = await readBody(event);
+        const parsed = BlueprintDefinitionSchema.safeParse(body);
+        if (!parsed.success) throw new ValidationError(parsed.error.issues);
+        const out = await createBlueprint(adapter, parsed.data);
+        setResponseStatus(event, 201);
+        return out;
+      }),
+    ),
+  );
+  router.patch(
+    '/api/blueprints/:handle',
+    withSuper(
+      safe(async (event) => {
+        const handle = getRouterParam(event, 'handle') as string;
+        const body = await readBody(event);
+        const parsed = BlueprintDefinitionWithRenamesSchema.safeParse(body);
+        if (!parsed.success) throw new ValidationError(parsed.error.issues);
+        return await updateBlueprint(adapter, handle, parsed.data);
+      }),
+    ),
+  );
+  router.delete(
+    '/api/blueprints/:handle',
+    withSuper(
+      safe(async (event) => {
+        const handle = getRouterParam(event, 'handle') as string;
+        await deleteBlueprint(adapter, handle);
+        setResponseStatus(event, 204);
+        return null;
+      }),
+    ),
+  );
 
-  app.get('/api/blueprints/:handle', async (c) => {
-    if (!c.get('user')) return c.json({ error: 'auth_required' }, 401);
-    const row = await adapter.queryOne<{ definition: string | null }>(
-      'SELECT definition FROM collections WHERE handle = ?',
-      [c.req.param('handle')],
-    );
-    if (!row || !row.definition) throw new NotFoundError('blueprint not found');
-    return c.json(JSON.parse(row.definition));
-  });
+  router.get(
+    '/api/_meta/collections',
+    safe((event) => {
+      if (!event.context.user) return deny(event, 401, { error: 'auth_required' });
+      return [...blueprints.values()].map(toMeta);
+    }),
+  );
 
-  app.post('/api/blueprints', requireSuper(), async (c) => {
-    const body = await c.req.json();
-    const parsed = BlueprintDefinitionSchema.safeParse(body);
-    if (!parsed.success) throw new ValidationError(parsed.error.issues);
-    const out = await createBlueprint(adapter, parsed.data);
-    return c.json(out, 201);
-  });
+  router.get(
+    '/api/_system/database',
+    safe((event) => {
+      const user = event.context.user;
+      if (!user) return deny(event, 401, { error: 'auth_required' });
+      if (!user.isSuper) return deny(event, 403, { error: 'forbidden' });
+      if (!databaseSummary) return deny(event, 404, { error: 'not_available' });
+      return databaseSummary;
+    }),
+  );
 
-  app.patch('/api/blueprints/:handle', requireSuper(), async (c) => {
-    const body = await c.req.json();
-    const parsed = BlueprintDefinitionWithRenamesSchema.safeParse(body);
-    if (!parsed.success) throw new ValidationError(parsed.error.issues);
-    const out = await updateBlueprint(adapter, c.req.param('handle'), parsed.data);
-    return c.json(out);
-  });
-
-  app.delete('/api/blueprints/:handle', requireSuper(), async (c) => {
-    await deleteBlueprint(adapter, c.req.param('handle'));
-    return c.body(null, 204);
-  });
-
-  app.get('/api/_meta/collections', (c) => {
-    if (!c.get('user')) return c.json({ error: 'auth_required' }, 401);
-    return c.json([...blueprints.values()].map(toMeta));
-  });
-
-  app.get('/api/_system/database', (c) => {
-    const user = c.get('user');
-    if (!user) return c.json({ error: 'auth_required' }, 401);
-    if (!user.isSuper) return c.json({ error: 'forbidden' }, 403);
-    if (!databaseSummary) return c.json({ error: 'not_available' }, 404);
-    return c.json(databaseSummary);
-  });
+  app.use(router.handler);
 
   return app;
 }

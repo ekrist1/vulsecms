@@ -21,7 +21,7 @@
     "better-auth": "^1.6.0",
     "drizzle-orm": "^0.45.0",
     "@libsql/client": "^0.14.0",
-    "hono": "^4.6.0",
+    "h3": "^1.15.11",
     "nodemailer": "^6.9.0",
     "ulid": "^2.3.0"
   },

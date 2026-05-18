@@ -17,7 +17,7 @@
   "dependencies": {
     "@vulse/auth": "workspace:*",
     "@vulse/db": "workspace:*",
-    "hono": "^4.6.0",
+    "h3": "^1.15.11",
     "ulid": "^2.3.0",
     "zod": "^4.0.0"
   },

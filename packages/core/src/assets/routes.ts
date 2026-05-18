@@ -1,8 +1,16 @@
-import type { AuthVars } from '@vulse/auth';
 import type { DatabaseAdapter } from '@vulse/db';
-import { Hono } from 'hono';
+import {
+  type Router,
+  createRouter,
+  defineEventHandler,
+  getQuery,
+  getRouterParam,
+  readBody,
+  setResponseStatus,
+} from 'h3';
 import { z } from 'zod';
 import { ValidationError } from '../errors.js';
+import { safe } from '../http/safe.js';
 import { presignUrl, publicUrlFor } from './presign.js';
 import { buildObjectKey, createAsset, deleteAsset, getAsset, listAssets } from './service.js';
 import { deleteS3Config, getS3Config, setS3Config, toPublic } from './settings.js';
@@ -23,117 +31,170 @@ const RegisterBodySchema = z.object({
   originalName: z.string().optional().nullable(),
 });
 
-function requireSuperGuard(c: { get: (k: 'user') => { isSuper: boolean } | null }) {
-  const user = c.get('user');
-  if (!user) return { ok: false as const, status: 401 as const, body: { error: 'auth_required' } };
-  if (!user.isSuper)
-    return { ok: false as const, status: 403 as const, body: { error: 'forbidden' } };
-  return { ok: true as const };
-}
-
-function requireAuth(c: { get: (k: 'user') => { isSuper: boolean } | null }) {
-  const user = c.get('user');
-  if (!user) return { ok: false as const, status: 401 as const, body: { error: 'auth_required' } };
-  return { ok: true as const };
-}
-
-export function assetRoutes(adapter: DatabaseAdapter): Hono<{ Variables: AuthVars }> {
-  const app = new Hono<{ Variables: AuthVars }>();
+export function assetRoutes(adapter: DatabaseAdapter): Router {
+  const router = createRouter();
 
   // ---- S3 settings (super only) ----
-  app.get('/api/settings/s3', async (c) => {
-    const guard = requireSuperGuard(c);
-    if (!guard.ok) return c.json(guard.body, guard.status);
-    const cfg = await getS3Config(adapter);
-    return c.json(toPublic(cfg));
-  });
-
-  app.put('/api/settings/s3', async (c) => {
-    const guard = requireSuperGuard(c);
-    if (!guard.ok) return c.json(guard.body, guard.status);
-    const body = await c.req.json();
-    const parsed = S3ConfigSchema.safeParse(body);
-    if (!parsed.success) throw new ValidationError(parsed.error.issues);
-    await setS3Config(adapter, parsed.data);
-    return c.json(toPublic(parsed.data));
-  });
-
-  app.delete('/api/settings/s3', async (c) => {
-    const guard = requireSuperGuard(c);
-    if (!guard.ok) return c.json(guard.body, guard.status);
-    await deleteS3Config(adapter);
-    return c.body(null, 204);
-  });
+  router.get(
+    '/api/settings/s3',
+    defineEventHandler(async (event) => {
+      const user = event.context.user;
+      if (!user) {
+        setResponseStatus(event, 401);
+        return { error: 'auth_required' };
+      }
+      if (!user.isSuper) {
+        setResponseStatus(event, 403);
+        return { error: 'forbidden' };
+      }
+      const cfg = await getS3Config(adapter);
+      return toPublic(cfg);
+    }),
+  );
+  router.put(
+    '/api/settings/s3',
+    safe(async (event) => {
+      const user = event.context.user;
+      if (!user) {
+        setResponseStatus(event, 401);
+        return { error: 'auth_required' };
+      }
+      if (!user.isSuper) {
+        setResponseStatus(event, 403);
+        return { error: 'forbidden' };
+      }
+      const body = await readBody(event);
+      const parsed = S3ConfigSchema.safeParse(body);
+      if (!parsed.success) throw new ValidationError(parsed.error.issues);
+      await setS3Config(adapter, parsed.data);
+      return toPublic(parsed.data);
+    }),
+  );
+  router.delete(
+    '/api/settings/s3',
+    defineEventHandler(async (event) => {
+      const user = event.context.user;
+      if (!user) {
+        setResponseStatus(event, 401);
+        return { error: 'auth_required' };
+      }
+      if (!user.isSuper) {
+        setResponseStatus(event, 403);
+        return { error: 'forbidden' };
+      }
+      await deleteS3Config(adapter);
+      setResponseStatus(event, 204);
+      return null;
+    }),
+  );
 
   // ---- Assets ----
-  app.get('/api/assets', async (c) => {
-    const guard = requireAuth(c);
-    if (!guard.ok) return c.json(guard.body, guard.status);
-    const limit = Number(c.req.query('limit') ?? '50');
-    const offset = Number(c.req.query('offset') ?? '0');
-    return c.json(await listAssets(adapter, { limit, offset }));
-  });
+  router.get(
+    '/api/assets',
+    defineEventHandler(async (event) => {
+      if (!event.context.user) {
+        setResponseStatus(event, 401);
+        return { error: 'auth_required' };
+      }
+      const query = getQuery(event);
+      const limit = Number(query.limit ?? '50');
+      const offset = Number(query.offset ?? '0');
+      return await listAssets(adapter, { limit, offset });
+    }),
+  );
+  router.get(
+    '/api/assets/:id',
+    defineEventHandler(async (event) => {
+      if (!event.context.user) {
+        setResponseStatus(event, 401);
+        return { error: 'auth_required' };
+      }
+      const id = getRouterParam(event, 'id') as string;
+      const asset = await getAsset(adapter, id);
+      if (!asset) {
+        setResponseStatus(event, 404);
+        return { error: 'not_found' };
+      }
+      return asset;
+    }),
+  );
+  router.post(
+    '/api/assets/sign',
+    safe(async (event) => {
+      if (!event.context.user) {
+        setResponseStatus(event, 401);
+        return { error: 'auth_required' };
+      }
+      const config = await getS3Config(adapter);
+      if (!config) {
+        setResponseStatus(event, 412);
+        return { error: 's3_not_configured' };
+      }
+      const body = await readBody(event);
+      const parsed = SignBodySchema.safeParse(body);
+      if (!parsed.success) throw new ValidationError(parsed.error.issues);
+      const key = buildObjectKey(parsed.data.filename, parsed.data.prefix);
+      const uploadUrl = presignUrl({
+        config,
+        method: 'PUT',
+        key,
+        ...(parsed.data.contentType ? { contentType: parsed.data.contentType } : {}),
+      });
+      return {
+        key,
+        bucket: config.bucket,
+        uploadUrl,
+        publicUrl: publicUrlFor(config, key),
+        requiredHeaders: parsed.data.contentType ? { 'content-type': parsed.data.contentType } : {},
+      };
+    }),
+  );
+  router.post(
+    '/api/assets',
+    safe(async (event) => {
+      if (!event.context.user) {
+        setResponseStatus(event, 401);
+        return { error: 'auth_required' };
+      }
+      const body = await readBody(event);
+      const parsed = RegisterBodySchema.safeParse(body);
+      if (!parsed.success) throw new ValidationError(parsed.error.issues);
+      const asset = await createAsset(adapter, {
+        key: parsed.data.key,
+        bucket: parsed.data.bucket,
+        url: parsed.data.url,
+        contentType: parsed.data.contentType ?? null,
+        size: parsed.data.size ?? null,
+        originalName: parsed.data.originalName ?? null,
+      });
+      setResponseStatus(event, 201);
+      return asset;
+    }),
+  );
+  router.delete(
+    '/api/assets/:id',
+    defineEventHandler(async (event) => {
+      const user = event.context.user;
+      if (!user) {
+        setResponseStatus(event, 401);
+        return { error: 'auth_required' };
+      }
+      if (!user.isSuper) {
+        setResponseStatus(event, 403);
+        return { error: 'forbidden' };
+      }
+      const id = getRouterParam(event, 'id') as string;
+      const ok = await deleteAsset(adapter, id);
+      if (!ok) {
+        setResponseStatus(event, 404);
+        return { error: 'not_found' };
+      }
+      setResponseStatus(event, 204);
+      return null;
+    }),
+  );
 
-  app.get('/api/assets/:id', async (c) => {
-    const guard = requireAuth(c);
-    if (!guard.ok) return c.json(guard.body, guard.status);
-    const asset = await getAsset(adapter, c.req.param('id'));
-    if (!asset) return c.json({ error: 'not_found' }, 404);
-    return c.json(asset);
-  });
-
-  app.post('/api/assets/sign', async (c) => {
-    const guard = requireAuth(c);
-    if (!guard.ok) return c.json(guard.body, guard.status);
-    const config = await getS3Config(adapter);
-    if (!config) return c.json({ error: 's3_not_configured' }, 412);
-    const body = await c.req.json();
-    const parsed = SignBodySchema.safeParse(body);
-    if (!parsed.success) throw new ValidationError(parsed.error.issues);
-    const key = buildObjectKey(parsed.data.filename, parsed.data.prefix);
-    const uploadUrl = presignUrl({
-      config,
-      method: 'PUT',
-      key,
-      ...(parsed.data.contentType ? { contentType: parsed.data.contentType } : {}),
-    });
-    return c.json({
-      key,
-      bucket: config.bucket,
-      uploadUrl,
-      publicUrl: publicUrlFor(config, key),
-      requiredHeaders: parsed.data.contentType ? { 'content-type': parsed.data.contentType } : {},
-    });
-  });
-
-  app.post('/api/assets', async (c) => {
-    const guard = requireAuth(c);
-    if (!guard.ok) return c.json(guard.body, guard.status);
-    const body = await c.req.json();
-    const parsed = RegisterBodySchema.safeParse(body);
-    if (!parsed.success) throw new ValidationError(parsed.error.issues);
-    const asset = await createAsset(adapter, {
-      key: parsed.data.key,
-      bucket: parsed.data.bucket,
-      url: parsed.data.url,
-      contentType: parsed.data.contentType ?? null,
-      size: parsed.data.size ?? null,
-      originalName: parsed.data.originalName ?? null,
-    });
-    return c.json(asset, 201);
-  });
-
-  app.delete('/api/assets/:id', async (c) => {
-    const guard = requireAuth(c);
-    if (!guard.ok) return c.json(guard.body, guard.status);
-    const user = c.get('user');
-    if (!user?.isSuper) return c.json({ error: 'forbidden' }, 403);
-    const ok = await deleteAsset(adapter, c.req.param('id'));
-    if (!ok) return c.json({ error: 'not_found' }, 404);
-    return c.body(null, 204);
-  });
-
-  return app;
+  return router;
 }
 
 export type { S3Config };

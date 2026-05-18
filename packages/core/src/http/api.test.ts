@@ -2,6 +2,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createAuth, seedSuperUser } from '@vulse/auth';
 import { LibsqlAdapter, MIGRATIONS_DIR, runMigrations } from '@vulse/db';
+import { toWebHandler } from 'h3';
 import { describe, expect, it } from 'vitest';
 import { loadBlueprints } from '../blueprints/load.js';
 import { createBlueprint } from '../blueprints/mutations.js';
@@ -31,7 +32,11 @@ async function setup(seed?: (db: LibsqlAdapter) => Promise<void>) {
     client: db.client,
     env: { authSecret: 'x', baseUrl: 'http://x', allowPublicSignup: true, smtpUrl: undefined },
   });
-  const app = createApi({ blueprints, content, adapter: db, authInstance, sets });
+  const rawApp = createApi({ blueprints, content, adapter: db, authInstance, sets });
+  const handler = toWebHandler(rawApp);
+  const app = {
+    request: (url: string, init?: RequestInit) => handler(new Request(url, init)),
+  };
 
   const signin = await app.request('http://x/api/auth/sign-in/email', {
     method: 'POST',
@@ -229,7 +234,9 @@ describe('createApi', () => {
 
     // Promote to editor + add to a group with read perm on posts.
     await db.exec(`UPDATE users SET role = 'editor' WHERE email = ?`, [editorEmail]);
-    const userRow = await db.queryOne<{ id: string }>('SELECT id FROM users WHERE email = ?', [editorEmail]);
+    const userRow = await db.queryOne<{ id: string }>('SELECT id FROM users WHERE email = ?', [
+      editorEmail,
+    ]);
 
     // Ensure the posts collection row exists.
     await db.exec(
@@ -239,8 +246,13 @@ describe('createApi', () => {
     // Create a group with read permission on posts.
     const { ulid } = await import('ulid');
     const groupId = ulid();
-    await db.exec(`INSERT INTO groups (id, handle, label) VALUES (?, 'editors', 'Editors')`, [groupId]);
-    await db.exec(`INSERT INTO user_groups (user_id, group_id) VALUES (?, ?)`, [userRow!.id, groupId]);
+    await db.exec(`INSERT INTO groups (id, handle, label) VALUES (?, 'editors', 'Editors')`, [
+      groupId,
+    ]);
+    await db.exec(`INSERT INTO user_groups (user_id, group_id) VALUES (?, ?)`, [
+      userRow!.id,
+      groupId,
+    ]);
     await db.exec(
       `INSERT INTO group_permissions (group_id, collection_handle, can_read, can_create, can_update, can_delete) VALUES (?, 'posts', 1, 0, 0, 0)`,
       [groupId],
@@ -257,7 +269,10 @@ describe('createApi', () => {
     // /api/auth/me should reflect the perm.
     const me = await app.request('http://x/api/auth/me', { headers: { cookie: editorCookie } });
     expect(me.status).toBe(200);
-    const body = (await me.json()) as { user: { email: string; role: string }; perms: Record<string, string[]> };
+    const body = (await me.json()) as {
+      user: { email: string; role: string };
+      perms: Record<string, string[]>;
+    };
     expect(body.user.email).toBe(editorEmail);
     expect(body.user.role).toBe('editor');
     expect(body.perms.posts).toEqual(['read']);

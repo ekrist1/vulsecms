@@ -1,15 +1,17 @@
 import type { DatabaseAdapter } from '@vulse/db';
-import { Hono } from 'hono';
+import { type Router, createRouter, defineEventHandler } from 'h3';
 import { effectivePerms, permsToWire } from '../permissions.js';
-import type { AuthVars } from '../types.js';
 
-export function meRoute(adapter: DatabaseAdapter): Hono<{ Variables: AuthVars }> {
-  const app = new Hono<{ Variables: AuthVars }>();
-  app.get('/api/auth/me', async (c) => {
-    const user = c.get('user');
-    if (!user) return c.json({ user: null, perms: {} });
-    const perms = await effectivePerms(user, adapter);
-    return c.json({ user, perms: permsToWire(perms) });
-  });
-  return app;
+export function meRoute(adapter: DatabaseAdapter): Router {
+  const router = createRouter();
+  router.get(
+    '/api/auth/me',
+    defineEventHandler(async (event) => {
+      const user = event.context.user;
+      if (!user) return { user: null, perms: {} };
+      const perms = await effectivePerms(user, adapter);
+      return { user, perms: permsToWire(perms) };
+    }),
+  );
+  return router;
 }

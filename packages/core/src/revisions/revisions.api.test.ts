@@ -2,12 +2,13 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createAuth, seedSuperUser } from '@vulse/auth';
 import { LibsqlAdapter, MIGRATIONS_DIR, runMigrations } from '@vulse/db';
+import { toWebHandler } from 'h3';
 import { describe, expect, it } from 'vitest';
 import { loadBlueprints } from '../blueprints/load.js';
 import { seedBlueprintsFromCode } from '../blueprints/seed.js';
 import { createContentService } from '../content/service.js';
-import { loadSets } from '../sets/load.js';
 import { createApi } from '../http/api.js';
+import { loadSets } from '../sets/load.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixturesDir = join(here, '..', 'blueprints', '__fixtures__');
@@ -29,7 +30,11 @@ async function setup() {
     client: db.client,
     env: { authSecret: 'x', baseUrl: 'http://x', allowPublicSignup: true, smtpUrl: undefined },
   });
-  const app = createApi({ blueprints, content, adapter: db, authInstance, sets });
+  const rawApp = createApi({ blueprints, content, adapter: db, authInstance, sets });
+  const handler = toWebHandler(rawApp);
+  const app = {
+    request: (url: string, init?: RequestInit) => handler(new Request(url, init)),
+  };
 
   const signin = await app.request('http://x/api/auth/sign-in/email', {
     method: 'POST',
