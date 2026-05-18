@@ -73,6 +73,8 @@ type RemovalTarget =
 const handle = ref('');
 const label = ref('');
 const singleton = ref(false);
+const tree = ref(false);
+const maxDepth = ref<number | null>(null);
 const fields = reactive<EditorField[]>([]);
 const expandedIndex = ref<number | null>(null);
 const expandedReplicatorSets = reactive<Set<string>>(new Set());
@@ -131,6 +133,8 @@ async function load() {
     handle.value = '';
     label.value = '';
     singleton.value = false;
+    tree.value = false;
+    maxDepth.value = null;
     handleLocked.value = false;
     return;
   }
@@ -138,6 +142,8 @@ async function load() {
   handle.value = bp.handle;
   label.value = bp.label;
   singleton.value = bp.singleton;
+  tree.value = bp.tree ?? false;
+  maxDepth.value = bp.maxDepth ?? null;
   handleLocked.value = true;
   for (const f of bp.fields) {
     fields.push(toEditorField(f));
@@ -482,6 +488,10 @@ async function save() {
       handle: handle.value,
       label: label.value,
       singleton: singleton.value,
+      ...(tree.value ? { tree: true } : {}),
+      ...(tree.value && maxDepth.value !== null && maxDepth.value > 0
+        ? { maxDepth: maxDepth.value }
+        : {}),
       fields: fields.map(stripEditorField),
     };
     if (isCreate.value) {
@@ -564,10 +574,41 @@ async function save() {
           <input
             v-model="singleton"
             type="checkbox"
+            :disabled="tree"
             class="rounded border-zinc-300"
             data-testid="blueprint-singleton"
           />
           <span class="text-sm font-medium text-zinc-700">Singleton (only one entry)</span>
+        </label>
+        <label class="flex items-center gap-2">
+          <input
+            v-model="tree"
+            type="checkbox"
+            :disabled="singleton"
+            class="rounded border-zinc-300"
+            data-testid="blueprint-tree"
+          />
+          <span class="text-sm font-medium text-zinc-700">
+            Tree structure (entries can be nested under each other)
+          </span>
+        </label>
+        <label v-if="tree" class="block">
+          <span class="block text-xs font-medium text-zinc-600">
+            Max nesting depth <span class="text-zinc-400">(optional — leave blank for unlimited)</span>
+          </span>
+          <input
+            :value="maxDepth ?? ''"
+            type="number"
+            min="1"
+            placeholder="e.g. 4"
+            class="mt-1 w-32 rounded border border-zinc-300 px-3 py-1.5 text-sm"
+            data-testid="blueprint-max-depth"
+            @input="
+              maxDepth = ($event.target as HTMLInputElement).value === ''
+                ? null
+                : Math.max(1, Number(($event.target as HTMLInputElement).value))
+            "
+          />
         </label>
       </div>
 

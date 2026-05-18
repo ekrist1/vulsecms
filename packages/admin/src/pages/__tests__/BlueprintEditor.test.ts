@@ -21,6 +21,7 @@ beforeEach(() => {
     handle: 'posts',
     label: 'Posts',
     singleton: false,
+    tree: false,
     fields: [
       { name: 'title', label: 'Title', ui: { kind: 'text' }, optional: false },
       { name: 'body', label: 'Body', ui: { kind: 'blocks' }, optional: false },
@@ -153,6 +154,7 @@ describe('BlueprintEditor', () => {
       handle: 'posts',
       label: 'Posts',
       singleton: false,
+      tree: false,
       fields: [],
     });
     const w = mountEditor('posts');
@@ -177,6 +179,7 @@ describe('BlueprintEditor', () => {
       handle: 'pages',
       label: 'Pages',
       singleton: false,
+      tree: false,
       fields: [],
     });
     const w = mountEditor(null);
@@ -258,6 +261,7 @@ describe('BlueprintEditor', () => {
       handle: 'posts',
       label: 'Posts',
       singleton: false,
+      tree: false,
       fields: [],
     });
     const w = mountEditor('posts');
@@ -273,5 +277,52 @@ describe('BlueprintEditor', () => {
     expect(toasts.list.map((t) => ({ kind: t.kind, message: t.message }))).toEqual([
       { kind: 'success', message: 'Schema saved' },
     ]);
+  });
+
+  it('saves tree: true and maxDepth in the create payload', async () => {
+    const createSpy = vi.spyOn(client.api, 'createBlueprint').mockResolvedValue({
+      handle: 'pages',
+      label: 'Pages',
+      singleton: false,
+      tree: true,
+      maxDepth: 5,
+      fields: [],
+    });
+    const w = mountEditor(null);
+    await flushPromises();
+    await w.find('[data-testid="blueprint-handle"]').setValue('pages');
+    await w.find('[data-testid="blueprint-label"]').setValue('Pages');
+    await w.find('[data-testid="add-field"]').trigger('click');
+    await w.find('[data-testid="field-name-0"]').setValue('title');
+    await w.find('[data-testid="blueprint-tree"]').setValue(true);
+    await w.find('[data-testid="blueprint-max-depth"]').setValue('5');
+    await w.find('form').trigger('submit');
+    await flushPromises();
+    expect(createSpy).toHaveBeenCalled();
+    const arg = createSpy.mock.calls[0]?.[0] as unknown as Record<string, unknown>;
+    expect(arg.tree).toBe(true);
+    expect(arg.maxDepth).toBe(5);
+  });
+
+  it('omits tree/maxDepth from the payload when not enabled', async () => {
+    const createSpy = vi.spyOn(client.api, 'createBlueprint').mockResolvedValue({
+      handle: 'flat',
+      label: 'Flat',
+      singleton: false,
+      tree: false,
+      fields: [],
+    });
+    const w = mountEditor(null);
+    await flushPromises();
+    await w.find('[data-testid="blueprint-handle"]').setValue('flat');
+    await w.find('[data-testid="blueprint-label"]').setValue('Flat');
+    await w.find('[data-testid="add-field"]').trigger('click');
+    await w.find('[data-testid="field-name-0"]').setValue('title');
+    await w.find('form').trigger('submit');
+    await flushPromises();
+    expect(createSpy).toHaveBeenCalled();
+    const arg = createSpy.mock.calls[0]?.[0] as unknown as Record<string, unknown>;
+    expect(arg.tree).toBeUndefined();
+    expect(arg.maxDepth).toBeUndefined();
   });
 });

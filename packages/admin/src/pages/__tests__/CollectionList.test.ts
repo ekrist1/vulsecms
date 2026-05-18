@@ -3,8 +3,8 @@ import { createPinia, setActivePinia } from 'pinia';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createMemoryHistory, createRouter } from 'vue-router';
 import * as client from '../../api/client.js';
-import CollectionList from '../CollectionList.vue';
 import { useBlueprintsStore } from '../../stores/blueprints.js';
+import CollectionList from '../CollectionList.vue';
 
 const router = createRouter({
   history: createMemoryHistory(),
@@ -41,6 +41,7 @@ beforeEach(() => {
         handle: 'posts',
         label: 'Posts',
         singleton: false,
+        tree: false,
         fields: [
           { name: 'title', label: 'Title', ui: { kind: 'text' }, optional: false },
           { name: 'slug', label: 'Slug', ui: { kind: 'text' }, optional: false },
@@ -153,6 +154,7 @@ describe('CollectionList', () => {
           handle: 'posts',
           label: 'Posts',
           singleton: true,
+          tree: false,
           fields: [
             { name: 'title', label: 'Title', ui: { kind: 'text' }, optional: false },
             { name: 'slug', label: 'Slug', ui: { kind: 'text' }, optional: false },
