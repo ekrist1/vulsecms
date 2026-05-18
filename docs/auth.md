@@ -27,9 +27,7 @@ env vars set, the password is printed to stdout:
   Email: admin@vulse.local
   Password: A7gX9mQ2RpN1yKvT
 ```
-
-  Email:    admin@vulse.local
-  Password: L2IR2jTqHr1G0Ogb
+            
 
 
 Sign in with those credentials at `/login`. In production, Vulse refuses
