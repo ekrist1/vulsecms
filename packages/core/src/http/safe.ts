@@ -7,7 +7,7 @@ import { ConflictError, NotFoundError, ValidationError } from '../errors.js';
  * stable JSON responses. Other errors are re-thrown so h3's default
  * error handling can run.
  */
-export function safe(fn: (event: H3Event) => unknown | Promise<unknown>): EventHandler {
+export function safe(fn: (event: H3Event) => unknown | PromiseLike<unknown>): EventHandler {
   return defineEventHandler(async (event) => {
     try {
       return await fn(event);
