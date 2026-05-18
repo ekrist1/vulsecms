@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import type { BlockComponentMap } from '@vulse/renderer';
 import { computed } from 'vue';
+import MyAccordion from '../components/MyAccordion.vue';
 import { useEntry } from '../composables/useEntry.js';
 import EntryBody from './EntryBody.vue';
 import NotFound from './NotFound.vue';
@@ -13,6 +15,9 @@ const excerpt = computed(() => {
   return typeof value === 'string' ? value : null;
 });
 const body = computed(() => entry.value?.content.body ?? []);
+const blockComponents = {
+  vulseAccordion: MyAccordion,
+} satisfies BlockComponentMap;
 </script>
 
 <template>
@@ -20,7 +25,7 @@ const body = computed(() => entry.value?.content.body ?? []);
     <p class="site-eyebrow">{{ entry.collection }}</p>
     <h1>{{ title }}</h1>
     <p v-if="excerpt" class="site-lead">{{ excerpt }}</p>
-    <EntryBody :value="body" />
+    <EntryBody :value="body" :components="blockComponents" />
   </article>
   <NotFound v-else />
 </template>

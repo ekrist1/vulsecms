@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { type BlockNode, BlockRenderer } from '@vulse/renderer';
+import { type BlockComponentMap, type BlockNode, BlockRenderer } from '@vulse/renderer';
 import { computed } from 'vue';
 
 const props = defineProps<{
   value: unknown;
+  components?: BlockComponentMap;
 }>();
 
 function isBlockNode(value: unknown): value is BlockNode {
@@ -18,5 +19,9 @@ const doc = computed<BlockNode | BlockNode[]>(() => {
 </script>
 
 <template>
-  <BlockRenderer v-if="Array.isArray(doc) ? doc.length > 0 : true" :doc="doc" />
+  <BlockRenderer
+    v-if="Array.isArray(doc) ? doc.length > 0 : true"
+    :doc="doc"
+    :components="props.components ?? {}"
+  />
 </template>
