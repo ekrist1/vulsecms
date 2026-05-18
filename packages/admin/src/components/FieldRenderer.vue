@@ -24,6 +24,9 @@ const options = computed(() =>
 const sets = computed(() =>
   props.meta.ui.kind === 'replicator' ? props.meta.ui.sets : undefined,
 );
+const blocksSets = computed(() =>
+  props.meta.ui.kind === 'blocks' ? (props.meta.ui.sets ?? []) : [],
+);
 const to = computed(() =>
   props.meta.ui.kind === 'relationship' ? props.meta.ui.to : undefined,
 );
@@ -59,6 +62,7 @@ const component = computed<Component>(() => {
     :model-value="modelValue"
     :options="options"
     :sets="sets"
+    :blocks-sets="blocksSets"
     :to="to"
     :error="error"
     @update:model-value="(v: unknown) => $emit('update:modelValue', v)"

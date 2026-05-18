@@ -6,8 +6,10 @@ import CollectionKindIcon from './components/CollectionKindIcon.vue';
 import Toasts from './components/Toasts.vue';
 import { useAuthStore } from './stores/auth.js';
 import { useBlueprintsStore } from './stores/blueprints.js';
+import { useSetsStore } from './stores/sets.js';
 
 const store = useBlueprintsStore();
+const setsStore = useSetsStore();
 const auth = useAuthStore();
 const router = useRouter();
 
@@ -25,7 +27,7 @@ onMounted(async () => {
   } catch {
     // localStorage unavailable (SSR, sandboxed iframes) — leave default.
   }
-  await store.hydrate();
+  await Promise.all([store.hydrate(), setsStore.hydrate()]);
   const first = store.list[0];
   if (first && router.currentRoute.value.path === '/loading') {
     router.replace(`/collections/${first.handle}`);

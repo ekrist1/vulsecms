@@ -1,8 +1,10 @@
 import { flushPromises, mount } from '@vue/test-utils';
+import { createPinia, setActivePinia } from 'pinia';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import BlocksField from '../BlocksField.vue';
 
 beforeEach(() => {
+  setActivePinia(createPinia());
   vi.restoreAllMocks();
 });
 

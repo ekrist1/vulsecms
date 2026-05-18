@@ -1,7 +1,7 @@
 export type NonReplicatorFieldUi =
   | { kind: 'text' }
   | { kind: 'textarea' }
-  | { kind: 'blocks' }
+  | { kind: 'blocks'; sets?: string[] }
   | { kind: 'date' }
   | { kind: 'boolean' }
   | { kind: 'select'; options: readonly string[] }

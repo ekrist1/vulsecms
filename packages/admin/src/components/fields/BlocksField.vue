@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { EditorContent, useEditor } from '@tiptap/vue-3';
-import { watch } from 'vue';
+import { computed, watch } from 'vue';
+import { useSetsStore } from '../../stores/sets.js';
 import { EMPTY_BLOCKS_DOC, blocksEditorExtensions } from './blocks-editor-extensions.js';
 import { sanitizeLinkHref } from './url-utils.js';
 
@@ -8,8 +9,22 @@ const props = defineProps<{
   name: string;
   modelValue: unknown;
   error?: string;
+  /** Set handles declared on this blocks field in the blueprint. */
+  blocksSets?: string[];
 }>();
 const emit = defineEmits<{ 'update:modelValue': [unknown] }>();
+
+const setsStore = useSetsStore();
+
+const availableSetHandles = computed<string[]>(() => {
+  const declared = props.blocksSets ?? [];
+  return declared.filter((h) => !!setsStore.get(h));
+});
+
+function insertSet(handle: string) {
+  if (!handle) return;
+  editor.value?.chain().focus().insertVulseSet(handle).run();
+}
 
 const editor = useEditor({
   extensions: blocksEditorExtensions,
@@ -98,6 +113,20 @@ function insertVideo() {
         <button type="button" class="rounded px-2 py-1 hover:bg-zinc-200" data-testid="blocks-accordion" @click="insertAccordion">Accordion</button>
         <button type="button" class="rounded px-2 py-1 hover:bg-zinc-200" data-testid="blocks-iframe" @click="insertIframe">Iframe</button>
         <button type="button" class="rounded px-2 py-1 hover:bg-zinc-200" data-testid="blocks-video" @click="insertVideo">Video</button>
+        <select
+          v-if="availableSetHandles.length > 0"
+          class="rounded border border-zinc-300 px-2 py-1 text-xs"
+          data-testid="blocks-insert-set"
+          @change="
+            insertSet(($event.target as HTMLSelectElement).value);
+            ($event.target as HTMLSelectElement).value = '';
+          "
+        >
+          <option value="" disabled selected>+ Insert set</option>
+          <option v-for="h in availableSetHandles" :key="h" :value="h">
+            {{ setsStore.get(h)?.label ?? h }}
+          </option>
+        </select>
       </div>
       <EditorContent v-if="editor" :editor="editor" class="prose max-w-none p-3 text-sm" />
     </div>
