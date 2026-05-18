@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "@vue/server-renderer": "^3.5.0",
+    "@vulse/auth": "workspace:*",
     "@vulse/core": "workspace:*",
     "@vulse/renderer": "workspace:*",
     "h3": "^1.15.11",

@@ -253,6 +253,9 @@ importers:
       '@vue/server-renderer':
         specifier: ^3.5.0
         version: 3.5.34(vue@3.5.34(typescript@5.9.3))
+      '@vulse/auth':
+        specifier: workspace:*
+        version: link:../auth
       '@vulse/core':
         specifier: workspace:*
         version: link:../core
