@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { api, type SetFieldDef } from '../api/client.js';
 import { useToastsStore } from '../stores/toasts.js';
@@ -13,14 +13,43 @@ const label = ref('');
 const fields = reactive<SetFieldDef[]>([]);
 const saving = ref(false);
 const error = ref<string | null>(null);
+// When `false`, the handle auto-syncs from the slugified label. Flipped to
+// `true` the moment the user types into the handle field directly, or on
+// load of an existing set (handle is immutable on edit).
+const handleLocked = ref(false);
 
 const isCreate = computed(() => props.handle === null);
 
+function slugify(input: string): string {
+  return input
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9_-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/^[^a-z]+/, '');
+}
+
+watch(label, (v) => {
+  if (isCreate.value && !handleLocked.value) {
+    handle.value = slugify(v);
+  }
+});
+
+function onHandleInput(event: Event) {
+  handleLocked.value = true;
+  handle.value = (event.target as HTMLInputElement).value;
+}
+
 async function load() {
-  if (props.handle === null) return;
+  if (props.handle === null) {
+    handleLocked.value = false;
+    return;
+  }
   const s = await api.getSet(props.handle);
   handle.value = s.handle;
   label.value = s.label;
+  handleLocked.value = true;
   fields.splice(0, fields.length, ...s.fields);
 }
 
@@ -65,12 +94,21 @@ onMounted(load);
     <div class="max-w-3xl space-y-4">
       <div class="space-y-3 rounded border border-zinc-200 bg-white p-4">
         <label class="block">
-          <span class="block text-sm font-medium text-zinc-700">Handle</span>
-          <input v-model="handle" :disabled="!isCreate" class="mt-1 w-full rounded border border-zinc-300 px-3 py-2 text-sm disabled:bg-zinc-100" data-testid="set-handle" />
-        </label>
-        <label class="block">
           <span class="block text-sm font-medium text-zinc-700">Label</span>
           <input v-model="label" class="mt-1 w-full rounded border border-zinc-300 px-3 py-2 text-sm" data-testid="set-label" />
+        </label>
+        <label class="block">
+          <span class="block text-sm font-medium text-zinc-700">Handle</span>
+          <input
+            :value="handle"
+            :disabled="!isCreate"
+            class="mt-1 w-full rounded border border-zinc-300 px-3 py-2 text-sm disabled:bg-zinc-100"
+            data-testid="set-handle"
+            @input="onHandleInput"
+          />
+          <span v-if="isCreate" class="mt-1 block text-xs text-zinc-500">
+            Auto-generated from the label until you edit it.
+          </span>
         </label>
       </div>
 
