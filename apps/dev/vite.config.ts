@@ -24,10 +24,11 @@ export default defineConfig({
       database: databaseConfigFromEnv(),
       site: {
         clientAssetsDir: resolveSiteClientRoot(),
-        createApp: ({ blueprints, content }) =>
+        createApp: ({ blueprints, content, authInstance }) =>
           createSiteServer({
             blueprints,
             content,
+            authInstance,
             routes: (config as { routes?: SiteRouteOverrides }).routes,
           }),
       },
