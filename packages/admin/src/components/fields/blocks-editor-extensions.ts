@@ -6,6 +6,7 @@ import { VulseCalloutExtension } from './vulse-callout-extension.js';
 import { VulseIframeExtension } from './vulse-iframe-extension.js';
 import { VulseLinkExtension } from './link-extension.js';
 import { VulseVideoExtension } from './vulse-video-extension.js';
+import { VulseSetExtension } from './vulse-set-extension.js';
 
 export const EMPTY_BLOCKS_DOC = {
   type: 'doc',
@@ -21,4 +22,5 @@ export const blocksEditorExtensions = [
   VulseAccordionExtension,
   VulseIframeExtension,
   VulseVideoExtension,
+  VulseSetExtension,
 ];
