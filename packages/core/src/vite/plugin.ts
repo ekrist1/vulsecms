@@ -22,6 +22,7 @@ export interface VulseDevOptions {
     createApp: (deps: {
       blueprints: Map<string, Blueprint>;
       content: ContentService;
+      authInstance: ReturnType<typeof createAuth>;
     }) => App | Promise<App>;
   };
 }
@@ -104,7 +105,9 @@ export function vulseDevPlugin(opts: VulseDevOptions): Plugin {
           databaseSummary,
           sets,
         });
-        const site = opts.site ? await opts.site.createApp({ blueprints, content }) : null;
+        const site = opts.site
+          ? await opts.site.createApp({ blueprints, content, authInstance: authInstance! })
+          : null;
         return {
           api: toNodeListener(api),
           site: site ? toNodeListener(site) : null,
