@@ -1,3 +1,4 @@
+import type { AuthInstance } from '@vulse/auth';
 import type { Blueprint, BlueprintMeta, ContentService, Entry } from '@vulse/core';
 
 export interface SiteRouteOverride {
@@ -26,6 +27,7 @@ export interface SiteServerDeps {
   blueprints: Map<string, Blueprint>;
   content: ContentService;
   routes?: SiteRouteOverrides;
+  authInstance?: AuthInstance;
 }
 
 export interface RenderPageOptions {
