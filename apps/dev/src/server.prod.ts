@@ -78,7 +78,7 @@ async function buildListeners() {
     databaseSummary: dbSummary,
     sets,
   });
-  const site = createSiteServer({ blueprints, content, routes: routeOverrides });
+  const site = createSiteServer({ blueprints, content, routes: routeOverrides, authInstance });
   return { api: toNodeListener(api), site: toNodeListener(site) };
 }
 
