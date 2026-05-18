@@ -7,7 +7,13 @@ export function sessionMiddleware(authInstance: AuthInstance): EventHandler {
     const rawHeaders = getRequestHeaders(event);
     const headers = new Headers();
     for (const [name, value] of Object.entries(rawHeaders)) {
-      if (typeof value === 'string') headers.set(name, value);
+      if (typeof value === 'string') {
+        headers.set(name, value);
+        continue;
+      }
+      if (Array.isArray(value)) {
+        headers.set(name, value.join(name.toLowerCase() === 'cookie' ? '; ' : ', '));
+      }
     }
     const result = await authInstance.auth.api.getSession({ headers });
     if (!result) {
