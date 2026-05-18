@@ -35,21 +35,6 @@ async function check(
   return { ok: true };
 }
 
-// Standalone middleware form. Note: route params (e.g. `:handle`) are only
-// available when this middleware is mounted via a router. When mounted via
-// `app.use('/api/collections/**', ...)`, `getRouterParam` returns undefined
-// and the check falls through to its 'bad_request' branch — prefer the
-// `withPerm(opts, handler)` form for per-route gating.
-export function requirePerm(opts: RequirePermOptions): EventHandler {
-  return defineEventHandler(async (event) => {
-    const result = await check(event, opts);
-    if (!result.ok) {
-      setResponseStatus(event, result.status);
-      return result.body;
-    }
-  });
-}
-
 // Per-route wrapping form: `router.post('/api/collections/:handle', withPerm({ ... }, handler))`.
 export function withPerm(opts: RequirePermOptions, handler: EventHandler): EventHandler {
   return defineEventHandler(async (event) => {
