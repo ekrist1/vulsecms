@@ -25,7 +25,7 @@ env vars set, the password is printed to stdout:
 ```
 [vulse:auth] First-boot super user seeded.
   Email: admin@vulse.local
-  Password: A7gX9mQ2RpN1yKvT
+  Password: aNzVnLwvdGieYOGu
 ```
             
 
