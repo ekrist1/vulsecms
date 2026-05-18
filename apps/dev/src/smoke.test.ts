@@ -209,3 +209,113 @@ describe('protected entries', () => {
     expect(authedList.items.find((e) => e.id === entry.id)).toBeDefined();
   });
 });
+
+describe('bard sets', () => {
+  const setBody = {
+    handle: 'qquote',
+    label: 'Quote',
+    fields: [
+      { name: 'quote', ui: { kind: 'text' }, optional: false },
+      { name: 'author', ui: { kind: 'text' }, optional: false },
+    ],
+  };
+
+  let postsBlueprint: { handle: string; label: string; singleton: boolean; fields: unknown[] };
+
+  it('creates a set as super', async () => {
+    const res = await fetch(`${base}/api/sets`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: superCookie },
+      body: JSON.stringify(setBody),
+    });
+    expect(res.status).toBe(201);
+  });
+
+  it('adds the set to the Posts body field', async () => {
+    const getBp = await fetch(`${base}/api/blueprints/posts`, { headers: { cookie: superCookie } });
+    postsBlueprint = (await getBp.json()) as typeof postsBlueprint;
+    const updated = {
+      ...postsBlueprint,
+      fields: postsBlueprint.fields.map((f) => {
+        const field = f as { name: string; ui: { kind: string } };
+        if (field.name === 'body' && field.ui.kind === 'blocks') {
+          return { ...field, ui: { kind: 'blocks', sets: ['qquote'] } };
+        }
+        return f;
+      }),
+    };
+    const patch = await fetch(`${base}/api/blueprints/posts`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json', cookie: superCookie },
+      body: JSON.stringify(updated),
+    });
+    expect(patch.status).toBe(200);
+  });
+
+  it('POSTs an entry with a valid vulseSet node', async () => {
+    const created = await fetch(`${base}/api/collections/posts`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: superCookie },
+      body: JSON.stringify({
+        headline: 'Hello',
+        slug: 'hello-bard',
+        body: {
+          type: 'doc',
+          content: [
+            { type: 'paragraph', content: [{ type: 'text', text: 'Intro' }] },
+            { type: 'vulseSet', attrs: { set: 'qquote', data: { quote: 'Be brave', author: 'Anna' } } },
+          ],
+        },
+        status: 'draft',
+      }),
+    });
+    if (created.status !== 201) {
+      const text = await created.text();
+      throw new Error(`Expected 201 but got ${created.status}: ${text}`);
+    }
+    const entry = (await created.json()) as { id: string; content: { body: { content: unknown[] } } };
+
+    const got = await fetch(`${base}/api/collections/posts/${entry.id}`, { headers: { cookie: superCookie } });
+    const body = (await got.json()) as { content: { body: { content: unknown[] } } };
+    const setNode = (body.content.body.content as Array<{ type: string; attrs?: Record<string, unknown> }>).find((n) => n.type === 'vulseSet');
+    expect(setNode).toBeDefined();
+    expect((setNode!.attrs!.data as { author: string }).author).toBe('Anna');
+  });
+
+  it('rejects an entry with missing required set field', async () => {
+    const res = await fetch(`${base}/api/collections/posts`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: superCookie },
+      body: JSON.stringify({
+        headline: 'Bad',
+        slug: 'bad-bard',
+        body: {
+          type: 'doc',
+          content: [{ type: 'vulseSet', attrs: { set: 'qquote', data: { quote: 'half' } } }],
+        },
+        status: 'draft',
+      }),
+    });
+    expect(res.status).toBe(422);
+    const out = (await res.json()) as { issues?: { path: (string | number)[] }[] };
+    const issuePaths = (out.issues ?? []).map((i) => (i.path ?? []).join('.'));
+    expect(issuePaths.some((p) => p.includes('data.author'))).toBe(true);
+  });
+
+  it('rejects an entry referencing an unknown set', async () => {
+    const res = await fetch(`${base}/api/collections/posts`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: superCookie },
+      body: JSON.stringify({
+        headline: 'Bad',
+        slug: 'bad-bard-2',
+        body: {
+          type: 'doc',
+          content: [{ type: 'vulseSet', attrs: { set: 'ghost', data: {} } }],
+        },
+        status: 'draft',
+      }),
+    });
+    expect(res.status).toBe(422);
+  });
+});
