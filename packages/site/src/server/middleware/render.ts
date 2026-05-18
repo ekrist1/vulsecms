@@ -4,6 +4,7 @@ import {
   type EventHandler,
   createApp,
   defineEventHandler,
+  getRequestHeaders,
   getRequestURL,
   setResponseHeader,
   setResponseStatus,
@@ -46,8 +47,28 @@ function segments(pathname: string): string[] {
     .map(decodeURIComponent);
 }
 
-function includeProtected(url: URL): boolean {
-  return url.searchParams.get('preview') === '1';
+/**
+ * Resolves whether the request is allowed to see protected entries.
+ *
+ * Rules:
+ * - If ?preview=1 is absent → always false.
+ * - If authInstance is not provided → false (safe default; useful in test / partial setups).
+ * - If the session resolves to a user with isSuper === true/1 OR role === 'editor' → true.
+ * - Signed-in external_users are NOT granted preview access (preview is an editorial workflow).
+ * - No cookie / unauthenticated → false.
+ */
+async function resolvePreview(
+  deps: SiteServerDeps,
+  url: URL,
+  headers: Headers | undefined,
+): Promise<boolean> {
+  if (url.searchParams.get('preview') !== '1') return false;
+  if (!deps.authInstance || !headers) return false;
+  const result = await deps.authInstance.auth.api.getSession({ headers });
+  const user = (result?.user ?? null) as { role?: string; isSuper?: unknown } | null;
+  if (!user) return false;
+  const isSuper = Number(user.isSuper) === 1 || user.isSuper === true;
+  return isSuper || user.role === 'editor';
 }
 
 async function resolveOverride(
@@ -94,9 +115,10 @@ async function resolveOverride(
 export async function resolveSiteRequest(
   deps: SiteServerDeps,
   url: URL,
+  headers?: Headers,
 ): Promise<{ status: number; state: SiteInitialState }> {
   const blueprints = [...deps.blueprints.values()].map(toMeta);
-  const preview = includeProtected(url);
+  const preview = await resolvePreview(deps, url, headers);
   const pathname = toRouteKey(url.pathname);
   const override = deps.routes?.[pathname];
   if (override) {
@@ -187,7 +209,12 @@ export async function resolveSiteRequest(
 export function createSiteRenderer(deps: SiteServerDeps): EventHandler {
   return defineEventHandler(async (event) => {
     const url = getRequestURL(event);
-    const { status, state } = await resolveSiteRequest(deps, url);
+    const rawHeaders = getRequestHeaders(event);
+    const headers = new Headers();
+    for (const [k, v] of Object.entries(rawHeaders)) {
+      if (typeof v === 'string') headers.set(k, v);
+    }
+    const { status, state } = await resolveSiteRequest(deps, url, headers);
     setResponseStatus(event, status);
     setResponseHeader(event, 'content-type', 'text/html; charset=utf-8');
     return await renderPage(`${url.pathname}${url.search}`, state);
