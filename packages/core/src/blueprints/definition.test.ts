@@ -19,7 +19,9 @@ describe('BlueprintDefinitionSchema blocks-with-sets', () => {
   it('accepts a blocks field with sets array', () => {
     const r = BlueprintDefinitionSchema.safeParse({
       ...base,
-      fields: [{ name: 'body', ui: { kind: 'blocks', sets: ['quote', 'gallery'] }, optional: false }],
+      fields: [
+        { name: 'body', ui: { kind: 'blocks', sets: ['quote', 'gallery'] }, optional: false },
+      ],
     });
     expect(r.success).toBe(true);
   });
@@ -30,5 +32,43 @@ describe('BlueprintDefinitionSchema blocks-with-sets', () => {
       fields: [{ name: 'body', ui: { kind: 'blocks', sets: ['BadHandle'] }, optional: false }],
     });
     expect(r.success).toBe(false);
+  });
+});
+
+describe('BlueprintDefinitionSchema tree', () => {
+  const base = {
+    handle: 'pages',
+    label: 'Pages',
+    fields: [{ name: 'title', ui: { kind: 'text' }, optional: false }],
+  };
+
+  it('accepts tree: true on a non-singleton collection', () => {
+    const r = BlueprintDefinitionSchema.safeParse({ ...base, singleton: false, tree: true });
+    expect(r.success).toBe(true);
+  });
+
+  it('accepts maxDepth alongside tree: true', () => {
+    const r = BlueprintDefinitionSchema.safeParse({
+      ...base,
+      singleton: false,
+      tree: true,
+      maxDepth: 3,
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it('rejects singleton + tree together', () => {
+    const r = BlueprintDefinitionSchema.safeParse({ ...base, singleton: true, tree: true });
+    expect(r.success).toBe(false);
+  });
+
+  it('rejects maxDepth without tree: true', () => {
+    const r = BlueprintDefinitionSchema.safeParse({ ...base, singleton: false, maxDepth: 3 });
+    expect(r.success).toBe(false);
+  });
+
+  it('accepts a blueprint with no tree flag (defaults to false)', () => {
+    const r = BlueprintDefinitionSchema.safeParse({ ...base, singleton: false });
+    expect(r.success).toBe(true);
   });
 });

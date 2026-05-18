@@ -53,6 +53,20 @@ function deny(event: Parameters<typeof setResponseStatus>[0], status: number, bo
   return body;
 }
 
+/**
+ * Parse a `parent_id` query value into the content-service shape:
+ *   undefined → no filter
+ *   'root'   → null (root-level entries only)
+ *   <ulid>   → that parent's children
+ */
+function parseParentIdQuery(raw: string | string[] | undefined): string | null | undefined {
+  if (raw === undefined) return undefined;
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  if (value === undefined) return undefined;
+  if (value === 'root' || value === '') return null;
+  return value;
+}
+
 // Build a Web Request for Better Auth. h3's `toWebRequest` attaches a body
 // stream for every POST/PATCH/PUT/DELETE even when there's no body, which
 // makes Better Auth's body parser return 415 on bodyless requests (e.g.
@@ -152,13 +166,24 @@ export function createApi(deps: ApiDeps): App {
       const offset = Number(query.offset ?? '0');
       const q = (query.q as string | undefined) ?? undefined;
       const field = (query.field as string | undefined) ?? undefined;
+      const parentId = parseParentIdQuery(query.parent_id as string | undefined);
       return await content.list(handle, {
         limit,
         offset,
         ...(q ? { q } : {}),
         ...(field ? { field } : {}),
+        ...(parentId !== undefined ? { parentId } : {}),
         includeProtected: false,
       });
+    }),
+  );
+
+  router.get(
+    '/api/public/collections/:handle/tree',
+    safe(async (event) => {
+      const handle = getRouterParam(event, 'handle') as string;
+      if (!blueprints.has(handle)) throw new NotFoundError(`unknown collection: ${handle}`);
+      return await content.tree(handle, { includeProtected: false });
     }),
   );
 
@@ -199,13 +224,31 @@ export function createApi(deps: ApiDeps): App {
       const offset = Number(query.offset ?? '0');
       const q = (query.q as string | undefined) ?? undefined;
       const field = (query.field as string | undefined) ?? undefined;
+      const parentId = parseParentIdQuery(query.parent_id as string | undefined);
       return await content.list(handle, {
         limit,
         offset,
         ...(q ? { q } : {}),
         ...(field ? { field } : {}),
+        ...(parentId !== undefined ? { parentId } : {}),
         includeProtected: user !== null,
       });
+    }),
+  );
+
+  router.get(
+    '/api/collections/:handle/tree',
+    safe(async (event) => {
+      const handle = getRouterParam(event, 'handle') as string;
+      if (!blueprints.has(handle)) throw new NotFoundError(`unknown collection: ${handle}`);
+      const user = event.context.user;
+
+      if (user && user.role === 'editor' && !user.isSuper) {
+        const perms = await effectivePerms(user, adapter);
+        if (!perms.get(handle)?.has('read')) return deny(event, 403, { error: 'forbidden' });
+      }
+
+      return await content.tree(handle, { includeProtected: user !== null });
     }),
   );
 
@@ -275,6 +318,35 @@ export function createApi(deps: ApiDeps): App {
         await content.delete(handle, id);
         setResponseStatus(event, 204);
         return null;
+      }),
+    ),
+  );
+
+  router.patch(
+    '/api/collections/:handle/:id/move',
+    withPerm(
+      { action: 'update', adapter },
+      safe(async (event) => {
+        const handle = getRouterParam(event, 'handle') as string;
+        const id = getRouterParam(event, 'id') as string;
+        if (!blueprints.has(handle)) throw new NotFoundError(`unknown collection: ${handle}`);
+        const body = (await readBody(event)) as {
+          parentId?: string | null;
+          sortOrder?: number;
+        };
+        if (!('parentId' in body)) {
+          throw new ValidationError([
+            {
+              code: 'custom',
+              message: 'parentId is required (use null for root-level placement).',
+              path: ['parentId'],
+            },
+          ]);
+        }
+        return await content.move(handle, id, {
+          parentId: body.parentId ?? null,
+          ...(body.sortOrder !== undefined ? { sortOrder: body.sortOrder } : {}),
+        });
       }),
     ),
   );

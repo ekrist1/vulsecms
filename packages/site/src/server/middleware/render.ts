@@ -24,6 +24,8 @@ function toMeta(blueprint: SiteServerDeps['blueprints'] extends Map<string, infe
     handle: blueprint.handle,
     label: blueprint.label,
     singleton: blueprint.singleton,
+    tree: blueprint.tree,
+    ...(blueprint.maxDepth !== undefined ? { maxDepth: blueprint.maxDepth } : {}),
     fields: blueprint.fields,
   };
 }

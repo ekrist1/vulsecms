@@ -1,5 +1,7 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
+import type { CompiledSet } from '../sets/compile.js';
+import { validateSetNodes } from '../sets/validate-tree.js';
 import type {
   BlueprintDefinition,
   FieldDefinition,
@@ -7,8 +9,6 @@ import type {
   ReplicatorSetDefinition,
 } from './definition.js';
 import type { Blueprint } from './types.js';
-import type { CompiledSet } from '../sets/compile.js';
-import { validateSetNodes } from '../sets/validate-tree.js';
 
 export interface CompileBlueprintOptions {
   sets?: Map<string, CompiledSet>;
@@ -27,6 +27,8 @@ export function compileBlueprint(
     handle: def.handle,
     label: def.label,
     singleton: def.singleton,
+    tree: def.tree ?? false,
+    ...(def.maxDepth !== undefined ? { maxDepth: def.maxDepth } : {}),
     fields: def.fields,
     schema,
     hash: hashDefinition(def),
@@ -117,6 +119,8 @@ export function hashDefinition(def: BlueprintDefinition): string {
     handle: def.handle,
     label: def.label,
     singleton: def.singleton,
+    tree: def.tree ?? false,
+    maxDepth: def.maxDepth ?? null,
     fields: def.fields.map((f) => ({
       name: f.name,
       label: f.label ?? null,

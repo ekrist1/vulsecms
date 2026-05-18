@@ -11,6 +11,8 @@ export interface Blueprint {
   handle: string;
   label: string;
   singleton: boolean;
+  tree: boolean;
+  maxDepth?: number;
   schema: z.ZodObject<z.ZodRawShape>;
   fields: FieldDefinition[];
   hash: string;
