@@ -1,10 +1,13 @@
+import { createReadStream, statSync } from 'node:fs';
 import { createAuth, seedSuperUser } from '@vulse/auth';
 import { LibsqlAdapter, MIGRATIONS_DIR, describeConfig, runMigrations } from '@vulse/db';
-import { toNodeListener } from 'h3';
+import { type App, toNodeListener } from 'h3';
 import type { Plugin, ViteDevServer } from 'vite';
 import { loadBlueprints } from '../blueprints/load.js';
 import { seedBlueprintsFromCode } from '../blueprints/seed.js';
+import type { Blueprint } from '../blueprints/types.js';
 import { createContentService } from '../content/service.js';
+import type { ContentService } from '../content/types.js';
 import { blueprintEvents } from '../events.js';
 import { createApi } from '../http/api.js';
 import { setsEvents } from '../sets/events.js';
@@ -13,6 +16,48 @@ import { loadSets } from '../sets/load.js';
 export interface VulseDevOptions {
   blueprintsDir: string;
   database: ConstructorParameters<typeof LibsqlAdapter>[0];
+  site?: {
+    base?: string;
+    clientAssetsDir?: string;
+    createApp: (deps: {
+      blueprints: Map<string, Blueprint>;
+      content: ContentService;
+    }) => App | Promise<App>;
+  };
+}
+
+const MIME_TYPES: Record<string, string> = {
+  '.js': 'application/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.map': 'application/json; charset=utf-8',
+};
+
+function serveAsset(root: string, base: string, reqUrl: string) {
+  const pathname = decodeURIComponent(reqUrl.split('?')[0] ?? '/');
+  if (!pathname.startsWith(base)) return null;
+  const relativePath = pathname.slice(base.length).replace(/^\/+/, '').replace(/\.\./g, '');
+  const candidate = new URL(relativePath, `file://${root.replace(/\/?$/, '/')}`);
+  try {
+    const stat = statSync(candidate);
+    if (!stat.isFile()) return null;
+    const ext = candidate.pathname.slice(candidate.pathname.lastIndexOf('.'));
+    return { path: candidate, type: MIME_TYPES[ext] ?? 'application/octet-stream' };
+  } catch {
+    return null;
+  }
+}
+
+function acceptsHtml(req: {
+  headers: { accept?: string | string[] | undefined };
+  method?: string | undefined;
+  url?: string | undefined;
+}) {
+  if (req.method && req.method !== 'GET' && req.method !== 'HEAD') return false;
+  const accept = Array.isArray(req.headers.accept)
+    ? req.headers.accept.join(',')
+    : (req.headers.accept ?? '');
+  return accept.includes('text/html');
 }
 
 export function vulseDevPlugin(opts: VulseDevOptions): Plugin {
@@ -51,7 +96,7 @@ export function vulseDevPlugin(opts: VulseDevOptions): Plugin {
       async function build() {
         const blueprints = await loadBlueprints({ adapter: adapter!, sets });
         const content = createContentService(adapter!, blueprints);
-        return createApi({
+        const api = createApi({
           blueprints,
           content,
           adapter: adapter!,
@@ -59,26 +104,56 @@ export function vulseDevPlugin(opts: VulseDevOptions): Plugin {
           databaseSummary,
           sets,
         });
+        const site = opts.site ? await opts.site.createApp({ blueprints, content }) : null;
+        return {
+          api: toNodeListener(api),
+          site: site ? toNodeListener(site) : null,
+        };
       }
 
-      let listener = toNodeListener(await build());
+      let listeners = await build();
 
       const onChange = async () => {
-        listener = toNodeListener(await build());
+        listeners = await build();
         server.ws.send({ type: 'custom', event: 'vulse:blueprints-changed' });
       };
       blueprintEvents.on('change', onChange);
 
       const onSetsChange = async () => {
         sets = await loadSets({ adapter: adapter! });
-        listener = toNodeListener(await build());
+        listeners = await build();
         server.ws.send({ type: 'custom', event: 'vulse:sets-changed' });
       };
       setsEvents.on('change', onSetsChange);
 
       server.middlewares.use((req, res, next) => {
-        if (!req.url || !req.url.startsWith('/api/')) return next();
-        Promise.resolve(listener(req, res)).catch(next);
+        if (!req.url) return next();
+
+        const siteBase = opts.site?.base ?? '/_vulse/site/';
+        if (opts.site?.clientAssetsDir && req.url.startsWith(siteBase)) {
+          const file = serveAsset(opts.site.clientAssetsDir, siteBase, req.url);
+          if (!file) return next();
+          res.setHeader('content-type', file.type);
+          createReadStream(file.path).pipe(res);
+          return;
+        }
+
+        if (req.url.startsWith('/api/')) {
+          Promise.resolve(listeners.api(req, res)).catch(next);
+          return;
+        }
+
+        if (
+          listeners.site &&
+          !req.url.startsWith('/admin') &&
+          !req.url.startsWith('/@') &&
+          acceptsHtml(req)
+        ) {
+          Promise.resolve(listeners.site(req, res)).catch(next);
+          return;
+        }
+
+        next();
       });
     },
 

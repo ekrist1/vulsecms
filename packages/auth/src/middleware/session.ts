@@ -1,21 +1,10 @@
-import { type EventHandler, defineEventHandler, getRequestHeaders } from 'h3';
+import { type EventHandler, defineEventHandler } from 'h3';
 import type { AuthInstance } from '../instance.js';
 import type { AuthSession, AuthUser } from '../types.js';
 
 export function sessionMiddleware(authInstance: AuthInstance): EventHandler {
   return defineEventHandler(async (event) => {
-    const rawHeaders = getRequestHeaders(event);
-    const headers = new Headers();
-    for (const [name, value] of Object.entries(rawHeaders)) {
-      if (typeof value === 'string') {
-        headers.set(name, value);
-        continue;
-      }
-      if (Array.isArray(value)) {
-        headers.set(name, value.join(name.toLowerCase() === 'cookie' ? '; ' : ', '));
-      }
-    }
-    const result = await authInstance.auth.api.getSession({ headers });
+    const result = await authInstance.auth.api.getSession({ headers: event.headers });
     if (!result) {
       event.context.user = null;
       event.context.session = null;

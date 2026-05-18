@@ -1,0 +1,129 @@
+:root {
+  color: #172018;
+  background: #f3f0e8;
+  font-family: "Avenir Next", "Segoe UI", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: radial-gradient(circle at top left, rgba(193, 113, 54, 0.18), transparent 32rem),
+    linear-gradient(135deg, #f7f2e8 0%, #e7eadb 48%, #dce8e2 100%);
+}
+
+a {
+  color: inherit;
+}
+
+.site-shell {
+  width: min(1120px, calc(100vw - 2rem));
+  margin: 0 auto;
+  padding: 1.25rem 0 4rem;
+}
+
+.site-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 5rem;
+}
+
+.site-brand {
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  text-decoration: none;
+}
+
+.site-nav {
+  display: flex;
+  gap: 1rem;
+  color: #516157;
+  font-size: 0.92rem;
+}
+
+.site-nav a,
+.site-button {
+  text-decoration: none;
+}
+
+.site-main {
+  display: grid;
+  place-items: start center;
+}
+
+.site-card,
+.site-hero {
+  width: min(760px, 100%);
+  border: 1px solid rgba(23, 32, 24, 0.12);
+  border-radius: 2rem;
+  background: rgba(255, 252, 244, 0.78);
+  box-shadow: 0 2rem 6rem rgba(23, 32, 24, 0.12);
+  padding: clamp(1.5rem, 4vw, 3rem);
+}
+
+.site-hero h1,
+.site-entry h1,
+.site-card h1 {
+  margin: 0;
+  color: #172018;
+  font-size: clamp(2.4rem, 7vw, 5.8rem);
+  line-height: 0.94;
+  letter-spacing: -0.075em;
+}
+
+.site-lead,
+.site-hero p,
+.site-empty p,
+.site-muted {
+  color: #516157;
+  font-size: 1.08rem;
+  line-height: 1.7;
+}
+
+.site-eyebrow {
+  margin: 0 0 1rem;
+  color: #a04f26;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.site-button {
+  display: inline-flex;
+  margin-top: 1rem;
+  border-radius: 999px;
+  background: #172018;
+  color: #fffaf0;
+  padding: 0.8rem 1.1rem;
+  font-weight: 700;
+}
+
+.site-list {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 2rem;
+}
+
+.site-list-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  border: 1px solid rgba(23, 32, 24, 0.1);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.42);
+  padding: 1rem;
+  text-decoration: none;
+}
+
+.site-list-item small {
+  color: #7a876f;
+}
+
+.vulse-doc {
+  margin-top: 2rem;
+}

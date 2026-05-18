@@ -35,6 +35,17 @@ async function check(
   return { ok: true };
 }
 
+// Standalone middleware form: `app.use('/api/collections/:handle/**', requirePerm({ ... }))`.
+export function requirePerm(opts: RequirePermOptions): EventHandler {
+  return defineEventHandler(async (event) => {
+    const result = await check(event, opts);
+    if (!result.ok) {
+      setResponseStatus(event, result.status);
+      return result.body;
+    }
+  });
+}
+
 // Per-route wrapping form: `router.post('/api/collections/:handle', withPerm({ ... }, handler))`.
 export function withPerm(opts: RequirePermOptions, handler: EventHandler): EventHandler {
   return defineEventHandler(async (event) => {

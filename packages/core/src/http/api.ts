@@ -111,7 +111,7 @@ export function createApi(deps: ApiDeps): App {
         );
         const reqHeaders = getRequestHeader(event, 'access-control-request-headers');
         if (reqHeaders) appendResponseHeader(event, 'access-control-allow-headers', reqHeaders);
-        appendResponseHeader(event, 'access-control-max-age', '5');
+        appendResponseHeader(event, 'access-control-max-age', 5);
         setResponseStatus(event, 204);
         return null;
       }
@@ -140,6 +140,47 @@ export function createApi(deps: ApiDeps): App {
 
   // ---- Content / blueprint / system routes ----
   const router = createRouter();
+
+  router.get(
+    '/api/public/collections/:handle',
+    safe(async (event) => {
+      const handle = getRouterParam(event, 'handle') as string;
+      if (!blueprints.has(handle)) throw new NotFoundError(`unknown collection: ${handle}`);
+
+      const query = getQuery(event);
+      const limit = Number(query.limit ?? '100');
+      const offset = Number(query.offset ?? '0');
+      const q = (query.q as string | undefined) ?? undefined;
+      const field = (query.field as string | undefined) ?? undefined;
+      return await content.list(handle, {
+        limit,
+        offset,
+        ...(q ? { q } : {}),
+        ...(field ? { field } : {}),
+        includeProtected: false,
+      });
+    }),
+  );
+
+  router.get(
+    '/api/public/collections/:handle/:id',
+    safe(async (event) => {
+      const handle = getRouterParam(event, 'handle') as string;
+      const id = getRouterParam(event, 'id') as string;
+      if (!blueprints.has(handle)) throw new NotFoundError(`unknown collection: ${handle}`);
+
+      const entry = await content.get(handle, id);
+      if (!entry || entry.protected) throw new NotFoundError('entry not found');
+      return entry;
+    }),
+  );
+
+  router.get(
+    '/api/public/_meta/collections',
+    safe(() => {
+      return [...blueprints.values()].map(toMeta);
+    }),
+  );
 
   router.get(
     '/api/collections/:handle',

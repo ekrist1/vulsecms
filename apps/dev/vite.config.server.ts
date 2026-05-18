@@ -5,6 +5,19 @@ import { defineConfig } from 'vite';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
+  ssr: {
+    external: [
+      '@libsql/client',
+      '@vulse/auth',
+      '@vulse/core',
+      '@vulse/db',
+      '@vulse/site',
+      '@vulse/site/server',
+      '@vue/server-renderer',
+      'vue',
+      'vue-router',
+    ],
+  },
   build: {
     ssr: true,
     outDir: 'dist/server',

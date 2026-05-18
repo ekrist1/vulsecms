@@ -19,10 +19,16 @@ import {
   describeConfig,
   runMigrations,
 } from '@vulse/db';
+import { type SiteRouteOverrides, createSiteServer } from '@vulse/site/server';
 import { toNodeListener } from 'h3';
+import config from '../vulse.config.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const staticRoot = resolve(__dirname, '..', 'dist');
+const appRoot = resolve(__dirname, '..', '..');
+const adminStaticRoot = resolve(__dirname, '..');
+const siteClientEntry = fileURLToPath(import.meta.resolve('@vulse/site/client'));
+const siteStaticRoot = dirname(siteClientEntry);
+const routeOverrides = (config as { routes?: SiteRouteOverrides }).routes;
 
 const dbConfig = databaseConfigFromEnv();
 const dbSummary = describeConfig(dbConfig);
@@ -40,7 +46,7 @@ const db = new LibsqlAdapter(dbConfig);
 await db.exec('PRAGMA foreign_keys = ON');
 await runMigrations(db, MIGRATIONS_DIR);
 
-const blueprintsDir = resolve(__dirname, '..', 'blueprints');
+const blueprintsDir = resolve(appRoot, 'blueprints');
 await seedBlueprintsFromCode({ adapter: db, dir: blueprintsDir });
 
 const authInstance = createAuth({
@@ -61,7 +67,7 @@ await seedSuperUser({
 
 let sets = await loadSets({ adapter: db });
 
-async function buildListener() {
+async function buildListeners() {
   const blueprints = await loadBlueprints({ adapter: db, sets });
   const content = createContentService(db, blueprints);
   const api = createApi({
@@ -72,16 +78,17 @@ async function buildListener() {
     databaseSummary: dbSummary,
     sets,
   });
-  return toNodeListener(api);
+  const site = createSiteServer({ blueprints, content, routes: routeOverrides });
+  return { api: toNodeListener(api), site: toNodeListener(site) };
 }
 
-let listener = await buildListener();
+let listeners = await buildListeners();
 blueprintEvents.on('change', async () => {
-  listener = await buildListener();
+  listeners = await buildListeners();
 });
 setsEvents.on('change', async () => {
   sets = await loadSets({ adapter: db });
-  listener = await buildListener();
+  listeners = await buildListeners();
 });
 
 const MIME_TYPES: Record<string, string> = {
@@ -100,10 +107,16 @@ const MIME_TYPES: Record<string, string> = {
   '.map': 'application/json; charset=utf-8',
 };
 
-function serveStatic(reqUrl: string): { path: string; type: string } | null {
+function serveStatic(
+  root: string,
+  reqUrl: string,
+  opts: { base?: string; spaFallback?: boolean } = {},
+): { path: string; type: string } | null {
   const pathname = decodeURIComponent(reqUrl.split('?')[0] ?? '/');
-  const safePath = pathname.replace(/^\/+/, '').replace(/\.\./g, '');
-  const candidate = safePath ? join(staticRoot, safePath) : join(staticRoot, 'index.html');
+  if (opts.base && !pathname.startsWith(opts.base)) return null;
+  const stripped = opts.base ? pathname.slice(opts.base.length) : pathname;
+  const safePath = stripped.replace(/^\/+/, '').replace(/\.\./g, '');
+  const candidate = safePath ? join(root, safePath) : join(root, 'index.html');
   try {
     const stat = statSync(candidate);
     if (stat.isFile()) {
@@ -113,9 +126,10 @@ function serveStatic(reqUrl: string): { path: string; type: string } | null {
   } catch {
     // fall through
   }
-  // SPA fallback
+  if (!opts.spaFallback) return null;
+
   try {
-    const fallback = join(staticRoot, 'index.html');
+    const fallback = join(root, 'index.html');
     const stat = statSync(fallback);
     if (stat.isFile()) return { path: fallback, type: 'text/html; charset=utf-8' };
   } catch {
@@ -127,7 +141,7 @@ function serveStatic(reqUrl: string): { path: string; type: string } | null {
 const port = Number(process.env.PORT ?? '3000');
 const server = createServer((req, res) => {
   if (req.url?.startsWith('/api/')) {
-    Promise.resolve(listener(req, res)).catch((err) => {
+    Promise.resolve(listeners.api(req, res)).catch((err) => {
       console.error(err);
       if (!res.headersSent) {
         res.statusCode = 500;
@@ -137,14 +151,32 @@ const server = createServer((req, res) => {
     });
     return;
   }
-  const file = serveStatic(req.url ?? '/');
-  if (!file) {
-    res.statusCode = 404;
-    res.end();
+
+  const siteAsset = serveStatic(siteStaticRoot, req.url ?? '/', { base: '/_vulse/site/' });
+  if (siteAsset) {
+    res.setHeader('content-type', siteAsset.type);
+    createReadStream(siteAsset.path).pipe(res);
     return;
   }
-  res.setHeader('content-type', file.type);
-  createReadStream(file.path).pipe(res);
+
+  const adminFile = serveStatic(adminStaticRoot, req.url ?? '/', {
+    base: '/admin',
+    spaFallback: true,
+  });
+  if (adminFile) {
+    res.setHeader('content-type', adminFile.type);
+    createReadStream(adminFile.path).pipe(res);
+    return;
+  }
+
+  Promise.resolve(listeners.site(req, res)).catch((err) => {
+    console.error(err);
+    if (!res.headersSent) {
+      res.statusCode = 500;
+      res.setHeader('content-type', 'text/html; charset=utf-8');
+    }
+    res.end('<!doctype html><h1>Internal server error</h1>');
+  });
 });
 
 server.listen(port, () => {

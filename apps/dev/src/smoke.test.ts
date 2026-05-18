@@ -76,6 +76,54 @@ describe('apps/dev smoke', () => {
     expect(back.content.title).toBe('Hello');
   });
 
+  it('serves the public read API without a cookie', async () => {
+    const slug = `public-${Date.now()}`;
+    const created = await fetch(`${base}/api/collections/posts`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: superCookie },
+      body: JSON.stringify({
+        title: 'Public API post',
+        headline: 'Public API post',
+        slug,
+        body: { type: 'doc', content: [{ type: 'paragraph' }] },
+        status: 'draft',
+      }),
+    });
+    expect(created.status).toBe(201);
+    const entry = (await created.json()) as { id: string };
+
+    const list = await fetch(`${base}/api/public/collections/posts`);
+    expect(list.status).toBe(200);
+    const body = (await list.json()) as { items: { id: string }[] };
+    expect(body.items.find((item) => item.id === entry.id)).toBeDefined();
+  });
+
+  it('SSR renders public posts through the built-in site', async () => {
+    const slug = `ssr-${Date.now()}`;
+    const created = await fetch(`${base}/api/collections/posts`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie: superCookie },
+      body: JSON.stringify({
+        title: 'SSR Post',
+        headline: 'SSR Post',
+        slug,
+        body: {
+          type: 'doc',
+          content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Rendered body' }] }],
+        },
+        status: 'draft',
+      }),
+    });
+    expect(created.status).toBe(201);
+
+    const res = await fetch(`${base}/posts/${slug}`, { headers: { accept: 'text/html' } });
+    expect(res.status).toBe(200);
+    const html = await res.text();
+    expect(html).toContain('SSR Post');
+    expect(html).toContain('Rendered body');
+    expect(html).toContain('/_vulse/site/entry-client.js');
+  });
+
   it('renames a field on a blueprint and reflects it in /api/_meta/collections', async () => {
     // Read the current Posts definition
     const getRes = await fetch(`${base}/api/blueprints/posts`, {
@@ -191,7 +239,9 @@ describe('protected entries', () => {
     expect(anonRes.status).toBe(401);
 
     // Signed-in: 200.
-    const authedRes = await fetch(`${base}/api/collections/posts/${entry.id}`, { headers: { cookie: superCookie } });
+    const authedRes = await fetch(`${base}/api/collections/posts/${entry.id}`, {
+      headers: { cookie: superCookie },
+    });
     expect(authedRes.status).toBe(200);
     const body = (await authedRes.json()) as { protected: boolean; content: { headline: string } };
     expect(body.protected).toBe(true);
@@ -204,7 +254,9 @@ describe('protected entries', () => {
     expect(list.items.find((e) => e.id === entry.id)).toBeUndefined();
 
     // Signed-in list includes it.
-    const authedListRes = await fetch(`${base}/api/collections/posts`, { headers: { cookie: superCookie } });
+    const authedListRes = await fetch(`${base}/api/collections/posts`, {
+      headers: { cookie: superCookie },
+    });
     const authedList = (await authedListRes.json()) as { items: { id: string }[] };
     expect(authedList.items.find((e) => e.id === entry.id)).toBeDefined();
   });
@@ -263,7 +315,10 @@ describe('bard sets', () => {
           type: 'doc',
           content: [
             { type: 'paragraph', content: [{ type: 'text', text: 'Intro' }] },
-            { type: 'vulseSet', attrs: { set: 'qquote', data: { quote: 'Be brave', author: 'Anna' } } },
+            {
+              type: 'vulseSet',
+              attrs: { set: 'qquote', data: { quote: 'Be brave', author: 'Anna' } },
+            },
           ],
         },
         status: 'draft',
@@ -273,11 +328,18 @@ describe('bard sets', () => {
       const text = await created.text();
       throw new Error(`Expected 201 but got ${created.status}: ${text}`);
     }
-    const entry = (await created.json()) as { id: string; content: { body: { content: unknown[] } } };
+    const entry = (await created.json()) as {
+      id: string;
+      content: { body: { content: unknown[] } };
+    };
 
-    const got = await fetch(`${base}/api/collections/posts/${entry.id}`, { headers: { cookie: superCookie } });
+    const got = await fetch(`${base}/api/collections/posts/${entry.id}`, {
+      headers: { cookie: superCookie },
+    });
     const body = (await got.json()) as { content: { body: { content: unknown[] } } };
-    const setNode = (body.content.body.content as Array<{ type: string; attrs?: Record<string, unknown> }>).find((n) => n.type === 'vulseSet');
+    const setNode = (
+      body.content.body.content as Array<{ type: string; attrs?: Record<string, unknown> }>
+    ).find((n) => n.type === 'vulseSet');
     expect(setNode).toBeDefined();
     expect((setNode!.attrs!.data as { author: string }).author).toBe('Anna');
   });

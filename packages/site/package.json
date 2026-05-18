@@ -1,0 +1,45 @@
+{
+  "name": "@vulse/site",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/server/middleware/render.js",
+  "types": "./dist/types/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/types/index.d.ts", "import": "./dist/server/middleware/render.js" },
+    "./server": {
+      "types": "./dist/types/server/middleware/render.d.ts",
+      "import": "./dist/server/middleware/render.js"
+    },
+    "./client": "./dist/client/entry-client.js",
+    "./style.css": "./dist/client/style.css"
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "vite build && vite build -c vite.config.server.ts && vue-tsc -p tsconfig.json --emitDeclarationOnly",
+    "check": "vue-tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@vue/server-renderer": "^3.5.0",
+    "@vulse/core": "workspace:*",
+    "@vulse/renderer": "workspace:*",
+    "h3": "^1.15.11",
+    "vue": "^3.5.0",
+    "vue-router": "^4.4.5"
+  },
+  "peerDependencies": {
+    "nitropack": "^2.10.0 || ^3.0.0"
+  },
+  "peerDependenciesMeta": {
+    "nitropack": { "optional": true }
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@vitejs/plugin-vue": "^5.1.4",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10",
+    "vitest": "^2.1.4",
+    "vue-tsc": "^2.1.10"
+  }
+}

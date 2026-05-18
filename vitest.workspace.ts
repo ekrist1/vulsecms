@@ -1,1 +1,8 @@
-export default ['packages/db', 'packages/core', 'packages/renderer', 'packages/admin', 'apps/dev'];
+export default [
+  'packages/db',
+  'packages/core',
+  'packages/renderer',
+  'packages/site',
+  'packages/admin',
+  'apps/dev',
+];
