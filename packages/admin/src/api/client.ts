@@ -411,6 +411,21 @@ class ApiClient {
   async listSets(): Promise<SetDTO[]> {
     return this.request<SetDTO[]>('GET', '/api/sets');
   }
+  async getSet(handle: string): Promise<SetDTO> {
+    return this.request<SetDTO>('GET', `/api/sets/${handle}`);
+  }
+  async createSet(body: { handle: string; label: string; fields: SetFieldDef[] }): Promise<SetDTO> {
+    return this.request<SetDTO>('POST', '/api/sets', body);
+  }
+  async updateSet(
+    handle: string,
+    body: { handle: string; label: string; fields: SetFieldDef[] },
+  ): Promise<SetDTO> {
+    return this.request<SetDTO>('PATCH', `/api/sets/${handle}`, body);
+  }
+  async deleteSet(handle: string): Promise<void> {
+    return this.request<void>('DELETE', `/api/sets/${handle}`);
+  }
 
   me(): Promise<MeResponse> {
     return this.request<MeResponse>('GET', '/api/auth/me');
