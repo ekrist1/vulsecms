@@ -20,6 +20,9 @@ interface EntryRow {
   status: string;
   protected: number;
   content: string;
+  draft_content: string | null;
+  published_at: string | null;
+  published_by: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -43,6 +46,7 @@ export function createContentService(
   }
 
   function rowToEntry(row: EntryRow): Entry {
+    const draftContent = row.draft_content ? JSON.parse(row.draft_content) : null;
     return {
       id: row.id,
       collection: row.collection_handle,
@@ -51,6 +55,10 @@ export function createContentService(
       status: row.status,
       protected: row.protected === 1,
       content: JSON.parse(row.content),
+      draftContent,
+      hasUnpublishedChanges: draftContent !== null,
+      publishedAt: row.published_at,
+      publishedBy: row.published_by,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
@@ -113,6 +121,7 @@ export function createContentService(
       const filter = buildFilterSql(opts.filter, b);
       const order = buildOrderSql(opts.sort, b);
       const protectedClause = opts.includeProtected ? '' : ' AND protected = 0';
+      const draftsClause = opts.includeDrafts ? '' : " AND status = 'published'";
       let parentClause = '';
       const parentParams: unknown[] = [];
       if ('parentId' in opts) {
@@ -123,7 +132,7 @@ export function createContentService(
           parentParams.push(opts.parentId);
         }
       }
-      const whereSql = `WHERE collection_handle = ?${protectedClause}${parentClause}${search.sql}${filter.sql}`;
+      const whereSql = `WHERE collection_handle = ?${protectedClause}${draftsClause}${parentClause}${search.sql}${filter.sql}`;
       const whereParams = [handle, ...parentParams, ...search.params, ...filter.params];
 
       const totalRow = await db.queryOne<{ total: number }>(
@@ -321,9 +330,12 @@ export function createContentService(
         ]);
       }
       const protectedClause = opts.includeProtected ? '' : ' AND protected = 0';
+      // Note: tree() doesn't expose includeDrafts in the public interface yet (not in ContentService.tree signature),
+      // so we default to filtering drafts (includeDrafts: false). This is internal-only.
+      const draftsClause = " AND status = 'published'";
       const rows = await db.query<EntryRow>(
         `SELECT * FROM entries
-         WHERE collection_handle = ?${protectedClause}
+         WHERE collection_handle = ?${protectedClause}${draftsClause}
          ORDER BY sort_order ASC, created_at DESC`,
         [handle],
       );
