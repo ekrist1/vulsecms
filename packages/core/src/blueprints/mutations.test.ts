@@ -144,6 +144,30 @@ describe('updateBlueprint', () => {
     await db.close();
   });
 
+  it('preserves tree, maxDepth, and drafts flags through PATCH', async () => {
+    const db = await setup();
+    await updateBlueprint(db, 'posts', {
+      handle: 'posts',
+      label: 'Posts',
+      singleton: false,
+      tree: true,
+      maxDepth: 3,
+      drafts: true,
+      fields: [
+        { name: 'title', label: 'Title', ui: { kind: 'text' }, optional: false },
+        { name: 'body', label: 'Body', ui: { kind: 'blocks' }, optional: false },
+      ],
+    });
+    const row = await db.queryOne<{ definition: string }>(
+      "SELECT definition FROM collections WHERE handle = 'posts'",
+    );
+    const def = JSON.parse(row!.definition);
+    expect(def.tree).toBe(true);
+    expect(def.maxDepth).toBe(3);
+    expect(def.drafts).toBe(true);
+    await db.close();
+  });
+
   it('renames a field and rewrites entries.content JSON keys', async () => {
     const db = await setup();
     await db.exec(
