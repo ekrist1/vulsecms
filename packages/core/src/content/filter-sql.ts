@@ -4,7 +4,6 @@ import type { FieldFilter, FilterValue, SortSpec } from './types.js';
 
 const TOP_LEVEL_COLUMN_NAME: Record<string, string> = {
   id: 'id',
-  status: 'status',
   parent_id: 'parent_id',
   parentId: 'parent_id',
   protected: 'protected',
@@ -47,19 +46,7 @@ interface ResolvedKey {
 }
 
 function resolveKey(key: string, b: Blueprint): ResolvedKey {
-  // Blueprint content fields take priority over the top-level column map,
-  // because a blueprint field named e.g. "status" lives in the JSON content,
-  // not in the top-level SQL column of the same name.
-  const field = b.fields.find((f) => f.name === key);
-  if (field) {
-    return {
-      kind: 'content',
-      expr: 'CAST(json_extract(content, ?) AS TEXT)',
-      needsPathParam: true,
-      pathParam: `$.${key}`,
-      field,
-    };
-  }
+  // System-owned columns always win; user blueprint fields cannot shadow them.
   if (key in TOP_LEVEL_COLUMN_NAME) {
     return {
       kind: 'column',
@@ -68,9 +55,19 @@ function resolveKey(key: string, b: Blueprint): ResolvedKey {
       field: null,
     };
   }
-  throw new ValidationError([
-    { code: 'custom', message: `Unknown filter field: ${key}`, path: ['filter', key] },
-  ]);
+  const field = b.fields.find((f) => f.name === key);
+  if (!field) {
+    throw new ValidationError([
+      { code: 'custom', message: `Unknown filter field: ${key}`, path: ['filter', key] },
+    ]);
+  }
+  return {
+    kind: 'content',
+    expr: 'CAST(json_extract(content, ?) AS TEXT)',
+    needsPathParam: true,
+    pathParam: `$.${key}`,
+    field,
+  };
 }
 
 function isBooleanKey(key: string, resolved: ResolvedKey): boolean {
