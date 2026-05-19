@@ -19,7 +19,7 @@ export interface AuthSession {
   token: string;
 }
 
-export type Action = 'read' | 'create' | 'update' | 'delete';
+export type Action = 'read' | 'create' | 'update' | 'delete' | 'publish';
 
 export type EffectivePerms = Map<string, Set<Action>>;
 
