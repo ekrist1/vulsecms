@@ -2,6 +2,7 @@ import { createReadStream, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { randomBytes } from 'node:crypto';
 import { createAuth, seedSuperUser } from '@vulse/auth';
 import {
   blueprintEvents,
@@ -29,6 +30,14 @@ const adminStaticRoot = resolve(__dirname, '..');
 const siteClientEntry = fileURLToPath(import.meta.resolve('@vulse/site/client'));
 const siteStaticRoot = dirname(siteClientEntry);
 const routeOverrides = (config as { routes?: SiteRouteOverrides }).routes;
+
+function resolvePreviewSecret(): string {
+  const v = process.env.VULSE_PREVIEW_SECRET ?? process.env.VULSE_SESSION_SECRET;
+  if (v) return v;
+  const ephemeral = randomBytes(32).toString('hex');
+  console.warn('[vulse] generated ephemeral VULSE_PREVIEW_SECRET (set one to survive restarts).');
+  return ephemeral;
+}
 
 const dbConfig = databaseConfigFromEnv();
 const dbSummary = describeConfig(dbConfig);
@@ -77,6 +86,7 @@ async function buildListeners() {
     authInstance,
     databaseSummary: dbSummary,
     sets,
+    previewSecret: resolvePreviewSecret(),
   });
   const site = createSiteServer({ blueprints, content, routes: routeOverrides, authInstance });
   return { api: toNodeListener(api), site: toNodeListener(site) };

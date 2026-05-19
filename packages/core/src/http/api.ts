@@ -33,6 +33,7 @@ import { createBlueprint, deleteBlueprint, updateBlueprint } from '../blueprints
 import type { Blueprint } from '../blueprints/types.js';
 import type { ContentService } from '../content/types.js';
 import { NotFoundError, ValidationError } from '../errors.js';
+import { signPreviewToken } from '../preview/preview-token.js';
 import { getRevision, listRevisions } from '../revisions/service.js';
 import type { CompiledSet } from '../sets/compile.js';
 import { parseListQuery } from './filter-parser.js';
@@ -47,6 +48,7 @@ export interface ApiDeps {
   authInstance: AuthInstance;
   databaseSummary?: DatabaseConfigSummary;
   sets?: Map<string, CompiledSet>;
+  previewSecret: string;
 }
 
 function deny(event: Parameters<typeof setResponseStatus>[0], status: number, body: object) {
@@ -98,7 +100,7 @@ function buildWebRequest(event: H3Event): Request {
 }
 
 export function createApi(deps: ApiDeps): App {
-  const { blueprints, content, adapter, authInstance, databaseSummary } = deps;
+  const { blueprints, content, adapter, authInstance, databaseSummary, previewSecret } = deps;
 
   const app = createApp({
     onError: (err, event) => {
@@ -413,6 +415,28 @@ export function createApi(deps: ApiDeps): App {
         if (!blueprints.has(handle)) throw new NotFoundError(`unknown collection: ${handle}`);
         const userId = event.context.user?.id;
         return await content.discardDraft(handle, id, userId ? { actor: { userId } } : undefined);
+      }),
+    ),
+  );
+
+  router.post(
+    '/api/collections/:handle/:id/preview-token',
+    withPerm(
+      { action: 'read', adapter },
+      safe(async (event) => {
+        const handle = getRouterParam(event, 'handle') as string;
+        const id = getRouterParam(event, 'id') as string;
+        if (!blueprints.has(handle)) throw new NotFoundError(`unknown collection: ${handle}`);
+        const user = event.context.user;
+        if (!user) return deny(event, 401, { error: 'auth_required' });
+        const entry = await content.get(handle, id);
+        if (!entry) throw new NotFoundError('entry not found');
+        const exp = Math.floor(Date.now() / 1000) + 15 * 60;
+        const token = signPreviewToken(
+          { entryId: id, userId: user.id, exp },
+          previewSecret,
+        );
+        return { token, expiresAt: new Date(exp * 1000).toISOString() };
       }),
     ),
   );

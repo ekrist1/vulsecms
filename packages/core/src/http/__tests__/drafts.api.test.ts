@@ -4,6 +4,7 @@ import { createAuth, seedSuperUser } from '@vulse/auth';
 import { LibsqlAdapter, MIGRATIONS_DIR, runMigrations } from '@vulse/db';
 import { toWebHandler } from 'h3';
 import { describe, expect, it } from 'vitest';
+import { verifyPreviewToken } from '../../preview/preview-token.js';
 import { loadBlueprints } from '../../blueprints/load.js';
 import { seedBlueprintsFromCode } from '../../blueprints/seed.js';
 import { createContentService } from '../../content/service.js';
@@ -13,7 +14,10 @@ import { createApi } from '../api.js';
 const here = dirname(fileURLToPath(import.meta.url));
 const fixturesDir = join(here, '..', '..', 'blueprints', '__fixtures__');
 
-async function setup(seed?: (db: LibsqlAdapter) => Promise<void>) {
+async function setup(
+  seed?: (db: LibsqlAdapter) => Promise<void>,
+  previewSecret?: string,
+) {
   const db = new LibsqlAdapter({ url: ':memory:' });
   await runMigrations(db, MIGRATIONS_DIR);
   await seedBlueprintsFromCode({ adapter: db, dir: fixturesDir });
@@ -31,7 +35,14 @@ async function setup(seed?: (db: LibsqlAdapter) => Promise<void>) {
     client: db.client,
     env: { authSecret: 'x', baseUrl: 'http://x', allowPublicSignup: true, smtpUrl: undefined },
   });
-  const rawApp = createApi({ blueprints, content, adapter: db, authInstance, sets });
+  const rawApp = createApi({
+    blueprints,
+    content,
+    adapter: db,
+    authInstance,
+    sets,
+    previewSecret: previewSecret ?? 'test-preview-secret',
+  });
   const handler = toWebHandler(rawApp);
   const app = {
     request: (url: string, init?: RequestInit) => handler(new Request(url, init)),
@@ -374,6 +385,81 @@ describe('GET /api/collections/:handle?includeDrafts=1', () => {
     const list = (await listRes.json()) as Record<string, unknown>;
     const items = list.items as unknown[];
     expect(items).toHaveLength(0);
+
+    authInstance.close();
+    await db.close();
+  });
+});
+
+describe('POST /:id/preview-token', () => {
+  it('returns a verifiable token for an entry the caller can read', async () => {
+    const previewSecret = 'test-preview-secret';
+    const { app, db, authInstance, cookie } = await setup(undefined, previewSecret);
+
+    // Create entry with publish:false → draft
+    const createRes = await app.request('http://x/api/collections/drafts-posts', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie },
+      body: JSON.stringify({ title: 'Draft Title', slug: 'draft-slug', publish: false }),
+    });
+    expect(createRes.status).toBe(201);
+    const entry = (await createRes.json()) as { id: string; status: string };
+    expect(entry.status).toBe('draft');
+    const { id } = entry;
+
+    // POST /preview-token as super-user
+    const tokenRes = await app.request(
+      `http://x/api/collections/drafts-posts/${id}/preview-token`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', cookie },
+      },
+    );
+
+    expect(tokenRes.status).toBe(200);
+    const tokenBody = (await tokenRes.json()) as {
+      token: string;
+      expiresAt: string;
+    };
+    expect(tokenBody.token).toMatch(/^vp_/);
+    expect(typeof tokenBody.expiresAt).toBe('string');
+
+    // Verify token is verifiable
+    const verified = verifyPreviewToken(tokenBody.token, previewSecret);
+    expect(verified.ok).toBe(true);
+    if (verified.ok) {
+      expect(verified.payload.entryId).toBe(id);
+      expect(typeof verified.payload.userId).toBe('string');
+      expect(typeof verified.payload.exp).toBe('number');
+    }
+
+    authInstance.close();
+    await db.close();
+  });
+
+  it('returns 401 when called without auth', async () => {
+    const { app, db, authInstance, cookie } = await setup();
+
+    // Create entry as super-user
+    const createRes = await app.request('http://x/api/collections/drafts-posts', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie },
+      body: JSON.stringify({ title: 'Draft Title', slug: 'draft-slug', publish: false }),
+    });
+    expect(createRes.status).toBe(201);
+    const entry = (await createRes.json()) as { id: string };
+    const { id } = entry;
+
+    // POST /preview-token without cookie
+    const tokenRes = await app.request(
+      `http://x/api/collections/drafts-posts/${id}/preview-token`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+      },
+    );
+
+    expect(tokenRes.status).toBe(401);
 
     authInstance.close();
     await db.close();

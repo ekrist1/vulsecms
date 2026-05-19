@@ -1,4 +1,5 @@
 import { createReadStream, statSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
 import { createAuth, seedSuperUser } from '@vulse/auth';
 import { LibsqlAdapter, MIGRATIONS_DIR, describeConfig, runMigrations } from '@vulse/db';
 import { type App, toNodeListener } from 'h3';
@@ -33,6 +34,14 @@ const MIME_TYPES: Record<string, string> = {
   '.json': 'application/json; charset=utf-8',
   '.map': 'application/json; charset=utf-8',
 };
+
+function resolvePreviewSecret(): string {
+  const v = process.env.VULSE_PREVIEW_SECRET ?? process.env.VULSE_SESSION_SECRET;
+  if (v) return v;
+  const ephemeral = randomBytes(32).toString('hex');
+  console.warn('[vulse] generated ephemeral VULSE_PREVIEW_SECRET (set one to survive restarts).');
+  return ephemeral;
+}
 
 function serveAsset(root: string, base: string, reqUrl: string) {
   const pathname = decodeURIComponent(reqUrl.split('?')[0] ?? '/');
@@ -104,6 +113,7 @@ export function vulseDevPlugin(opts: VulseDevOptions): Plugin {
           authInstance: authInstance!,
           databaseSummary,
           sets,
+          previewSecret: resolvePreviewSecret(),
         });
         const site = opts.site
           ? await opts.site.createApp({ blueprints, content, authInstance: authInstance! })

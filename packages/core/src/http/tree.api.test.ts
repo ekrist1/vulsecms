@@ -34,7 +34,7 @@ async function setup() {
     client: db.client,
     env: { authSecret: 'x', baseUrl: 'http://x', allowPublicSignup: true, smtpUrl: undefined },
   });
-  const rawApp = createApi({ blueprints, content, adapter: db, authInstance, sets });
+  const rawApp = createApi({ blueprints, content, adapter: db, authInstance, sets, previewSecret: 'test-preview-secret' });
   const handler = toWebHandler(rawApp);
   const app = {
     request: (url: string, init?: RequestInit) => handler(new Request(url, init)),
