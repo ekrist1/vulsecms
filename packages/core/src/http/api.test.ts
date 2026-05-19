@@ -207,7 +207,7 @@ describe('createApi', () => {
     const res = await app.request('http://x/api/_meta/collections', { headers: { cookie } });
     const meta = await res.json();
     const handles = meta.map((m: { handle: string }) => m.handle).sort();
-    expect(handles).toEqual(['authors', 'posts']);
+    expect(handles).toEqual(['authors', 'drafts-posts', 'posts']);
     const posts = meta.find((m: { handle: string }) => m.handle === 'posts');
     expect(posts.fields[0]).toMatchObject({ name: 'title', ui: { kind: 'text' } });
     authInstance.close();

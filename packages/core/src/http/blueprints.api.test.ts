@@ -52,7 +52,7 @@ describe('blueprints API', () => {
     const res = await app.request('http://x/api/blueprints', { headers: { cookie } });
     expect(res.status).toBe(200);
     const body = (await res.json()) as { handle: string }[];
-    expect(body.map((b) => b.handle).sort()).toEqual(['authors', 'posts']);
+    expect(body.map((b) => b.handle).sort()).toEqual(['authors', 'drafts-posts', 'posts']);
     authInstance.close();
     await db.close();
   });

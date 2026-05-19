@@ -78,7 +78,7 @@ describe('public read API', () => {
     const res = await app.request('http://x/api/public/_meta/collections');
     expect(res.status).toBe(200);
     const body = (await res.json()) as { handle: string; fields: { name: string }[] }[];
-    expect(body.map((m) => m.handle).sort()).toEqual(['authors', 'posts']);
+    expect(body.map((m) => m.handle).sort()).toEqual(['authors', 'drafts-posts', 'posts']);
     expect(body.find((m) => m.handle === 'posts')?.fields[0]).toMatchObject({
       name: 'title',
     });
