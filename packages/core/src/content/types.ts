@@ -10,6 +10,23 @@ export interface Entry {
   updatedAt: string;
 }
 
+export type FilterValue = string | number | boolean;
+
+export interface FieldFilter {
+  eq?: FilterValue;
+  neq?: FilterValue;
+  in?: FilterValue[];
+  gt?: FilterValue;
+  gte?: FilterValue;
+  lt?: FilterValue;
+  lte?: FilterValue;
+}
+
+export interface SortSpec {
+  field: string;
+  direction: 'asc' | 'desc';
+}
+
 export interface ListEntriesOptions {
   limit?: number;
   offset?: number;
@@ -22,6 +39,8 @@ export interface ListEntriesOptions {
    * (list everything in the collection regardless of parent).
    */
   parentId?: string | null;
+  filter?: Record<string, FieldFilter>;
+  sort?: SortSpec[];
 }
 
 export interface MoveEntryInput {
