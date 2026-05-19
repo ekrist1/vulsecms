@@ -221,23 +221,53 @@ export function createContentService(
       return rowToEntry(row!);
     },
 
-    async update(handle, id, input, ctx) {
+    async update(handle, id, input, ctx, opts) {
       const b = blueprint(handle);
       const existing = await db.queryOne<EntryRow>(
         'SELECT * FROM entries WHERE collection_handle = ? AND id = ?',
         [handle, id],
       );
       if (!existing) throw new NotFoundError(`entry not found: ${id}`);
-      const merged = { ...JSON.parse(existing.content), ...(input as object) };
+
+      // Merge against the *working* copy — draft if present, otherwise live content.
+      const baseContent = existing.draft_content
+        ? JSON.parse(existing.draft_content)
+        : JSON.parse(existing.content);
+      const merged = { ...baseContent, ...(input as object) };
       const validated = validate(b, merged);
-      const fields: string[] = ['content = ?', `updated_at = datetime('now')`];
-      const params: unknown[] = [JSON.stringify(validated)];
-      if ('protected' in (input as object)) {
-        fields.push('protected = ?');
-        params.push((input as { protected: boolean }).protected ? 1 : 0);
+
+      const draftsEnabled = b.drafts === true;
+      // For drafts-disabled collections, always publish (today's behaviour).
+      // For drafts-enabled, default is draft (publish only when caller explicitly asks).
+      const publishNow = !draftsEnabled || opts?.publish === true;
+      const actorId = ctx?.actor?.userId ?? null;
+
+      if (publishNow) {
+        const fields: string[] = ['content = ?', "updated_at = datetime('now')"];
+        const params: unknown[] = [JSON.stringify(validated)];
+        if (draftsEnabled) {
+          fields.push('draft_content = NULL', "status = 'published'",
+                      "published_at = datetime('now')", 'published_by = ?');
+          params.push(actorId);
+        }
+        if ('protected' in (input as object)) {
+          fields.push('protected = ?');
+          params.push((input as { protected: boolean }).protected ? 1 : 0);
+        }
+        await db.exec(`UPDATE entries SET ${fields.join(', ')} WHERE id = ?`, [...params, id]);
+        await snapshotRevision(db, id, validated, ctx?.actor ?? null, 'publish');
+      } else {
+        // Save as draft — leave content alone (or it's already empty for status=draft).
+        const fields: string[] = ['draft_content = ?', "updated_at = datetime('now')"];
+        const params: unknown[] = [JSON.stringify(validated)];
+        if ('protected' in (input as object)) {
+          fields.push('protected = ?');
+          params.push((input as { protected: boolean }).protected ? 1 : 0);
+        }
+        await db.exec(`UPDATE entries SET ${fields.join(', ')} WHERE id = ?`, [...params, id]);
+        await snapshotRevision(db, id, validated, ctx?.actor ?? null, 'draft');
       }
-      await db.exec(`UPDATE entries SET ${fields.join(', ')} WHERE id = ?`, [...params, id]);
-      await snapshotRevision(db, id, validated, ctx?.actor ?? null);
+
       const row = await db.queryOne<EntryRow>('SELECT * FROM entries WHERE id = ?', [id]);
       return rowToEntry(row!);
     },
