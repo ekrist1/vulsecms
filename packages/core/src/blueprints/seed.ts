@@ -59,6 +59,7 @@ function classToDefinition(cls: typeof Collection): BlueprintDefinition {
     singleton: false,
     ...(cls.tree ? { tree: true } : {}),
     ...(cls.maxDepth !== undefined ? { maxDepth: cls.maxDepth } : {}),
+    ...(cls.drafts ? { drafts: true } : {}),
     fields,
   };
 }

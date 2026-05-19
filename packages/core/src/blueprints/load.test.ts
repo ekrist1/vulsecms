@@ -19,7 +19,7 @@ describe('loadBlueprints / reloadBlueprint', () => {
     const db = await freshDb();
     await seedBlueprintsFromCode({ adapter: db, dir: fixturesDir });
     const map = await loadBlueprints({ adapter: db });
-    expect([...map.keys()].sort()).toEqual(['authors', 'posts']);
+    expect([...map.keys()].sort()).toEqual(['authors', 'drafts-posts', 'posts']);
     expect(map.get('posts')!.schema.safeParse({ title: 'a', body: [] }).success).toBe(true);
     await db.close();
   });
