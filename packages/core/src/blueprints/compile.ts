@@ -29,6 +29,7 @@ export function compileBlueprint(
     singleton: def.singleton,
     tree: def.tree ?? false,
     ...(def.maxDepth !== undefined ? { maxDepth: def.maxDepth } : {}),
+    drafts: def.drafts ?? false,
     fields: def.fields,
     schema,
     hash: hashDefinition(def),

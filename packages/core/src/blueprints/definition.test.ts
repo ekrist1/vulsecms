@@ -72,3 +72,27 @@ describe('BlueprintDefinitionSchema tree', () => {
     expect(r.success).toBe(true);
   });
 });
+
+describe('BlueprintDefinitionSchema drafts', () => {
+  const base = {
+    handle: 'posts',
+    label: 'Posts',
+    singleton: false,
+    fields: [{ name: 'title', label: 'Title', ui: { kind: 'text' }, optional: false }],
+  };
+
+  it('accepts a drafts: true blueprint', () => {
+    const result = BlueprintDefinitionSchema.safeParse({
+      ...base,
+      drafts: true,
+    });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.drafts).toBe(true);
+  });
+
+  it('defaults drafts to false when omitted', () => {
+    const result = BlueprintDefinitionSchema.safeParse(base);
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.drafts).toBe(false);
+  });
+});

@@ -80,6 +80,7 @@ const BlueprintDefinitionObjectSchema = z.object({
   singleton: z.boolean(),
   tree: z.boolean().optional(),
   maxDepth: z.number().int().positive().optional(),
+  drafts: z.boolean().default(false),
   fields: z.array(FieldDefinitionSchema).min(1),
 });
 
