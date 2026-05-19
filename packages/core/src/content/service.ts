@@ -163,7 +163,7 @@ export function createContentService(
       return row ? rowToEntry(row) : null;
     },
 
-    async create(handle, input, ctx) {
+    async create(handle, input, ctx, opts) {
       const b = blueprint(handle);
       if (b.singleton) {
         const existing = await db.queryOne<{ id: string }>(
@@ -194,12 +194,29 @@ export function createContentService(
       const max = await maxSortOrder(db, handle, parentIdInput);
       const sortOrder = max + 1;
       const isProtected = (input as { protected?: boolean }).protected ? 1 : 0;
-      await db.exec(
-        `INSERT INTO entries (id, collection_handle, parent_id, sort_order, status, protected, content)
-         VALUES (?, ?, ?, ?, 'published', ?, ?)`,
-        [id, handle, parentIdInput, sortOrder, isProtected, JSON.stringify(validated)],
-      );
-      await snapshotRevision(db, id, validated, ctx?.actor ?? null);
+
+      // Drafts-enabled + explicit publish=false → write to draft_content, status=draft, content={}.
+      // Otherwise (drafts-disabled OR publish !== false) → write to content live.
+      const draftsEnabled = b.drafts === true;
+      const saveAsDraft = draftsEnabled && opts?.publish === false;
+      const actorId = ctx?.actor?.userId ?? null;
+
+      if (saveAsDraft) {
+        await db.exec(
+          `INSERT INTO entries (id, collection_handle, parent_id, sort_order, status, protected, content, draft_content)
+           VALUES (?, ?, ?, ?, 'draft', ?, '{}', ?)`,
+          [id, handle, parentIdInput, sortOrder, isProtected, JSON.stringify(validated)],
+        );
+        await snapshotRevision(db, id, validated, ctx?.actor ?? null, 'draft');
+      } else {
+        await db.exec(
+          `INSERT INTO entries (id, collection_handle, parent_id, sort_order, status, protected, content, published_at, published_by)
+           VALUES (?, ?, ?, ?, 'published', ?, ?, datetime('now'), ?)`,
+          [id, handle, parentIdInput, sortOrder, isProtected, JSON.stringify(validated), actorId],
+        );
+        await snapshotRevision(db, id, validated, ctx?.actor ?? null, 'publish');
+      }
+
       const row = await db.queryOne<EntryRow>('SELECT * FROM entries WHERE id = ?', [id]);
       return rowToEntry(row!);
     },
