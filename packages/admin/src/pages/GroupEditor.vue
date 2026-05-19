@@ -92,7 +92,7 @@ onMounted(load);
         <h2 class="mb-3 text-sm font-semibold text-zinc-700">Permissions</h2>
         <table class="w-full text-left text-sm">
           <thead><tr class="border-b border-zinc-200 text-xs uppercase text-zinc-500">
-            <th>Collection</th><th class="text-center">Read</th><th class="text-center">Create</th><th class="text-center">Update</th><th class="text-center">Delete</th>
+            <th>Collection</th><th class="text-center">Read</th><th class="text-center">Create</th><th class="text-center">Update</th><th class="text-center">Delete</th><th class="text-center">Publish</th>
           </tr></thead>
           <tbody>
             <template v-for="bp in blueprints.list" :key="bp.handle">
@@ -102,6 +102,7 @@ onMounted(load);
                 <td class="text-center"><input type="checkbox" v-model="matrix[bp.handle]!.canCreate" :data-testid="`perm-${bp.handle}-canCreate`" /></td>
                 <td class="text-center"><input type="checkbox" v-model="matrix[bp.handle]!.canUpdate" :data-testid="`perm-${bp.handle}-canUpdate`" /></td>
                 <td class="text-center"><input type="checkbox" v-model="matrix[bp.handle]!.canDelete" :data-testid="`perm-${bp.handle}-canDelete`" /></td>
+                <td class="text-center"><input type="checkbox" v-model="matrix[bp.handle]!.canPublish" :data-testid="`perm-${bp.handle}-canPublish`" /></td>
               </tr>
             </template>
           </tbody>
