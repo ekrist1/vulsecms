@@ -142,3 +142,145 @@ describe('ContentService', () => {
     await db.close();
   });
 });
+
+describe('list with filters and sort', () => {
+  async function seed(content: Awaited<ReturnType<typeof setup>>['content'], rows: Array<Record<string, unknown>>): Promise<string[]> {
+    const ids: string[] = [];
+    for (const row of rows) {
+      const entry = await content.create('posts', { body: [], ...row });
+      ids.push(entry.id);
+    }
+    return ids;
+  }
+
+  it('filters by content field equality', async () => {
+    const { content, db } = await setup();
+    await seed(content, [
+      { title: 'A', status: 'published' },
+      { title: 'B', status: 'draft' },
+      { title: 'C', status: 'published' },
+    ]);
+    const res = await content.list('posts', { filter: { status: { eq: 'published' } } });
+    expect(res.items.map((e) => e.content.title).sort()).toEqual(['A', 'C']);
+    await db.close();
+  });
+
+  it('filters by IN with multiple values', async () => {
+    const { content, db } = await setup();
+    await seed(content, [
+      { title: 'A', status: 'published' },
+      { title: 'B', status: 'draft' },
+      { title: 'C', status: 'scheduled' },
+    ]);
+    const res = await content.list('posts', { filter: { status: { in: ['published', 'scheduled'] } } });
+    expect(res.items.map((e) => e.content.title).sort()).toEqual(['A', 'C']);
+    await db.close();
+  });
+
+  it('filters by date range with gte + lt', async () => {
+    const { content, db } = await setup();
+    await seed(content, [
+      { title: 'A', publishedAt: '2023-06-01' },
+      { title: 'B', publishedAt: '2024-03-01' },
+      { title: 'C', publishedAt: '2025-02-01' },
+    ]);
+    const res = await content.list('posts', {
+      filter: { publishedAt: { gte: '2024-01-01', lt: '2025-01-01' } },
+    });
+    expect(res.items.map((e) => e.content.title)).toEqual(['B']);
+    await db.close();
+  });
+
+  it('filters by neq', async () => {
+    const { content, db } = await setup();
+    await seed(content, [
+      { title: 'A', status: 'published' },
+      { title: 'B', status: 'draft' },
+    ]);
+    const res = await content.list('posts', { filter: { status: { neq: 'draft' } } });
+    expect(res.items.map((e) => e.content.title)).toEqual(['A']);
+    await db.close();
+  });
+
+  it('empty IN returns no items', async () => {
+    const { content, db } = await setup();
+    await seed(content, [{ title: 'A' }]);
+    const res = await content.list('posts', { filter: { status: { in: [] } } });
+    expect(res.items).toEqual([]);
+    await db.close();
+  });
+
+  it('combines q substring and filter with AND', async () => {
+    const { content, db } = await setup();
+    await seed(content, [
+      { title: 'Climate report', status: 'published' },
+      { title: 'Climate report v2', status: 'draft' },
+      { title: 'Music', status: 'published' },
+    ]);
+    const res = await content.list('posts', {
+      q: 'climate',
+      field: 'title',
+      filter: { status: { eq: 'published' } },
+    });
+    expect(res.items.map((e) => e.content.title)).toEqual(['Climate report']);
+    await db.close();
+  });
+
+  it('sorts by single content field descending', async () => {
+    const { content, db } = await setup();
+    await seed(content, [
+      { title: 'A', publishedAt: '2024-03-01' },
+      { title: 'B', publishedAt: '2024-01-01' },
+      { title: 'C', publishedAt: '2024-02-01' },
+    ]);
+    const res = await content.list('posts', {
+      sort: [{ field: 'publishedAt', direction: 'desc' }],
+    });
+    expect(res.items.map((e) => e.content.title)).toEqual(['A', 'C', 'B']);
+    await db.close();
+  });
+
+  it('sorts by multiple fields in declared order', async () => {
+    const { content, db } = await setup();
+    await seed(content, [
+      { title: 'C', publishedAt: '2024-01-01' },
+      { title: 'A', publishedAt: '2024-01-01' },
+      { title: 'B', publishedAt: '2024-02-01' },
+    ]);
+    const res = await content.list('posts', {
+      sort: [
+        { field: 'publishedAt', direction: 'asc' },
+        { field: 'title', direction: 'asc' },
+      ],
+    });
+    expect(res.items.map((e) => e.content.title)).toEqual(['A', 'C', 'B']);
+    await db.close();
+  });
+
+  it('falls back to default sort when sort omitted', async () => {
+    const { content, db } = await setup();
+    await seed(content, [{ title: 'A' }, { title: 'B' }]);
+    const res = await content.list('posts');
+    // Default: sort_order ASC, created_at DESC. Insertion order monotonic on sort_order.
+    expect(res.items.map((e) => e.content.title)).toEqual(['A', 'B']);
+    await db.close();
+  });
+
+  it('rejects unknown filter field with ValidationError', async () => {
+    const { content, db } = await setup();
+    await seed(content, [{ title: 'A' }]);
+    await expect(
+      content.list('posts', { filter: { totally_unknown: { eq: 'x' } } }),
+    ).rejects.toThrow();
+    await db.close();
+  });
+
+  it('rejects unknown sort field with ValidationError', async () => {
+    const { content, db } = await setup();
+    await seed(content, [{ title: 'A' }]);
+    await expect(
+      content.list('posts', { sort: [{ field: 'nope', direction: 'asc' }] }),
+    ).rejects.toThrow();
+    await db.close();
+  });
+});

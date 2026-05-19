@@ -2,6 +2,7 @@ import type { DatabaseAdapter } from '@vulse/db';
 import { ulid } from 'ulid';
 import type { Blueprint } from '../blueprints/types.js';
 import { ConflictError, NotFoundError, ValidationError } from '../errors.js';
+import { buildFilterSql, buildOrderSql } from './filter-sql.js';
 import { snapshotRevision } from '../revisions/service.js';
 import type {
   ContentService,
@@ -109,6 +110,8 @@ export function createContentService(
       const limit = Math.max(1, Math.min(opts.limit ?? 25, 500));
       const offset = Math.max(0, opts.offset ?? 0);
       const search = buildSearchSql(b, opts);
+      const filter = buildFilterSql(opts.filter, b);
+      const order = buildOrderSql(opts.sort, b);
       const protectedClause = opts.includeProtected ? '' : ' AND protected = 0';
       let parentClause = '';
       const parentParams: unknown[] = [];
@@ -120,8 +123,8 @@ export function createContentService(
           parentParams.push(opts.parentId);
         }
       }
-      const whereSql = `WHERE collection_handle = ?${protectedClause}${parentClause}${search.sql}`;
-      const whereParams = [handle, ...parentParams, ...search.params];
+      const whereSql = `WHERE collection_handle = ?${protectedClause}${parentClause}${search.sql}${filter.sql}`;
+      const whereParams = [handle, ...parentParams, ...search.params, ...filter.params];
 
       const totalRow = await db.queryOne<{ total: number }>(
         `SELECT COUNT(*) AS total FROM entries ${whereSql}`,
@@ -130,9 +133,9 @@ export function createContentService(
       const rows = await db.query<EntryRow>(
         `SELECT * FROM entries
          ${whereSql}
-         ORDER BY sort_order ASC, created_at DESC
+         ${order.sql}
          LIMIT ? OFFSET ?`,
-        [...whereParams, limit, offset],
+        [...whereParams, ...order.params, limit, offset],
       );
       return {
         items: rows.map(rowToEntry),
