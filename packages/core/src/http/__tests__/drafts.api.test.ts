@@ -307,3 +307,75 @@ describe('DELETE /:id/draft', () => {
     await db.close();
   });
 });
+
+describe('GET /api/collections/:handle?includeDrafts=1', () => {
+  it('hides drafts by default for admin GET', async () => {
+    const { app, db, authInstance, cookie } = await setup();
+
+    // Create a draft entry
+    const createRes = await app.request('http://x/api/collections/drafts-posts', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie },
+      body: JSON.stringify({ title: 'Draft Title', slug: 'draft-slug', publish: false }),
+    });
+    expect(createRes.status).toBe(201);
+
+    // GET /api/collections/drafts-posts without includeDrafts
+    const listRes = await app.request('http://x/api/collections/drafts-posts', {
+      headers: { cookie },
+    });
+
+    expect(listRes.status).toBe(200);
+    const list = (await listRes.json()) as Record<string, unknown>;
+    const items = list.items as unknown[];
+    expect(items).toHaveLength(0);
+
+    authInstance.close();
+    await db.close();
+  });
+
+  it('returns drafts when includeDrafts=1', async () => {
+    const { app, db, authInstance, cookie } = await setup();
+
+    // Create a draft entry
+    const createRes = await app.request('http://x/api/collections/drafts-posts', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie },
+      body: JSON.stringify({ title: 'Draft Title', slug: 'draft-slug', publish: false }),
+    });
+    expect(createRes.status).toBe(201);
+    const entry = (await createRes.json()) as { id: string; status: string };
+    expect(entry.status).toBe('draft');
+
+    // GET /api/collections/drafts-posts?includeDrafts=1
+    const listRes = await app.request('http://x/api/collections/drafts-posts?includeDrafts=1', {
+      headers: { cookie },
+    });
+
+    expect(listRes.status).toBe(200);
+    const list = (await listRes.json()) as Record<string, unknown>;
+    const items = list.items as Array<Record<string, unknown>>;
+    expect(items).toHaveLength(1);
+    expect(items[0]?.status).toBe('draft');
+
+    authInstance.close();
+    await db.close();
+  });
+
+  it('returns 200 with empty items for unrelated requests', async () => {
+    const { app, db, authInstance, cookie } = await setup();
+
+    // GET /api/collections/drafts-posts with no entries
+    const listRes = await app.request('http://x/api/collections/drafts-posts', {
+      headers: { cookie },
+    });
+
+    expect(listRes.status).toBe(200);
+    const list = (await listRes.json()) as Record<string, unknown>;
+    const items = list.items as unknown[];
+    expect(items).toHaveLength(0);
+
+    authInstance.close();
+    await db.close();
+  });
+});

@@ -226,6 +226,7 @@ export function createApi(deps: ApiDeps): App {
       const q = (query.q as string | undefined) ?? undefined;
       const field = (query.field as string | undefined) ?? undefined;
       const parentId = parseParentIdQuery(query.parent_id as string | undefined);
+      const includeDrafts = query.includeDrafts === '1' || query.includeDrafts === 'true';
 
       // Flatten the h3 QueryObject into Record<string, string> for parseListQuery.
       // When a key appears multiple times, take the first value.
@@ -245,6 +246,7 @@ export function createApi(deps: ApiDeps): App {
         ...(filter ? { filter } : {}),
         ...(sort ? { sort } : {}),
         includeProtected: user !== null,
+        ...(includeDrafts ? { includeDrafts } : {}),
       });
     }),
   );
