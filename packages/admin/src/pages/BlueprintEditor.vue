@@ -74,10 +74,12 @@ const handle = ref('');
 const label = ref('');
 const singleton = ref(false);
 const tree = ref(false);
+const drafts = ref(false);
 const maxDepth = ref<number | null>(null);
 const fields = reactive<EditorField[]>([]);
 const expandedIndex = ref<number | null>(null);
 const expandedReplicatorSets = reactive<Set<string>>(new Set());
+const originalDrafts = ref(false);
 
 function setKey(fieldIndex: number, setIndex: number): string {
   return `${fieldIndex}:${setIndex}`;
@@ -134,8 +136,10 @@ async function load() {
     label.value = '';
     singleton.value = false;
     tree.value = false;
+    drafts.value = false;
     maxDepth.value = null;
     handleLocked.value = false;
+    originalDrafts.value = false;
     return;
   }
   const bp = await api.getBlueprint(props.handle);
@@ -143,8 +147,10 @@ async function load() {
   label.value = bp.label;
   singleton.value = bp.singleton;
   tree.value = bp.tree ?? false;
+  drafts.value = bp.drafts ?? false;
   maxDepth.value = bp.maxDepth ?? null;
   handleLocked.value = true;
+  originalDrafts.value = drafts.value;
   for (const f of bp.fields) {
     fields.push(toEditorField(f));
   }
@@ -482,6 +488,23 @@ function stripEditorField(field: EditorField): Record<string, unknown> {
 async function save() {
   for (const k of Object.keys(errors)) delete errors[k];
   submitError.value = null;
+
+  // Detect "drafts enabled → disabled" and warn if there's pending draft work.
+  if (originalDrafts.value && !drafts.value) {
+    const sample = await api.list(handle.value, { includeDrafts: true, limit: 200 });
+    const affected = sample.items.filter(
+      (e: any) => e.status === 'draft' || e.hasUnpublishedChanges,
+    ).length;
+    if (
+      affected > 0 &&
+      !window.confirm(
+        `${affected} entries have unpublished changes. Disabling drafts will discard them. Continue?`,
+      )
+    ) {
+      return;
+    }
+  }
+
   saving.value = true;
   try {
     const payload = {
@@ -492,6 +515,7 @@ async function save() {
       ...(tree.value && maxDepth.value !== null && maxDepth.value > 0
         ? { maxDepth: maxDepth.value }
         : {}),
+      ...(drafts.value ? { drafts: true } : {}),
       fields: fields.map(stripEditorField),
     };
     if (isCreate.value) {
@@ -590,6 +614,17 @@ async function save() {
           />
           <span class="text-sm font-medium text-zinc-700">
             Tree structure (entries can be nested under each other)
+          </span>
+        </label>
+        <label class="flex items-center gap-2">
+          <input
+            v-model="drafts"
+            type="checkbox"
+            class="rounded border-zinc-300"
+            data-testid="blueprint-drafts"
+          />
+          <span class="text-sm font-medium text-zinc-700">
+            Enable drafts (Save changes without affecting the live site)
           </span>
         </label>
         <label v-if="tree" class="block">
