@@ -132,8 +132,18 @@ super user is seeded, and you can sign in immediately.
 | POST | `/api/groups` | `{handle, label}` |
 | GET | `/api/groups/:handle` | — |
 | PATCH | `/api/groups/:handle` | `{label}` |
-| PUT | `/api/groups/:handle/permissions` | `{rows: {collectionHandle, canRead, canCreate, canUpdate, canDelete}[]}` |
+| PUT | `/api/groups/:handle/permissions` | `{rows: {collectionHandle, canRead, canCreate, canUpdate, canDelete, canPublish}[]}` |
 | DELETE | `/api/groups/:handle` | — |
+
+### Per-collection actions
+
+Groups define which actions a user can perform on each collection:
+
+- **Read** — List and fetch entries.
+- **Create** — Add new entries.
+- **Update** — Modify existing entries.
+- **Delete** — Remove entries.
+- **Publish** — Promote a draft to live, demote a live entry to draft. Required for the `/publish` and `/unpublish` endpoints and the **Save & publish** button in the editor. See [docs/drafts.md](./drafts.md).
 
 ### Error shape
 
