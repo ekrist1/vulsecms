@@ -19,11 +19,17 @@ async function signOut() {
 }
 
 const SCHEMA_OPEN_KEY = 'vulse.sidebar.schema.open';
+const USERS_OPEN_KEY = 'vulse.sidebar.users.open';
+const STORAGE_OPEN_KEY = 'vulse.sidebar.storage.open';
 const schemaOpen = ref(false);
+const usersOpen = ref(false);
+const storageOpen = ref(false);
 
 onMounted(async () => {
   try {
     schemaOpen.value = localStorage.getItem(SCHEMA_OPEN_KEY) === '1';
+    usersOpen.value = localStorage.getItem(USERS_OPEN_KEY) === '1';
+    storageOpen.value = localStorage.getItem(STORAGE_OPEN_KEY) === '1';
   } catch {
     // localStorage unavailable (SSR, sandboxed iframes) — leave default.
   }
@@ -34,13 +40,16 @@ onMounted(async () => {
   }
 });
 
-watch(schemaOpen, (v) => {
+function persistOpen(key: string, v: boolean) {
   try {
-    localStorage.setItem(SCHEMA_OPEN_KEY, v ? '1' : '0');
+    localStorage.setItem(key, v ? '1' : '0');
   } catch {
     // ignore
   }
-});
+}
+watch(schemaOpen, (v) => persistOpen(SCHEMA_OPEN_KEY, v));
+watch(usersOpen, (v) => persistOpen(USERS_OPEN_KEY, v));
+watch(storageOpen, (v) => persistOpen(STORAGE_OPEN_KEY, v));
 </script>
 
 <template>
@@ -137,42 +146,67 @@ watch(schemaOpen, (v) => {
             Sets
           </RouterLink>
         </div>
-        <RouterLink
-          v-if="auth.user?.isSuper"
-          to="/settings/users"
-          class="block rounded px-2 py-1.5 text-sm hover:bg-zinc-100"
-          active-class="bg-zinc-100 font-medium"
-          data-testid="settings-users-link"
-        >
-          Users
-        </RouterLink>
-        <RouterLink
-          v-if="auth.user?.isSuper"
-          to="/settings/groups"
-          class="block rounded px-2 py-1.5 text-sm hover:bg-zinc-100"
-          active-class="bg-zinc-100 font-medium"
-          data-testid="settings-groups-link"
-        >
-          Groups
-        </RouterLink>
-        <RouterLink
-          v-if="auth.user?.isSuper"
-          to="/settings/s3"
-          class="block rounded px-2 py-1.5 text-sm hover:bg-zinc-100"
-          active-class="bg-zinc-100 font-medium"
-          data-testid="settings-s3-link"
-        >
-          S3 Storage
-        </RouterLink>
-        <RouterLink
-          v-if="auth.user?.isSuper"
-          to="/settings/database"
-          class="block rounded px-2 py-1.5 text-sm hover:bg-zinc-100"
-          active-class="bg-zinc-100 font-medium"
-          data-testid="settings-database-link"
-        >
-          Database
-        </RouterLink>
+        <template v-if="auth.user?.isSuper">
+          <button
+            type="button"
+            class="flex w-full items-center gap-1 rounded px-2 py-1.5 text-left text-sm hover:bg-zinc-100"
+            data-testid="settings-users-toggle"
+            aria-controls="settings-users-children"
+            :aria-expanded="usersOpen"
+            @click="usersOpen = !usersOpen"
+          >
+            <span class="inline-block w-3 text-zinc-400">{{ usersOpen ? '▾' : '▸' }}</span>
+            <span>Users</span>
+          </button>
+          <div v-if="usersOpen" id="settings-users-children" class="ml-4" data-testid="settings-users-children">
+            <RouterLink
+              to="/settings/users"
+              class="block rounded px-2 py-1.5 text-sm hover:bg-zinc-100"
+              active-class="bg-zinc-100 font-medium"
+              data-testid="settings-users-link"
+            >
+              Users
+            </RouterLink>
+            <RouterLink
+              to="/settings/groups"
+              class="block rounded px-2 py-1.5 text-sm hover:bg-zinc-100"
+              active-class="bg-zinc-100 font-medium"
+              data-testid="settings-groups-link"
+            >
+              Groups
+            </RouterLink>
+          </div>
+
+          <button
+            type="button"
+            class="flex w-full items-center gap-1 rounded px-2 py-1.5 text-left text-sm hover:bg-zinc-100"
+            data-testid="settings-storage-toggle"
+            aria-controls="settings-storage-children"
+            :aria-expanded="storageOpen"
+            @click="storageOpen = !storageOpen"
+          >
+            <span class="inline-block w-3 text-zinc-400">{{ storageOpen ? '▾' : '▸' }}</span>
+            <span>Storage</span>
+          </button>
+          <div v-if="storageOpen" id="settings-storage-children" class="ml-4" data-testid="settings-storage-children">
+            <RouterLink
+              to="/settings/s3"
+              class="block rounded px-2 py-1.5 text-sm hover:bg-zinc-100"
+              active-class="bg-zinc-100 font-medium"
+              data-testid="settings-s3-link"
+            >
+              S3 Storage
+            </RouterLink>
+            <RouterLink
+              to="/settings/database"
+              class="block rounded px-2 py-1.5 text-sm hover:bg-zinc-100"
+              active-class="bg-zinc-100 font-medium"
+              data-testid="settings-database-link"
+            >
+              Database
+            </RouterLink>
+          </div>
+        </template>
       </nav>
     </aside>
     <main class="flex-1 overflow-auto">

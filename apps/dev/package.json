@@ -10,7 +10,8 @@
     "start": "node dist/server/server.prod.js",
     "check": "vue-tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "db:migrate-to-turso": "node scripts/migrate-to-turso.mjs"
+    "db:migrate-to-turso": "node scripts/migrate-to-turso.mjs",
+    "db:pull-from-turso": "node scripts/pull-from-turso.mjs"
   },
   "dependencies": {
     "@vulse/admin": "workspace:*",

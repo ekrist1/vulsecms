@@ -84,6 +84,40 @@ Flags:
 The script also accepts environment fallbacks: `VULSE_DB_URL` for the source
 and `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` for the destination.
 
+## Pulling a Turso database down to a local file
+
+When you want to develop against a snapshot of production, copy the Turso
+database into a local libSQL file. The script:
+
+1. checks the destination path — if a local file already exists, it prints a
+   warning and asks you to type `yes` before overwriting,
+2. runs Vulse migrations against the local file (idempotent),
+3. truncates the local tables and copies rows from Turso, skipping the
+   internal `_vulse_migrations` table.
+
+```bash
+pnpm --filter @vulse/dev db:pull-from-turso \
+  --source "$TURSO_DATABASE_URL" \
+  --token  "$TURSO_AUTH_TOKEN" \
+  --target file:./dev.db
+```
+
+Flags:
+
+- `--force`, `-f` &mdash; overwrite an existing local target without
+  prompting (required for non-interactive shells / CI).
+- `--no-truncate` &mdash; keep existing local rows and append. Default is to
+  truncate so the local file mirrors Turso exactly.
+- `--dry-run` &mdash; run migrations on the local file, then list the row
+  counts that *would* be copied without writing data.
+
+Environment fallbacks: `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` for the
+source, `VULSE_DB_URL` for the target (defaults to `file:./dev.db`).
+
+> **Note on secrets.** A pulled local file contains real production data
+> (sessions, hashed passwords, content drafts). Treat `dev.db` as sensitive,
+> keep it out of git, and delete it when you're done debugging.
+
 ## Choosing a deployment
 
 |                      | Local file        | Turso Cloud         | Embedded replica       |
