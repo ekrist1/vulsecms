@@ -76,4 +76,30 @@ describe('effectivePerms', () => {
     expect([...(perms.get('posts') ?? [])].sort()).toEqual(['create', 'read', 'update']);
     expect([...(perms.get('authors') ?? [])]).toEqual(['read']);
   });
+
+  it('surfaces can_publish=1 as the publish action', async () => {
+    const u = user({ role: 'editor', isSuper: false });
+    await adapter.exec(`INSERT INTO users (id, email, role, is_super) VALUES (?, ?, 'editor', 0)`, [
+      u.id,
+      u.email,
+    ]);
+    const g1 = ulid();
+    await adapter.exec(
+      `INSERT INTO groups (id, handle, label) VALUES (?, 'editors', 'Editors')`,
+      [g1],
+    );
+    await adapter.exec(`INSERT INTO user_groups (user_id, group_id) VALUES (?, ?)`, [u.id, g1]);
+    await adapter.exec(
+      `INSERT INTO group_permissions (group_id, collection_handle, can_read, can_create, can_update, can_delete, can_publish)
+       VALUES (?, 'posts', 1, 1, 1, 0, 1)`,
+      [g1],
+    );
+    const perms = await effectivePerms(u, adapter);
+    expect(perms.get('posts')?.has('publish')).toBe(true);
+  });
+
+  it('superuser gets publish action implicitly', async () => {
+    const perms = await effectivePerms(user({ isSuper: true }), adapter);
+    expect(perms.get('*')?.has('publish')).toBe(true);
+  });
 });

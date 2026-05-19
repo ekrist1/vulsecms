@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import { api, type AuthUser } from '../api/client.js';
 
-export type Action = 'read' | 'create' | 'update' | 'delete';
+export type Action = 'read' | 'create' | 'update' | 'delete' | 'publish';
 export type PermsMap = Record<string, Action[]>;
 
 export const useAuthStore = defineStore('auth', {

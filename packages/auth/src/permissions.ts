@@ -7,6 +7,7 @@ interface PermRow {
   can_create: number;
   can_update: number;
   can_delete: number;
+  can_publish: number;
 }
 
 export async function effectivePerms(
@@ -14,12 +15,12 @@ export async function effectivePerms(
   adapter: DatabaseAdapter,
 ): Promise<EffectivePerms> {
   if (user.isSuper) {
-    return new Map([['*', new Set<Action>(['read', 'create', 'update', 'delete'])]]);
+    return new Map([['*', new Set<Action>(['read', 'create', 'update', 'delete', 'publish'])]]);
   }
   if (user.role === 'external_user') return new Map();
 
   const rows = await adapter.query<PermRow>(
-    `SELECT gp.collection_handle, gp.can_read, gp.can_create, gp.can_update, gp.can_delete
+    `SELECT gp.collection_handle, gp.can_read, gp.can_create, gp.can_update, gp.can_delete, gp.can_publish
      FROM user_groups ug
      JOIN group_permissions gp ON gp.group_id = ug.group_id
      WHERE ug.user_id = ?`,
@@ -32,6 +33,7 @@ export async function effectivePerms(
     if (r.can_create) set.add('create');
     if (r.can_update) set.add('update');
     if (r.can_delete) set.add('delete');
+    if (r.can_publish) set.add('publish');
     map.set(r.collection_handle, set);
   }
   return map;

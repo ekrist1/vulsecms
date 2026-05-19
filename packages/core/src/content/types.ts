@@ -6,6 +6,10 @@ export interface Entry {
   status: string;
   protected: boolean;
   content: Record<string, unknown>;
+  draftContent: Record<string, unknown> | null;
+  hasUnpublishedChanges: boolean;
+  publishedAt: string | null;
+  publishedBy: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -27,12 +31,19 @@ export interface SortSpec {
   direction: 'asc' | 'desc';
 }
 
+export interface MutationOptions {
+  /** Publish on save. Ignored on drafts-disabled collections. */
+  publish?: boolean;
+}
+
 export interface ListEntriesOptions {
   limit?: number;
   offset?: number;
   q?: string;
   field?: string;
   includeProtected?: boolean;
+  /** Include draft-status rows in the result. Default false. */
+  includeDrafts?: boolean;
   /**
    * Filter to a specific parent. Pass `null` for root-level entries (no parent),
    * a string id for that parent's direct children. Omit to disable the filter
@@ -66,8 +77,8 @@ export interface MutationContext {
 export interface ContentService {
   list(handle: string, opts?: ListEntriesOptions): Promise<ListEntriesResult>;
   get(handle: string, id: string): Promise<Entry | null>;
-  create(handle: string, input: unknown, ctx?: MutationContext): Promise<Entry>;
-  update(handle: string, id: string, input: unknown, ctx?: MutationContext): Promise<Entry>;
+  create(handle: string, input: unknown, ctx?: MutationContext, opts?: MutationOptions): Promise<Entry>;
+  update(handle: string, id: string, input: unknown, ctx?: MutationContext, opts?: MutationOptions): Promise<Entry>;
   delete(handle: string, id: string): Promise<void>;
   /**
    * Move an entry within a tree-enabled collection. Updates `parent_id` and
@@ -80,4 +91,7 @@ export interface ContentService {
    * ordered by sort_order at each level. Tree-enabled collections only.
    */
   tree(handle: string, opts?: { includeProtected?: boolean }): Promise<EntryNode[]>;
+  publish(handle: string, id: string, ctx?: MutationContext): Promise<Entry>;
+  unpublish(handle: string, id: string, ctx?: MutationContext): Promise<Entry>;
+  discardDraft(handle: string, id: string, ctx?: MutationContext): Promise<Entry>;
 }

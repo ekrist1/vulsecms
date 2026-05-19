@@ -32,7 +32,7 @@ async function setup(seed?: (db: LibsqlAdapter) => Promise<void>) {
     client: db.client,
     env: { authSecret: 'x', baseUrl: 'http://x', allowPublicSignup: true, smtpUrl: undefined },
   });
-  const rawApp = createApi({ blueprints, content, adapter: db, authInstance, sets });
+  const rawApp = createApi({ blueprints, content, adapter: db, authInstance, sets, previewSecret: 'test-preview-secret' });
   const handler = toWebHandler(rawApp);
   const app = {
     request: (url: string, init?: RequestInit) => handler(new Request(url, init)),
@@ -207,7 +207,7 @@ describe('createApi', () => {
     const res = await app.request('http://x/api/_meta/collections', { headers: { cookie } });
     const meta = await res.json();
     const handles = meta.map((m: { handle: string }) => m.handle).sort();
-    expect(handles).toEqual(['authors', 'posts']);
+    expect(handles).toEqual(['authors', 'drafts-posts', 'posts']);
     const posts = meta.find((m: { handle: string }) => m.handle === 'posts');
     expect(posts.fields[0]).toMatchObject({ name: 'title', ui: { kind: 'text' } });
     authInstance.close();
@@ -348,7 +348,7 @@ describe('createApi', () => {
     // Super user gets the wildcard.
     const meSuper = await app.request('http://x/api/auth/me', { headers: { cookie: superCookie } });
     const superBody = (await meSuper.json()) as { perms: Record<string, string[]> };
-    expect(superBody.perms['*']).toEqual(['read', 'create', 'update', 'delete']);
+    expect(superBody.perms['*']).toEqual(['read', 'create', 'update', 'delete', 'publish']);
 
     // Unauthenticated returns null user and empty perms.
     const anon = await app.request('http://x/api/auth/me');

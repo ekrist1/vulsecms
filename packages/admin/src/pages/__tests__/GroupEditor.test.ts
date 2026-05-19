@@ -24,6 +24,7 @@ beforeEach(() => {
         canCreate: false,
         canUpdate: true,
         canDelete: false,
+        canPublish: false,
       },
     ],
   });
@@ -66,6 +67,7 @@ describe('GroupEditor', () => {
         canCreate: true,
         canUpdate: true,
         canDelete: false,
+        canPublish: false,
       },
       {
         collectionHandle: 'authors',
@@ -73,6 +75,7 @@ describe('GroupEditor', () => {
         canCreate: false,
         canUpdate: false,
         canDelete: false,
+        canPublish: false,
       },
     ]);
   });

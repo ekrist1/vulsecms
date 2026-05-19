@@ -1,11 +1,12 @@
 import type { DatabaseAdapter } from '@vulse/db';
 import { ulid } from 'ulid';
-import type { RevisionDTO, RevisionSummary } from './types.js';
+import type { RevisionDTO, RevisionKind, RevisionSummary } from './types.js';
 
 interface RevisionRow {
   id: string;
   entry_id: string;
   revision_number: number;
+  kind: string;
   content: string;
   created_at: string;
   created_by: string | null;
@@ -16,6 +17,7 @@ function rowToSummary(r: RevisionRow): RevisionSummary {
     id: r.id,
     entryId: r.entry_id,
     revisionNumber: r.revision_number,
+    kind: r.kind as RevisionKind,
     createdAt: r.created_at,
     createdBy: r.created_by,
   };
@@ -33,6 +35,7 @@ export async function snapshotRevision(
   entryId: string,
   content: Record<string, unknown>,
   actor: { userId: string } | null = null,
+  kind: RevisionKind = 'draft',
 ): Promise<RevisionDTO> {
   const maxRow = await adapter.queryOne<{ m: number | null }>(
     'SELECT MAX(revision_number) AS m FROM revisions WHERE entry_id = ?',
@@ -41,9 +44,9 @@ export async function snapshotRevision(
   const next = (maxRow?.m ?? 0) + 1;
   const id = ulid();
   await adapter.exec(
-    `INSERT INTO revisions (id, entry_id, revision_number, content, created_by)
-     VALUES (?, ?, ?, ?, ?)`,
-    [id, entryId, next, JSON.stringify(content), actor?.userId ?? null],
+    `INSERT INTO revisions (id, entry_id, revision_number, kind, content, created_by)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [id, entryId, next, kind, JSON.stringify(content), actor?.userId ?? null],
   );
   const row = await adapter.queryOne<RevisionRow>('SELECT * FROM revisions WHERE id = ?', [id]);
   if (!row) throw new Error('failed to write revision');
@@ -58,7 +61,7 @@ export async function listRevisions(
   const limit = Math.min(opts.limit ?? 50, 200);
   const offset = opts.offset ?? 0;
   const rows = await adapter.query<RevisionRow>(
-    `SELECT id, entry_id, revision_number, '' AS content, created_at, created_by
+    `SELECT id, entry_id, revision_number, kind, '' AS content, created_at, created_by
      FROM revisions
      WHERE entry_id = ?
      ORDER BY revision_number DESC

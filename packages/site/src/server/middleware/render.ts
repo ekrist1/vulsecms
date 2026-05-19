@@ -9,6 +9,7 @@ import {
   setResponseHeader,
   setResponseStatus,
 } from 'h3';
+import { verifyPreviewToken } from '@vulse/core';
 import { findPublicEntryBySlug, getPublicEntryById } from '../../composables/useEntry.js';
 import { renderPage } from '../../entry-server.js';
 import type { SiteInitialState, SiteRouteOverride, SiteServerDeps } from '../../types.js';
@@ -57,6 +58,29 @@ function segments(pathname: string): string[] {
  * - Signed-in external_users are NOT granted preview access (preview is an editorial workflow).
  * - No cookie / unauthenticated → false.
  */
+interface PreviewMatch {
+  entryId: string;
+}
+
+function readPreviewToken(deps: SiteServerDeps, url: URL): PreviewMatch | null {
+  const token = url.searchParams.get('vulse-preview');
+  if (!token || !deps.previewSecret) return null;
+  const result = verifyPreviewToken(token, deps.previewSecret);
+  if (!result.ok) return null;
+  return { entryId: result.payload.entryId };
+}
+
+function applyPreview<
+  T extends {
+    id: string;
+    content: Record<string, unknown>;
+    draftContent: Record<string, unknown> | null | undefined;
+  } | null,
+>(entry: T, preview: PreviewMatch | null): T {
+  if (!entry || !preview || entry.id !== preview.entryId || !entry.draftContent) return entry;
+  return { ...entry, content: entry.draftContent } as T;
+}
+
 async function resolvePreview(
   deps: SiteServerDeps,
   url: URL,
@@ -120,6 +144,7 @@ export async function resolveSiteRequest(
   headers?: Headers,
 ): Promise<{ status: number; state: SiteInitialState }> {
   const blueprints = [...deps.blueprints.values()].map(toMeta);
+  const previewToken = readPreviewToken(deps, url);
   const preview = await resolvePreview(deps, url, headers);
   const pathname = toRouteKey(url.pathname);
   const override = deps.routes?.[pathname];
@@ -132,7 +157,8 @@ export async function resolveSiteRequest(
   if (parts.length === 0) {
     if (deps.blueprints.has('home')) {
       const result = await deps.content.list('home', { limit: 1, includeProtected: preview });
-      const entry = result.items[0] ?? null;
+      let entry = result.items[0] ?? null;
+      entry = applyPreview(entry, previewToken);
       return {
         status: entry ? 200 : 200,
         state: {
@@ -169,9 +195,17 @@ export async function resolveSiteRequest(
     }
 
     if (slugOrHandle && deps.blueprints.has('pages')) {
-      const entry = await findPublicEntryBySlug(deps.content, 'pages', slugOrHandle, {
+      let entry = await findPublicEntryBySlug(deps.content, 'pages', slugOrHandle, {
         includeProtected: preview,
       });
+      // If entry is null and we have a valid preview token, try raw fetch for draft entries.
+      if (!entry && previewToken) {
+        const raw = await deps.content.get('pages', previewToken.entryId);
+        if (raw && raw.draftContent) {
+          entry = { ...raw, content: raw.draftContent };
+        }
+      }
+      entry = applyPreview(entry, previewToken);
       return {
         status: entry ? 200 : 404,
         state: {
@@ -187,9 +221,17 @@ export async function resolveSiteRequest(
   if (parts.length === 2) {
     const [collection, slug] = parts;
     if (collection && slug && deps.blueprints.has(collection)) {
-      const entry = await findPublicEntryBySlug(deps.content, collection, slug, {
+      let entry = await findPublicEntryBySlug(deps.content, collection, slug, {
         includeProtected: preview,
       });
+      // If entry is null and we have a valid preview token, try raw fetch for draft entries.
+      if (!entry && previewToken) {
+        const raw = await deps.content.get(collection, previewToken.entryId);
+        if (raw && raw.draftContent) {
+          entry = { ...raw, content: raw.draftContent };
+        }
+      }
+      entry = applyPreview(entry, previewToken);
       return {
         status: entry ? 200 : 404,
         state: {
@@ -219,6 +261,10 @@ export function createSiteRenderer(deps: SiteServerDeps): EventHandler {
     const { status, state } = await resolveSiteRequest(deps, url, headers);
     setResponseStatus(event, status);
     setResponseHeader(event, 'content-type', 'text/html; charset=utf-8');
+    if (url.searchParams.has('vulse-preview')) {
+      setResponseHeader(event, 'x-robots-tag', 'noindex, nofollow');
+      setResponseHeader(event, 'cache-control', 'no-store');
+    }
     return await renderPage(`${url.pathname}${url.search}`, state);
   });
 }

@@ -4,6 +4,7 @@ import { RouterLink } from 'vue-router';
 import { type Entry, type EntryListResponse, type FieldDefinition, api } from '../api/client.js';
 import CollectionKindIcon from '../components/CollectionKindIcon.vue';
 import CollectionTree from '../components/CollectionTree.vue';
+import EntryStatusBadge from '../components/EntryStatusBadge.vue';
 import { useBlueprintsStore } from '../stores/blueprints.js';
 
 const props = defineProps<{ handle: string }>();
@@ -44,6 +45,7 @@ const pageSize = ref(25);
 const searchDraft = ref('');
 const searchQuery = ref('');
 const searchField = ref('all');
+const statusFilter = ref<'all' | 'drafts' | 'published'>('all');
 const visibleColumnKeys = ref<ColumnKey[]>([]);
 const singletonEntryId = ref<string | null>(null);
 
@@ -101,10 +103,11 @@ const showingEnd = computed(() => entries.value.offset + entries.value.items.len
 const collectionLabel = computed(() => blueprint.value?.label ?? props.handle);
 const isSingleton = computed(() => blueprint.value?.singleton ?? false);
 const isTree = computed(() => blueprint.value?.tree === true);
+const draftsEnabled = computed(() => blueprint.value?.drafts === true);
 const collectionTypeLabel = computed(() =>
   isSingleton.value ? 'Singleton collection' : 'Collection',
 );
-const hasFilters = computed(() => searchQuery.value.length > 0 || searchField.value !== 'all');
+const hasFilters = computed(() => searchQuery.value.length > 0 || searchField.value !== 'all' || statusFilter.value !== 'all');
 const primaryEntryAction = computed(() => {
   if (isSingleton.value && singletonEntryId.value) {
     return {
@@ -230,6 +233,7 @@ function resetListState(handle: string) {
   searchDraft.value = '';
   searchQuery.value = '';
   searchField.value = 'all';
+  statusFilter.value = 'all';
   entries.value = { ...EMPTY_RESULT };
   restoreVisibleColumns(handle);
 }
@@ -244,6 +248,12 @@ async function load(handle: string) {
       offset: (page.value - 1) * pageSize.value,
       ...(searchQuery.value ? { q: searchQuery.value } : {}),
       ...(searchField.value !== 'all' ? { field: searchField.value } : {}),
+      includeDrafts: statusFilter.value !== 'published',
+      ...(statusFilter.value === 'drafts'
+        ? { filter: { status: { eq: 'draft' } } }
+        : statusFilter.value === 'published'
+          ? { filter: { status: { eq: 'published' } } }
+          : {}),
     });
 
     if (token !== loadToken) return;
@@ -285,6 +295,7 @@ function clearFilters() {
   searchDraft.value = '';
   searchQuery.value = '';
   searchField.value = 'all';
+  statusFilter.value = 'all';
   page.value = 1;
 }
 
@@ -302,6 +313,10 @@ watch(searchField, () => {
   page.value = 1;
 });
 
+watch(statusFilter, () => {
+  page.value = 1;
+});
+
 watch(pageSize, () => {
   page.value = 1;
 });
@@ -315,7 +330,7 @@ watch(searchDraft, (value) => {
 });
 
 watch(
-  [() => props.handle, page, pageSize, searchField, searchQuery],
+  [() => props.handle, page, pageSize, searchField, searchQuery, statusFilter],
   ([handle]) => {
     void load(handle);
   },
@@ -363,6 +378,20 @@ onBeforeUnmount(() => {
     <CollectionTree v-if="isTree" :handle="handle" />
 
     <template v-else>
+    <div v-if="draftsEnabled" class="mb-3 flex gap-1" data-testid="status-filter">
+      <button v-for="opt in (['all','drafts','published'] as const)" :key="opt"
+        type="button"
+        class="rounded-full border px-3 py-1 text-xs"
+        :class="statusFilter === opt
+          ? 'border-zinc-900 bg-zinc-900 text-white'
+          : 'border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50'"
+        :data-testid="`status-filter-${opt}`"
+        @click="statusFilter = opt"
+      >
+        {{ { all: 'All', drafts: 'Drafts only', published: 'Published only' }[opt] }}
+      </button>
+    </div>
+
     <div class="mb-4 flex flex-wrap items-end gap-3 rounded-xl border border-zinc-200 bg-white p-3">
       <label class="min-w-[16rem] flex-1">
         <span class="block text-xs font-medium uppercase tracking-wide text-zinc-500">Search</span>
@@ -453,6 +482,7 @@ onBeforeUnmount(() => {
         <table class="min-w-full text-sm">
           <thead class="border-b border-zinc-200 text-left text-xs uppercase tracking-wide text-zinc-500">
             <tr>
+              <th v-if="draftsEnabled" class="px-4 py-3">Status</th>
               <th v-for="column in visibleColumns" :key="column.key" class="px-4 py-3">
                 {{ column.label }}
               </th>
@@ -461,6 +491,11 @@ onBeforeUnmount(() => {
           </thead>
           <tbody>
             <tr v-for="entry in entries.items" :key="entry.id" class="border-b border-zinc-100 last:border-b-0">
+              <td v-if="draftsEnabled" class="px-4 py-3">
+                <EntryStatusBadge
+                  :status="entry.status"
+                  :has-unpublished-changes="entry.hasUnpublishedChanges" />
+              </td>
               <td
                 v-for="(column, index) in visibleColumns"
                 :key="column.key"

@@ -41,7 +41,7 @@ describe('public read API', () => {
       client: db.client,
       env: { authSecret: 'x', baseUrl: 'http://x', allowPublicSignup: true, smtpUrl: undefined },
     });
-    const rawApp = createApi({ blueprints, content, adapter: db, authInstance, sets });
+    const rawApp = createApi({ blueprints, content, adapter: db, authInstance, sets, previewSecret: 'test-preview-secret' });
     const handler = toWebHandler(rawApp);
     app = {
       request: (url: string, init?: RequestInit) => handler(new Request(url, init)),
@@ -78,7 +78,7 @@ describe('public read API', () => {
     const res = await app.request('http://x/api/public/_meta/collections');
     expect(res.status).toBe(200);
     const body = (await res.json()) as { handle: string; fields: { name: string }[] }[];
-    expect(body.map((m) => m.handle).sort()).toEqual(['authors', 'posts']);
+    expect(body.map((m) => m.handle).sort()).toEqual(['authors', 'drafts-posts', 'posts']);
     expect(body.find((m) => m.handle === 'posts')?.fields[0]).toMatchObject({
       name: 'title',
     });

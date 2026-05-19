@@ -3,8 +3,10 @@ import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 import { type ApiError, type Entry, api } from '../api/client.js';
 import EntryBreadcrumb from '../components/EntryBreadcrumb.vue';
+import EntryStatusBadge from '../components/EntryStatusBadge.vue';
 import FieldRenderer from '../components/FieldRenderer.vue';
 import RevisionsPanel from '../components/RevisionsPanel.vue';
+import { useAuthStore } from '../stores/auth.js';
 import { useBlueprintsStore } from '../stores/blueprints.js';
 import { useToastsStore } from '../stores/toasts.js';
 
@@ -13,6 +15,7 @@ const router = useRouter();
 const route = useRoute();
 const store = useBlueprintsStore();
 const toasts = useToastsStore();
+const auth = useAuthStore();
 
 const state = reactive<Record<string, unknown>>({});
 const errors = reactive<Record<string, string>>({});
@@ -31,6 +34,22 @@ const children = ref<Entry[]>([]);
 
 const blueprint = computed(() => store.get(props.handle));
 const isTreeCollection = computed(() => blueprint.value?.tree === true);
+const draftsEnabled = computed(() => blueprint.value?.drafts === true);
+const canPublish = computed(() =>
+  auth.user?.isSuper === true ||
+  auth.perms?.[props.handle]?.includes('publish') === true,
+);
+const currentEntry = ref<Entry | null>(null);
+const LAST_SAVE_KEY = 'vulse.editor.lastSaveAction';
+const lastSaveAction = ref<'draft' | 'publish'>(
+  (typeof localStorage !== 'undefined' && localStorage.getItem(LAST_SAVE_KEY) === 'publish')
+    ? 'publish'
+    : 'draft',
+);
+function rememberAction(v: 'draft' | 'publish') {
+  lastSaveAction.value = v;
+  try { localStorage.setItem(LAST_SAVE_KEY, v); } catch { /* SSR */ }
+}
 
 function entryLabel(entry: { id: string; content: Record<string, unknown> }): string {
   const c = entry.content;
@@ -77,7 +96,9 @@ async function loadEntry() {
     loading.value = true;
     try {
       const entry = await api.get(props.handle, props.id);
-      for (const f of bp.fields) state[f.name] = (entry.content as Record<string, unknown>)[f.name];
+      currentEntry.value = entry;
+      const content = entry.draftContent ?? entry.content;
+      for (const f of bp.fields) state[f.name] = (content as Record<string, unknown>)[f.name];
       isProtected.value = entry.protected ?? false;
       slugTouched.value = true; // existing entries: don't overwrite a saved slug
       if (bp.tree) {
@@ -212,17 +233,19 @@ function updateField(name: string, value: unknown) {
 onMounted(loadEntry);
 watch(() => [props.handle, props.id, blueprint.value], loadEntry);
 
-async function save() {
+async function save(action: 'draft' | 'publish') {
   for (const k of Object.keys(errors)) delete errors[k];
   submitError.value = null;
   saving.value = true;
+  const publish = draftsEnabled.value ? action === 'publish' : true;
+  rememberAction(action);
   try {
     let entry: Entry;
     if (props.id) {
       entry = await api.update(props.handle, props.id, {
         ...state,
         protected: isProtected.value,
-      });
+      }, { publish });
       // If the parent changed in the picker, apply the move after the content update.
       if (isTreeCollection.value && parentId.value !== originalParentId.value) {
         entry = await api.moveEntry(props.handle, props.id, { parentId: parentId.value });
@@ -236,9 +259,10 @@ async function save() {
       if (isTreeCollection.value && parentId.value !== null) {
         payload.parentId = parentId.value;
       }
-      entry = await api.create(props.handle, payload);
+      entry = await api.create(props.handle, payload, { publish });
     }
-    toasts.success('Entry saved');
+    currentEntry.value = entry;
+    toasts.success(publish ? 'Entry published' : 'Draft saved');
     if (!props.id) router.replace(`/collections/${props.handle}/${entry.id}`);
   } catch (err) {
     const e = err as { response?: ApiError };
@@ -256,6 +280,72 @@ async function save() {
     saving.value = false;
   }
 }
+
+async function publishNow() {
+  if (!props.id) return;
+  saving.value = true;
+  try {
+    currentEntry.value = await api.publish(props.handle, props.id);
+    toasts.success('Published');
+  } catch (err) {
+    const e = err as { response?: { message?: string } };
+    toasts.error(e.response?.message ?? 'Failed to publish');
+  } finally {
+    saving.value = false;
+  }
+}
+
+async function unpublishNow() {
+  if (!props.id) return;
+  if (!window.confirm('Unpublish this entry? It will be removed from the public site.')) return;
+  saving.value = true;
+  try {
+    currentEntry.value = await api.unpublish(props.handle, props.id);
+    toasts.success('Unpublished');
+  } catch (err) {
+    const e = err as { response?: { message?: string } };
+    toasts.error(e.response?.message ?? 'Failed to unpublish');
+  } finally {
+    saving.value = false;
+  }
+}
+
+async function discardDraft() {
+  if (!props.id) return;
+  if (!window.confirm('Discard unpublished changes? This cannot be undone.')) return;
+  saving.value = true;
+  try {
+    const entry = await api.discardDraft(props.handle, props.id);
+    currentEntry.value = entry;
+    Object.assign(state, entry.content);
+    toasts.success('Draft discarded');
+  } catch (err) {
+    const e = err as { response?: { message?: string } };
+    toasts.error(e.response?.message ?? 'Failed to discard');
+  } finally {
+    saving.value = false;
+  }
+}
+
+function previewUrl(entry: Entry): string {
+  const slug = (entry.draftContent?.slug ?? entry.content?.slug) as string | undefined;
+  if (typeof slug !== 'string' || slug.length === 0) {
+    return `/${props.handle}/${entry.id}`; // fallback when no slug
+  }
+  return `/${props.handle}/${slug}`;
+}
+
+async function openPreview() {
+  if (!props.id || !currentEntry.value) return;
+  try {
+    const { token } = await api.previewToken(props.handle, props.id);
+    const url = previewUrl(currentEntry.value);
+    window.open(`${url}?vulse-preview=${encodeURIComponent(token)}`, '_blank');
+  } catch (err) {
+    const e = err as { response?: { message?: string } };
+    toasts.error(e.response?.message ?? 'Failed to get preview token');
+  }
+}
 </script>
 
 <template>
@@ -263,7 +353,12 @@ async function save() {
     <div v-if="!blueprint" class="text-sm text-zinc-500">Unknown collection.</div>
     <template v-else>
       <EntryBreadcrumb v-if="isTreeCollection" :handle="handle" :items="ancestors" />
-      <h1 class="mb-4 text-xl font-semibold">{{ id ? 'Edit' : 'New' }} {{ blueprint.label }}</h1>
+      <div class="mb-4 flex items-center gap-3">
+        <h1 class="text-xl font-semibold">{{ id ? 'Edit' : 'New' }} {{ blueprint.label }}</h1>
+        <EntryStatusBadge v-if="id && currentEntry && draftsEnabled"
+          :status="currentEntry.status"
+          :has-unpublished-changes="currentEntry.hasUnpublishedChanges" />
+      </div>
       <div v-if="id" class="mb-4 flex gap-1 border-b border-zinc-200" role="tablist">
         <button
           type="button"
@@ -295,7 +390,7 @@ async function save() {
       <form
         v-else-if="!id || activeTab === 'edit'"
         class="max-w-2xl space-y-4"
-        @submit.prevent="save"
+        @submit.prevent="() => save(draftsEnabled ? lastSaveAction : 'publish')"
       >
         <label v-if="isTreeCollection" class="block rounded border border-zinc-200 bg-white p-3">
           <span class="block text-sm font-semibold text-zinc-700">Parent</span>
@@ -331,21 +426,64 @@ async function save() {
           {{ submitError }}
         </div>
         <div class="flex items-center gap-2">
-          <button
-            type="submit"
+          <template v-if="draftsEnabled">
+            <div class="inline-flex rounded shadow-sm" data-testid="save-split">
+              <button
+                type="button"
+                class="vulse-button-primary rounded-l px-4 py-2 text-sm font-medium disabled:opacity-50"
+                :disabled="saving || (lastSaveAction === 'publish' && !canPublish)"
+                :data-testid="`submit-${lastSaveAction}`"
+                @click="save(lastSaveAction)"
+              >
+                {{ saving ? 'Saving…' : (lastSaveAction === 'publish' ? 'Save & publish' : 'Save draft') }}
+              </button>
+              <details class="relative" @click.stop>
+                <summary class="vulse-button-primary cursor-pointer rounded-r border-l border-zinc-700 px-2 py-2 text-sm">▾</summary>
+                <div class="absolute right-0 z-10 mt-1 w-48 rounded border border-zinc-200 bg-white py-1 text-sm shadow">
+                  <button type="button"
+                    class="block w-full px-3 py-1.5 text-left hover:bg-zinc-50"
+                    data-testid="save-as-draft"
+                    @click="save('draft')">Save draft</button>
+                  <button type="button"
+                    class="block w-full px-3 py-1.5 text-left hover:bg-zinc-50 disabled:opacity-50"
+                    :disabled="!canPublish"
+                    data-testid="save-and-publish"
+                    @click="save('publish')">Save & publish</button>
+                  <button v-if="currentEntry?.hasUnpublishedChanges"
+                    type="button"
+                    class="block w-full px-3 py-1.5 text-left text-amber-700 hover:bg-amber-50"
+                    data-testid="discard-draft"
+                    @click="discardDraft">Discard draft</button>
+                  <button v-if="currentEntry?.status === 'published' && canPublish"
+                    type="button"
+                    class="block w-full px-3 py-1.5 text-left text-zinc-600 hover:bg-zinc-50"
+                    data-testid="unpublish"
+                    @click="unpublishNow">Unpublish</button>
+                </div>
+              </details>
+            </div>
+          </template>
+          <button v-else type="submit"
             class="vulse-button-primary rounded px-4 py-2 text-sm font-medium disabled:opacity-50"
             :disabled="saving"
             data-testid="submit"
-          >
+            @click.prevent="save('publish')">
             {{ saving ? 'Saving…' : 'Save' }}
           </button>
-          <RouterLink
-            :to="`/collections/${handle}`"
-            class="rounded border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
-            data-testid="cancel"
+
+          <button v-if="id && draftsEnabled && currentEntry
+            && (currentEntry.hasUnpublishedChanges || currentEntry.status !== 'published')"
+            type="button"
+            class="rounded border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+            data-testid="preview-button"
+            @click="openPreview"
           >
-            Cancel
-          </RouterLink>
+            Preview
+          </button>
+
+          <RouterLink :to="`/collections/${handle}`"
+            class="rounded border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+            data-testid="cancel">Cancel</RouterLink>
         </div>
       </form>
 

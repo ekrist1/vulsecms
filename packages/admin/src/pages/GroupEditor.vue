@@ -15,12 +15,12 @@ const handle = ref('');
 const label = ref('');
 const saving = ref(false);
 
-interface RowState { canRead: boolean; canCreate: boolean; canUpdate: boolean; canDelete: boolean; }
+interface RowState { canRead: boolean; canCreate: boolean; canUpdate: boolean; canDelete: boolean; canPublish: boolean; }
 const matrix = reactive<Record<string, RowState>>({});
 
 function ensureMatrixRow(bpHandle: string) {
   if (!matrix[bpHandle]) {
-    matrix[bpHandle] = { canRead: false, canCreate: false, canUpdate: false, canDelete: false };
+    matrix[bpHandle] = { canRead: false, canCreate: false, canUpdate: false, canDelete: false, canPublish: false };
   }
 }
 
@@ -35,7 +35,7 @@ async function load() {
   label.value = g.label;
   for (const p of g.permissions) {
     ensureMatrixRow(p.collectionHandle);
-    matrix[p.collectionHandle] = { canRead: p.canRead, canCreate: p.canCreate, canUpdate: p.canUpdate, canDelete: p.canDelete };
+    matrix[p.collectionHandle] = { canRead: p.canRead, canCreate: p.canCreate, canUpdate: p.canUpdate, canDelete: p.canDelete, canPublish: p.canPublish };
   }
 }
 
@@ -51,7 +51,7 @@ async function save() {
     }
     const rows = Object.entries(matrix).map(([ch, r]) => ({
       collectionHandle: ch,
-      canRead: r.canRead, canCreate: r.canCreate, canUpdate: r.canUpdate, canDelete: r.canDelete,
+      canRead: r.canRead, canCreate: r.canCreate, canUpdate: r.canUpdate, canDelete: r.canDelete, canPublish: r.canPublish,
     }));
     await api.setGroupPermissions(g.handle, rows);
     toasts.success('Group saved');
@@ -92,7 +92,7 @@ onMounted(load);
         <h2 class="mb-3 text-sm font-semibold text-zinc-700">Permissions</h2>
         <table class="w-full text-left text-sm">
           <thead><tr class="border-b border-zinc-200 text-xs uppercase text-zinc-500">
-            <th>Collection</th><th class="text-center">Read</th><th class="text-center">Create</th><th class="text-center">Update</th><th class="text-center">Delete</th>
+            <th>Collection</th><th class="text-center">Read</th><th class="text-center">Create</th><th class="text-center">Update</th><th class="text-center">Delete</th><th class="text-center">Publish</th>
           </tr></thead>
           <tbody>
             <template v-for="bp in blueprints.list" :key="bp.handle">
@@ -102,6 +102,7 @@ onMounted(load);
                 <td class="text-center"><input type="checkbox" v-model="matrix[bp.handle]!.canCreate" :data-testid="`perm-${bp.handle}-canCreate`" /></td>
                 <td class="text-center"><input type="checkbox" v-model="matrix[bp.handle]!.canUpdate" :data-testid="`perm-${bp.handle}-canUpdate`" /></td>
                 <td class="text-center"><input type="checkbox" v-model="matrix[bp.handle]!.canDelete" :data-testid="`perm-${bp.handle}-canDelete`" /></td>
+                <td class="text-center"><input type="checkbox" v-model="matrix[bp.handle]!.canPublish" :data-testid="`perm-${bp.handle}-canPublish`" /></td>
               </tr>
             </template>
           </tbody>

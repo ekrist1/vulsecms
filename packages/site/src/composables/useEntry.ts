@@ -23,7 +23,9 @@ export async function findPublicEntryBySlug(
     limit: 100,
     includeProtected: options.includeProtected ?? false,
   });
-  return result.items.find((entry) => String(entry.content.slug ?? '') === slug) ?? null;
+  const entry = result.items.find((item) => String(item.content.slug ?? '') === slug);
+  if (!entry || entry.status !== 'published') return null;
+  return entry;
 }
 
 export async function getPublicEntryById(
@@ -34,6 +36,7 @@ export async function getPublicEntryById(
 ): Promise<Entry | null> {
   const entry = await content.get(collection, id);
   if (!entry) return null;
+  if (entry.status !== 'published') return null;
   if (entry.protected && !options.includeProtected) return null;
   return entry;
 }

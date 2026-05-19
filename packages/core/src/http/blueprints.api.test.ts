@@ -30,7 +30,7 @@ async function setup() {
     client: db.client,
     env: { authSecret: 'x', baseUrl: 'http://x', allowPublicSignup: true, smtpUrl: undefined },
   });
-  const rawApp = createApi({ blueprints, content, adapter: db, authInstance, sets });
+  const rawApp = createApi({ blueprints, content, adapter: db, authInstance, sets, previewSecret: 'test-preview-secret' });
   const handler = toWebHandler(rawApp);
   const app = {
     request: (url: string, init?: RequestInit) => handler(new Request(url, init)),
@@ -52,7 +52,7 @@ describe('blueprints API', () => {
     const res = await app.request('http://x/api/blueprints', { headers: { cookie } });
     expect(res.status).toBe(200);
     const body = (await res.json()) as { handle: string }[];
-    expect(body.map((b) => b.handle).sort()).toEqual(['authors', 'posts']);
+    expect(body.map((b) => b.handle).sort()).toEqual(['authors', 'drafts-posts', 'posts']);
     authInstance.close();
     await db.close();
   });

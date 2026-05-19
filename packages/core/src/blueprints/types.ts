@@ -13,6 +13,7 @@ export interface Blueprint {
   singleton: boolean;
   tree: boolean;
   maxDepth?: number;
+  drafts?: boolean;
   schema: z.ZodObject<z.ZodRawShape>;
   fields: FieldDefinition[];
   hash: string;

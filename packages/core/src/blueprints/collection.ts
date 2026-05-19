@@ -8,4 +8,6 @@ export abstract class Collection {
   static tree?: boolean;
   /** Optional maximum nesting depth (requires `tree = true`). */
   static maxDepth?: number;
+  /** Enable draft entries for this collection. */
+  static drafts?: boolean;
 }

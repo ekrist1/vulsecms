@@ -61,3 +61,9 @@ export {
   type S3ConfigPublic,
   type AssetDTO,
 } from './assets/types.js';
+export {
+  signPreviewToken,
+  verifyPreviewToken,
+  type PreviewTokenPayload,
+  type PreviewVerifyResult,
+} from './preview/preview-token.js';

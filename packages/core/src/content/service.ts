@@ -20,6 +20,9 @@ interface EntryRow {
   status: string;
   protected: number;
   content: string;
+  draft_content: string | null;
+  published_at: string | null;
+  published_by: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -43,6 +46,7 @@ export function createContentService(
   }
 
   function rowToEntry(row: EntryRow): Entry {
+    const draftContent = row.draft_content ? JSON.parse(row.draft_content) : null;
     return {
       id: row.id,
       collection: row.collection_handle,
@@ -51,6 +55,10 @@ export function createContentService(
       status: row.status,
       protected: row.protected === 1,
       content: JSON.parse(row.content),
+      draftContent,
+      hasUnpublishedChanges: draftContent !== null,
+      publishedAt: row.published_at,
+      publishedBy: row.published_by,
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     };
@@ -113,6 +121,7 @@ export function createContentService(
       const filter = buildFilterSql(opts.filter, b);
       const order = buildOrderSql(opts.sort, b);
       const protectedClause = opts.includeProtected ? '' : ' AND protected = 0';
+      const draftsClause = opts.includeDrafts ? '' : " AND status = 'published'";
       let parentClause = '';
       const parentParams: unknown[] = [];
       if ('parentId' in opts) {
@@ -123,7 +132,7 @@ export function createContentService(
           parentParams.push(opts.parentId);
         }
       }
-      const whereSql = `WHERE collection_handle = ?${protectedClause}${parentClause}${search.sql}${filter.sql}`;
+      const whereSql = `WHERE collection_handle = ?${protectedClause}${draftsClause}${parentClause}${search.sql}${filter.sql}`;
       const whereParams = [handle, ...parentParams, ...search.params, ...filter.params];
 
       const totalRow = await db.queryOne<{ total: number }>(
@@ -154,7 +163,7 @@ export function createContentService(
       return row ? rowToEntry(row) : null;
     },
 
-    async create(handle, input, ctx) {
+    async create(handle, input, ctx, opts) {
       const b = blueprint(handle);
       if (b.singleton) {
         const existing = await db.queryOne<{ id: string }>(
@@ -185,33 +194,80 @@ export function createContentService(
       const max = await maxSortOrder(db, handle, parentIdInput);
       const sortOrder = max + 1;
       const isProtected = (input as { protected?: boolean }).protected ? 1 : 0;
-      await db.exec(
-        `INSERT INTO entries (id, collection_handle, parent_id, sort_order, status, protected, content)
-         VALUES (?, ?, ?, ?, 'published', ?, ?)`,
-        [id, handle, parentIdInput, sortOrder, isProtected, JSON.stringify(validated)],
-      );
-      await snapshotRevision(db, id, validated, ctx?.actor ?? null);
+
+      // Drafts-enabled + explicit publish=false → write to draft_content, status=draft, content={}.
+      // Otherwise (drafts-disabled OR publish !== false) → write to content live.
+      const draftsEnabled = b.drafts === true;
+      const saveAsDraft = draftsEnabled && opts?.publish === false;
+      const actorId = ctx?.actor?.userId ?? null;
+
+      if (saveAsDraft) {
+        await db.exec(
+          `INSERT INTO entries (id, collection_handle, parent_id, sort_order, status, protected, content, draft_content)
+           VALUES (?, ?, ?, ?, 'draft', ?, '{}', ?)`,
+          [id, handle, parentIdInput, sortOrder, isProtected, JSON.stringify(validated)],
+        );
+        await snapshotRevision(db, id, validated, ctx?.actor ?? null, 'draft');
+      } else {
+        await db.exec(
+          `INSERT INTO entries (id, collection_handle, parent_id, sort_order, status, protected, content, published_at, published_by)
+           VALUES (?, ?, ?, ?, 'published', ?, ?, datetime('now'), ?)`,
+          [id, handle, parentIdInput, sortOrder, isProtected, JSON.stringify(validated), actorId],
+        );
+        await snapshotRevision(db, id, validated, ctx?.actor ?? null, 'publish');
+      }
+
       const row = await db.queryOne<EntryRow>('SELECT * FROM entries WHERE id = ?', [id]);
       return rowToEntry(row!);
     },
 
-    async update(handle, id, input, ctx) {
+    async update(handle, id, input, ctx, opts) {
       const b = blueprint(handle);
       const existing = await db.queryOne<EntryRow>(
         'SELECT * FROM entries WHERE collection_handle = ? AND id = ?',
         [handle, id],
       );
       if (!existing) throw new NotFoundError(`entry not found: ${id}`);
-      const merged = { ...JSON.parse(existing.content), ...(input as object) };
+
+      // Merge against the *working* copy — draft if present, otherwise live content.
+      const baseContent = existing.draft_content
+        ? JSON.parse(existing.draft_content)
+        : JSON.parse(existing.content);
+      const merged = { ...baseContent, ...(input as object) };
       const validated = validate(b, merged);
-      const fields: string[] = ['content = ?', `updated_at = datetime('now')`];
-      const params: unknown[] = [JSON.stringify(validated)];
-      if ('protected' in (input as object)) {
-        fields.push('protected = ?');
-        params.push((input as { protected: boolean }).protected ? 1 : 0);
+
+      const draftsEnabled = b.drafts === true;
+      // For drafts-disabled collections, always publish (today's behaviour).
+      // For drafts-enabled, default is draft (publish only when caller explicitly asks).
+      const publishNow = !draftsEnabled || opts?.publish === true;
+      const actorId = ctx?.actor?.userId ?? null;
+
+      if (publishNow) {
+        const fields: string[] = ['content = ?', "updated_at = datetime('now')"];
+        const params: unknown[] = [JSON.stringify(validated)];
+        if (draftsEnabled) {
+          fields.push('draft_content = NULL', "status = 'published'",
+                      "published_at = datetime('now')", 'published_by = ?');
+          params.push(actorId);
+        }
+        if ('protected' in (input as object)) {
+          fields.push('protected = ?');
+          params.push((input as { protected: boolean }).protected ? 1 : 0);
+        }
+        await db.exec(`UPDATE entries SET ${fields.join(', ')} WHERE id = ?`, [...params, id]);
+        await snapshotRevision(db, id, validated, ctx?.actor ?? null, 'publish');
+      } else {
+        // Save as draft — leave content alone (or it's already empty for status=draft).
+        const fields: string[] = ['draft_content = ?', "updated_at = datetime('now')"];
+        const params: unknown[] = [JSON.stringify(validated)];
+        if ('protected' in (input as object)) {
+          fields.push('protected = ?');
+          params.push((input as { protected: boolean }).protected ? 1 : 0);
+        }
+        await db.exec(`UPDATE entries SET ${fields.join(', ')} WHERE id = ?`, [...params, id]);
+        await snapshotRevision(db, id, validated, ctx?.actor ?? null, 'draft');
       }
-      await db.exec(`UPDATE entries SET ${fields.join(', ')} WHERE id = ?`, [...params, id]);
-      await snapshotRevision(db, id, validated, ctx?.actor ?? null);
+
       const row = await db.queryOne<EntryRow>('SELECT * FROM entries WHERE id = ?', [id]);
       return rowToEntry(row!);
     },
@@ -321,9 +377,12 @@ export function createContentService(
         ]);
       }
       const protectedClause = opts.includeProtected ? '' : ' AND protected = 0';
+      // Note: tree() doesn't expose includeDrafts in the public interface yet (not in ContentService.tree signature),
+      // so we default to filtering drafts (includeDrafts: false). This is internal-only.
+      const draftsClause = " AND status = 'published'";
       const rows = await db.query<EntryRow>(
         `SELECT * FROM entries
-         WHERE collection_handle = ?${protectedClause}
+         WHERE collection_handle = ?${protectedClause}${draftsClause}
          ORDER BY sort_order ASC, created_at DESC`,
         [handle],
       );
@@ -342,6 +401,87 @@ export function createContentService(
         return children;
       }
       return attach(null);
+    },
+
+    async publish(handle, id, ctx) {
+      const b = blueprint(handle);
+      if (!b.drafts) {
+        throw new ValidationError([
+          { code: 'drafts_not_enabled', message: `Collection '${handle}' does not have drafts enabled.`, path: ['handle'] } as never,
+        ]);
+      }
+      const row = await db.queryOne<EntryRow>(
+        'SELECT * FROM entries WHERE collection_handle = ? AND id = ?', [handle, id],
+      );
+      if (!row) throw new NotFoundError(`entry not found: ${id}`);
+      const promote = row.draft_content ? JSON.parse(row.draft_content) : JSON.parse(row.content);
+      await db.exec(
+        `UPDATE entries
+         SET content = ?, draft_content = NULL, status = 'published',
+             published_at = datetime('now'), published_by = ?, updated_at = datetime('now')
+         WHERE id = ?`,
+        [JSON.stringify(promote), ctx?.actor?.userId ?? null, id],
+      );
+      await snapshotRevision(db, id, promote, ctx?.actor ?? null, 'publish');
+      const updated = await db.queryOne<EntryRow>('SELECT * FROM entries WHERE id = ?', [id]);
+      return rowToEntry(updated!);
+    },
+
+    async unpublish(handle, id, _ctx) {
+      const b = blueprint(handle);
+      if (!b.drafts) {
+        throw new ValidationError([
+          { code: 'drafts_not_enabled', message: `Collection '${handle}' does not have drafts enabled.`, path: ['handle'] } as never,
+        ]);
+      }
+      const row = await db.queryOne<EntryRow>(
+        'SELECT * FROM entries WHERE collection_handle = ? AND id = ?', [handle, id],
+      );
+      if (!row) throw new NotFoundError(`entry not found: ${id}`);
+      if (row.status === 'draft') {
+        throw new ValidationError([
+          { code: 'entry_already_draft', message: 'Entry has never been published.', path: ['id'] } as never,
+        ]);
+      }
+      await db.exec(
+        `UPDATE entries
+         SET draft_content = COALESCE(draft_content, content),
+             content = '{}', status = 'draft',
+             published_at = NULL, published_by = NULL, updated_at = datetime('now')
+         WHERE id = ?`,
+        [id],
+      );
+      const updated = await db.queryOne<EntryRow>('SELECT * FROM entries WHERE id = ?', [id]);
+      return rowToEntry(updated!);
+    },
+
+    async discardDraft(handle, id, _ctx) {
+      const b = blueprint(handle);
+      if (!b.drafts) {
+        throw new ValidationError([
+          { code: 'drafts_not_enabled', message: `Collection '${handle}' does not have drafts enabled.`, path: ['handle'] } as never,
+        ]);
+      }
+      const row = await db.queryOne<EntryRow>(
+        'SELECT * FROM entries WHERE collection_handle = ? AND id = ?', [handle, id],
+      );
+      if (!row) throw new NotFoundError(`entry not found: ${id}`);
+      if (row.status === 'draft') {
+        throw new ValidationError([
+          { code: 'cannot_discard_initial_draft', message: 'This entry has no published copy. Delete it instead.', path: ['id'] } as never,
+        ]);
+      }
+      if (row.draft_content === null) {
+        throw new ValidationError([
+          { code: 'no_draft_to_discard', message: 'Entry has no pending draft.', path: ['id'] } as never,
+        ]);
+      }
+      await db.exec(
+        `UPDATE entries SET draft_content = NULL, updated_at = datetime('now') WHERE id = ?`,
+        [id],
+      );
+      const updated = await db.queryOne<EntryRow>('SELECT * FROM entries WHERE id = ?', [id]);
+      return rowToEntry(updated!);
     },
   };
 }

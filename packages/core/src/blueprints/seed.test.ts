@@ -20,10 +20,21 @@ describe('seedBlueprintsFromCode', () => {
     const rows = await db.query<{ handle: string; definition: string }>(
       'SELECT handle, definition FROM collections ORDER BY handle',
     );
-    expect(rows.map((r) => r.handle)).toEqual(['authors', 'posts']);
-    const posts = JSON.parse(rows[1]!.definition);
+    expect(rows.map((r) => r.handle)).toEqual(['authors', 'drafts-posts', 'posts']);
+    const posts = JSON.parse(rows[2]!.definition);
     expect(posts.handle).toBe('posts');
     expect(posts.fields.find((f: { name: string }) => f.name === 'title')).toBeDefined();
+    await db.close();
+  });
+
+  it('drafts-posts fixture has drafts enabled', async () => {
+    const db = await freshDb();
+    await seedBlueprintsFromCode({ adapter: db, dir: fixturesDir });
+    const row = await db.queryOne<{ definition: string }>(
+      "SELECT definition FROM collections WHERE handle = 'drafts-posts'",
+    );
+    const definition = JSON.parse(row!.definition);
+    expect(definition.drafts).toBe(true);
     await db.close();
   });
 
@@ -32,7 +43,7 @@ describe('seedBlueprintsFromCode', () => {
     await seedBlueprintsFromCode({ adapter: db, dir: fixturesDir });
     await seedBlueprintsFromCode({ adapter: db, dir: fixturesDir });
     const rows = await db.query<{ handle: string }>('SELECT handle FROM collections');
-    expect(rows).toHaveLength(2);
+    expect(rows).toHaveLength(3);
     await db.close();
   });
 
