@@ -6,6 +6,7 @@ export interface BlueprintMeta {
   singleton: boolean;
   tree: boolean;
   maxDepth?: number;
+  drafts?: boolean;
   fields: FieldMeta[];
 }
 
@@ -16,6 +17,7 @@ export function toMeta(b: Blueprint): BlueprintMeta {
     singleton: b.singleton,
     tree: b.tree,
     ...(b.maxDepth !== undefined ? { maxDepth: b.maxDepth } : {}),
+    ...(b.drafts ? { drafts: true } : {}),
     fields: b.fields,
   };
 }
