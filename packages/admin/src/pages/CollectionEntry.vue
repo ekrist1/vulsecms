@@ -326,6 +326,26 @@ async function discardDraft() {
     saving.value = false;
   }
 }
+
+function previewUrl(entry: Entry): string {
+  const slug = (entry.draftContent?.slug ?? entry.content?.slug) as string | undefined;
+  if (typeof slug !== 'string' || slug.length === 0) {
+    return `/${props.handle}/${entry.id}`; // fallback when no slug
+  }
+  return `/${props.handle}/${slug}`;
+}
+
+async function openPreview() {
+  if (!props.id || !currentEntry.value) return;
+  try {
+    const { token } = await api.previewToken(props.handle, props.id);
+    const url = previewUrl(currentEntry.value);
+    window.open(`${url}?vulse-preview=${encodeURIComponent(token)}`, '_blank');
+  } catch (err) {
+    const e = err as { response?: { message?: string } };
+    toasts.error(e.response?.message ?? 'Failed to get preview token');
+  }
+}
 </script>
 
 <template>
@@ -449,6 +469,16 @@ async function discardDraft() {
             data-testid="submit"
             @click.prevent="save('publish')">
             {{ saving ? 'Saving…' : 'Save' }}
+          </button>
+
+          <button v-if="id && draftsEnabled && currentEntry
+            && (currentEntry.hasUnpublishedChanges || currentEntry.status !== 'published')"
+            type="button"
+            class="rounded border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+            data-testid="preview-button"
+            @click="openPreview"
+          >
+            Preview
           </button>
 
           <RouterLink :to="`/collections/${handle}`"
