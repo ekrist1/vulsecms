@@ -402,6 +402,87 @@ export function createContentService(
       }
       return attach(null);
     },
+
+    async publish(handle, id, ctx) {
+      const b = blueprint(handle);
+      if (!b.drafts) {
+        throw new ValidationError([
+          { code: 'drafts_not_enabled', message: `Collection '${handle}' does not have drafts enabled.`, path: ['handle'] } as never,
+        ]);
+      }
+      const row = await db.queryOne<EntryRow>(
+        'SELECT * FROM entries WHERE collection_handle = ? AND id = ?', [handle, id],
+      );
+      if (!row) throw new NotFoundError(`entry not found: ${id}`);
+      const promote = row.draft_content ? JSON.parse(row.draft_content) : JSON.parse(row.content);
+      await db.exec(
+        `UPDATE entries
+         SET content = ?, draft_content = NULL, status = 'published',
+             published_at = datetime('now'), published_by = ?, updated_at = datetime('now')
+         WHERE id = ?`,
+        [JSON.stringify(promote), ctx?.actor?.userId ?? null, id],
+      );
+      await snapshotRevision(db, id, promote, ctx?.actor ?? null, 'publish');
+      const updated = await db.queryOne<EntryRow>('SELECT * FROM entries WHERE id = ?', [id]);
+      return rowToEntry(updated!);
+    },
+
+    async unpublish(handle, id, _ctx) {
+      const b = blueprint(handle);
+      if (!b.drafts) {
+        throw new ValidationError([
+          { code: 'drafts_not_enabled', message: `Collection '${handle}' does not have drafts enabled.`, path: ['handle'] } as never,
+        ]);
+      }
+      const row = await db.queryOne<EntryRow>(
+        'SELECT * FROM entries WHERE collection_handle = ? AND id = ?', [handle, id],
+      );
+      if (!row) throw new NotFoundError(`entry not found: ${id}`);
+      if (row.status === 'draft') {
+        throw new ValidationError([
+          { code: 'entry_already_draft', message: 'Entry has never been published.', path: ['id'] } as never,
+        ]);
+      }
+      await db.exec(
+        `UPDATE entries
+         SET draft_content = COALESCE(draft_content, content),
+             content = '{}', status = 'draft',
+             published_at = NULL, published_by = NULL, updated_at = datetime('now')
+         WHERE id = ?`,
+        [id],
+      );
+      const updated = await db.queryOne<EntryRow>('SELECT * FROM entries WHERE id = ?', [id]);
+      return rowToEntry(updated!);
+    },
+
+    async discardDraft(handle, id, _ctx) {
+      const b = blueprint(handle);
+      if (!b.drafts) {
+        throw new ValidationError([
+          { code: 'drafts_not_enabled', message: `Collection '${handle}' does not have drafts enabled.`, path: ['handle'] } as never,
+        ]);
+      }
+      const row = await db.queryOne<EntryRow>(
+        'SELECT * FROM entries WHERE collection_handle = ? AND id = ?', [handle, id],
+      );
+      if (!row) throw new NotFoundError(`entry not found: ${id}`);
+      if (row.status === 'draft') {
+        throw new ValidationError([
+          { code: 'cannot_discard_initial_draft', message: 'This entry has no published copy. Delete it instead.', path: ['id'] } as never,
+        ]);
+      }
+      if (row.draft_content === null) {
+        throw new ValidationError([
+          { code: 'no_draft_to_discard', message: 'Entry has no pending draft.', path: ['id'] } as never,
+        ]);
+      }
+      await db.exec(
+        `UPDATE entries SET draft_content = NULL, updated_at = datetime('now') WHERE id = ?`,
+        [id],
+      );
+      const updated = await db.queryOne<EntryRow>('SELECT * FROM entries WHERE id = ?', [id]);
+      return rowToEntry(updated!);
+    },
   };
 }
 

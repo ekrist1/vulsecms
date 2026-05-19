@@ -183,3 +183,130 @@ describe('drafts — create', () => {
     await db.close();
   });
 });
+
+describe('drafts — publish/unpublish/discard', () => {
+  async function makePublishedWithDraft() {
+    const { db, content } = await setup();
+    const e = await content.create(
+      'drafts-posts',
+      { title: 'A', slug: 'a' },
+      undefined,
+      { publish: true },
+    );
+    await content.update(
+      'drafts-posts',
+      e.id,
+      { title: 'A-draft', slug: 'a' },
+      undefined,
+      { publish: false },
+    );
+    return { db, content, id: e.id };
+  }
+
+  it('publish() promotes draft_content to content', async () => {
+    const { db, content, id } = await makePublishedWithDraft();
+    const r = await content.publish('drafts-posts', id, { actor: { userId: 'u9' } });
+    expect(r.status).toBe('published');
+    expect(r.content).toEqual({ title: 'A-draft', slug: 'a' });
+    expect(r.draftContent).toBeNull();
+    expect(r.publishedBy).toBe('u9');
+    await db.close();
+  });
+
+  it('publish() with no pending draft re-publishes current content', async () => {
+    const { db, content } = await setup();
+    const e = await content.create(
+      'drafts-posts',
+      { title: 'B', slug: 'b' },
+      undefined,
+      { publish: true },
+    );
+    const r = await content.publish('drafts-posts', e.id);
+    expect(r.publishedAt).not.toBeNull();
+    expect(r.content).toEqual({ title: 'B', slug: 'b' });
+    await db.close();
+  });
+
+  it('unpublish() moves content to draft_content', async () => {
+    const { db, content } = await setup();
+    const e = await content.create(
+      'drafts-posts',
+      { title: 'C', slug: 'c' },
+      undefined,
+      { publish: true },
+    );
+    const r = await content.unpublish('drafts-posts', e.id);
+    expect(r.status).toBe('draft');
+    expect(r.content).toEqual({});
+    expect(r.draftContent).toEqual({ title: 'C', slug: 'c' });
+    expect(r.publishedAt).toBeNull();
+    expect(r.publishedBy).toBeNull();
+    await db.close();
+  });
+
+  it('unpublish() on a never-published entry throws entry_already_draft', async () => {
+    const { db, content } = await setup();
+    const e = await content.create(
+      'drafts-posts',
+      { title: 'D', slug: 'd' },
+      undefined,
+      { publish: false },
+    );
+    await expect(content.unpublish('drafts-posts', e.id)).rejects.toMatchObject({
+      issues: [expect.objectContaining({ code: 'entry_already_draft' })],
+    });
+    await db.close();
+  });
+
+  it('discardDraft() clears draft_content on a published entry', async () => {
+    const { db, content, id } = await makePublishedWithDraft();
+    const r = await content.discardDraft('drafts-posts', id);
+    expect(r.draftContent).toBeNull();
+    expect(r.hasUnpublishedChanges).toBe(false);
+    expect(r.content).toEqual({ title: 'A', slug: 'a' });
+    await db.close();
+  });
+
+  it('discardDraft() on a status=draft entry throws cannot_discard_initial_draft', async () => {
+    const { db, content } = await setup();
+    const e = await content.create(
+      'drafts-posts',
+      { title: 'E', slug: 'e' },
+      undefined,
+      { publish: false },
+    );
+    await expect(content.discardDraft('drafts-posts', e.id)).rejects.toMatchObject({
+      issues: [expect.objectContaining({ code: 'cannot_discard_initial_draft' })],
+    });
+    await db.close();
+  });
+
+  it('discardDraft() on a published entry with no draft throws no_draft_to_discard', async () => {
+    const { db, content } = await setup();
+    const e = await content.create(
+      'drafts-posts',
+      { title: 'F', slug: 'f' },
+      undefined,
+      { publish: true },
+    );
+    await expect(content.discardDraft('drafts-posts', e.id)).rejects.toMatchObject({
+      issues: [expect.objectContaining({ code: 'no_draft_to_discard' })],
+    });
+    await db.close();
+  });
+
+  it('publish/unpublish/discardDraft on a drafts-disabled collection throws drafts_not_enabled', async () => {
+    const { db, content } = await setup();
+    const e = await content.create('posts', { title: 'P', body: [] });
+    await expect(content.publish('posts', e.id)).rejects.toMatchObject({
+      issues: [expect.objectContaining({ code: 'drafts_not_enabled' })],
+    });
+    await expect(content.unpublish('posts', e.id)).rejects.toMatchObject({
+      issues: [expect.objectContaining({ code: 'drafts_not_enabled' })],
+    });
+    await expect(content.discardDraft('posts', e.id)).rejects.toMatchObject({
+      issues: [expect.objectContaining({ code: 'drafts_not_enabled' })],
+    });
+    await db.close();
+  });
+});
