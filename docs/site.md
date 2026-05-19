@@ -153,34 +153,111 @@ fields on the blueprint. **Searchable field kinds** (in
 
 Plus the literal `id` and `updatedAt` columns.
 
-### Known limitations (today)
+### Structured filtering and sorting
 
-The content service supports substring search and pagination only —
-**not** structured filtering. In particular:
+`content.list(handle, opts)` supports a strict set of operators on
+both top-level columns and any declared blueprint field.
 
-- No equality filter (`status === 'published'`).
-- No `IN (...)` filter.
-- No range filter on numeric/date fields.
-- No `orderBy` — list results are always ordered
-  `sort_order ASC, created_at DESC`.
+#### Allowed keys
 
-If you need "all posts where status=published", you have two
-workarounds today:
+Top-level entry columns (always available; system-owned — system
+columns ALWAYS win over a blueprint field with the same name):
+`id`, `parent_id` (alias `parentId`), `protected`, `sort_order`
+(alias `sortOrder`), `created_at` (alias `createdAt`), `updated_at`
+(alias `updatedAt`).
 
-1. **Post-filter in JS** — small collections only.
-   ```ts
-   const all = await content.list('posts', { limit: 500 });
-   const published = all.items.filter((e) => e.content.status === 'published');
-   ```
-2. **Custom h3 handler with direct SQL** — for collections where the
-   JS post-filter is too expensive. The `LibsqlAdapter` exposes
-   `client` and `query<T>(sql, params)`, so you can write a
-   parameterized SQL query that uses `json_extract(content, '$.status')`
-   and pass the result into a `SiteInitialState` via a `routes`
-   override.
+Plus every field declared in the blueprint, including `status` (which
+lives in the content JSON, not the row column — blueprint declarations
+win for that name).
 
-A first-class filter/sort API is on the roadmap — see
-[Planned features](#planned-features) below.
+#### Operators
+
+| Op | SQL | Meaning |
+| --- | --- | --- |
+| `eq` | `=` | exact match |
+| `neq` | `!=` | not equal |
+| `in` | `IN (…)` | any of |
+| `gt`, `gte`, `lt`, `lte` | `>`, `>=`, `<`, `<=` | comparison (lex on strings, numeric on numeric cols) |
+
+Operators inside one field AND together
+(`{gte: '2024-01-01', lt: '2025-01-01'}` is "within 2024"). Filters
+across different fields AND together. Empty `in: []` matches nothing.
+
+Comparison operators (`gt`/`gte`/`lt`/`lte`) on boolean fields are
+rejected with a validation error.
+
+#### From the content service
+
+```ts
+const result = await content.list('posts', {
+  filter: {
+    status: { in: ['published', 'scheduled'] },
+    publishedAt: { gte: '2024-01-01' },
+  },
+  sort: [{ field: 'publishedAt', direction: 'desc' }],
+  limit: 20,
+});
+```
+
+#### From the REST API
+
+Bracket-nested filter syntax + comma-separated values for `in`:
+
+```
+GET /api/collections/posts
+  ?filter[status][in]=published,scheduled
+  &filter[publishedAt][gte]=2024-01-01
+  &sort=-publishedAt
+  &limit=20
+```
+
+Sort accepts comma-separated fields; prefix with `-` for descending.
+Combine multiple sort keys with commas:
+
+```
+GET /api/collections/posts?sort=-publishedAt,title
+  # ORDER BY publishedAt DESC, title ASC
+```
+
+#### From a `SiteRouteOverride`
+
+Pre-configure filtered routes in your `vulse.config.ts`:
+
+```ts
+export default {
+  routes: {
+    '/blog': {
+      collection: 'posts',
+      list: true,
+      filter: { status: { eq: 'published' } },
+      sort: [{ field: 'publishedAt', direction: 'desc' }],
+    },
+  },
+};
+```
+
+#### Error responses
+
+| Status | Body | When |
+| --- | --- | --- |
+| 422 | `{error: 'validation', issues: [...]}` | filter / sort field not in the blueprint or top-level whitelist |
+| 422 | `{error: 'validation', issues: [...]}` | value can't be coerced (e.g. `gt` on a boolean field) |
+| 422 | `{error: 'validation', issues: [...]}` | query string doesn't match `filter[<field>][<op>]=…` |
+
+The Vulse REST API maps all `ValidationError` instances to HTTP 422.
+The `issues` array surfaces the per-field details (Zod issue shape).
+
+Strict 422 on unknown fields is intentional — silently ignoring a
+typo would return more data than you asked for, which is the worst
+kind of correctness bug.
+
+#### Index coverage
+
+Filters on top-level columns (especially `protected`) hit the
+existing indexes. Filters on content fields run `json_extract` per
+row; that's fine for the entry sizes Vulse handles today (single-
+machine libsql, thousands per collection). Heavy content-field
+filtering at scale would want a dedicated indexed-column migration.
 
 ## 4. Block-level customization
 
@@ -399,24 +476,6 @@ SSR head-injection mechanism are planned — see
 
 These behaviors are not yet implemented; this section is the
 authoritative list of known gaps so you can plan around them.
-
-### Structured filtering on collections
-
-The current `ContentService.list` API supports substring search
-(`q + field`) but no equality filter, `IN (...)`, range filter, or
-`orderBy`. The roadmap shape:
-
-```ts
-content.list('posts', {
-  filter: { status: 'published' },
-  filterIn: { category: ['howto', 'guide'] },
-  orderBy: { field: 'publishedAt', direction: 'desc' },
-});
-```
-
-Backed by parameterized `json_extract(content, '$.<field>')` SQL on
-the same `entries` table. Will respect the same searchable-field
-whitelist to prevent arbitrary-field SQL access.
 
 ### Authenticated reads on the site (security note)
 
