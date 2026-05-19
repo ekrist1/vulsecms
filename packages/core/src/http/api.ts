@@ -292,12 +292,14 @@ export function createApi(deps: ApiDeps): App {
       safe(async (event) => {
         const handle = getRouterParam(event, 'handle') as string;
         if (!blueprints.has(handle)) throw new NotFoundError(`unknown collection: ${handle}`);
-        const input = await readBody(event);
+        const body = (await readBody(event)) as Record<string, unknown> & { publish?: boolean };
+        const { publish, ...input } = body;
         const userId = event.context.user?.id;
         const entry = await content.create(
           handle,
           input,
           userId ? { actor: { userId } } : undefined,
+          { publish: publish ?? true },
         );
         setResponseStatus(event, 201);
         return entry;
@@ -313,9 +315,16 @@ export function createApi(deps: ApiDeps): App {
         const handle = getRouterParam(event, 'handle') as string;
         const id = getRouterParam(event, 'id') as string;
         if (!blueprints.has(handle)) throw new NotFoundError(`unknown collection: ${handle}`);
-        const input = await readBody(event);
+        const body = (await readBody(event)) as Record<string, unknown> & { publish?: boolean };
+        const { publish, ...input } = body;
         const userId = event.context.user?.id;
-        return await content.update(handle, id, input, userId ? { actor: { userId } } : undefined);
+        return await content.update(
+          handle,
+          id,
+          input,
+          userId ? { actor: { userId } } : undefined,
+          { publish: publish ?? false },
+        );
       }),
     ),
   );
