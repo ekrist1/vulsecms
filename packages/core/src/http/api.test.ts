@@ -348,7 +348,7 @@ describe('createApi', () => {
     // Super user gets the wildcard.
     const meSuper = await app.request('http://x/api/auth/me', { headers: { cookie: superCookie } });
     const superBody = (await meSuper.json()) as { perms: Record<string, string[]> };
-    expect(superBody.perms['*']).toEqual(['read', 'create', 'update', 'delete']);
+    expect(superBody.perms['*']).toEqual(['read', 'create', 'update', 'delete', 'publish']);
 
     // Unauthenticated returns null user and empty perms.
     const anon = await app.request('http://x/api/auth/me');
