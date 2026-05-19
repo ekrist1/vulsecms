@@ -9,6 +9,7 @@ export default defineConfig({
     outDir: 'dist/server',
     emptyOutDir: true,
     rollupOptions: {
+      external: [/^@vulse\//, /^node:/],
       output: {
         entryFileNames: 'middleware/render.js',
       },
