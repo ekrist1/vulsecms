@@ -48,6 +48,7 @@ export interface BlueprintMeta {
   singleton: boolean;
   tree: boolean;
   maxDepth?: number;
+  drafts?: boolean;
   fields: FieldDefinition[];
 }
 
@@ -64,6 +65,10 @@ export interface Entry {
   sortOrder: number;
   status: string;
   content: Record<string, unknown>;
+  draftContent: Record<string, unknown> | null;
+  hasUnpublishedChanges: boolean;
+  publishedAt: string | null;
+  publishedBy: string | null;
   createdAt: string;
   updatedAt: string;
   protected: boolean;
@@ -80,6 +85,7 @@ export interface EntryListQuery {
   field?: string;
   /** Filter to a parent: `null` for root entries, an id for direct children. Omit for all. */
   parentId?: string | null;
+  includeDrafts?: boolean;
 }
 
 export interface EntryListResponse {
@@ -105,7 +111,7 @@ export interface AuthUser {
 
 export interface MeResponse {
   user: AuthUser | null;
-  perms: Record<string, ('read' | 'create' | 'update' | 'delete')[]>;
+  perms: Record<string, ('read' | 'create' | 'update' | 'delete' | 'publish')[]>;
 }
 
 export interface UserDTO {
@@ -130,6 +136,7 @@ export interface GroupDTO {
     canCreate: boolean;
     canUpdate: boolean;
     canDelete: boolean;
+    canPublish: boolean;
   }[];
 }
 
@@ -252,6 +259,7 @@ class ApiClient {
     if ('parentId' in query) {
       params.set('parent_id', query.parentId === null ? 'root' : (query.parentId as string));
     }
+    if (query.includeDrafts === true) params.set('includeDrafts', '1');
     const suffix = params.size > 0 ? `?${params.toString()}` : '';
     return this.request<Entry[] | EntryListResponse>(
       'GET',
@@ -265,14 +273,28 @@ class ApiClient {
   get(handle: string, id: string): Promise<Entry> {
     return this.request<Entry>('GET', `/api/collections/${handle}/${id}`);
   }
-  create(handle: string, input: Record<string, unknown>): Promise<Entry> {
-    return this.request<Entry>('POST', `/api/collections/${handle}`, input);
+  create(handle: string, input: Record<string, unknown>, opts?: { publish?: boolean }): Promise<Entry> {
+    const body = opts?.publish !== undefined ? { ...input, publish: opts.publish } : input;
+    return this.request<Entry>('POST', `/api/collections/${handle}`, body);
   }
-  update(handle: string, id: string, input: Record<string, unknown>): Promise<Entry> {
-    return this.request<Entry>('PATCH', `/api/collections/${handle}/${id}`, input);
+  update(handle: string, id: string, input: Record<string, unknown>, opts?: { publish?: boolean }): Promise<Entry> {
+    const body = opts?.publish !== undefined ? { ...input, publish: opts.publish } : input;
+    return this.request<Entry>('PATCH', `/api/collections/${handle}/${id}`, body);
   }
   delete(handle: string, id: string): Promise<void> {
     return this.request<void>('DELETE', `/api/collections/${handle}/${id}`);
+  }
+  publish(handle: string, id: string): Promise<Entry> {
+    return this.request<Entry>('POST', `/api/collections/${handle}/${id}/publish`, {});
+  }
+  unpublish(handle: string, id: string): Promise<Entry> {
+    return this.request<Entry>('POST', `/api/collections/${handle}/${id}/unpublish`, {});
+  }
+  discardDraft(handle: string, id: string): Promise<Entry> {
+    return this.request<Entry>('DELETE', `/api/collections/${handle}/${id}/draft`);
+  }
+  previewToken(handle: string, id: string): Promise<{ token: string; expiresAt: string }> {
+    return this.request<{ token: string; expiresAt: string }>('POST', `/api/collections/${handle}/${id}/preview-token`, {});
   }
   getTree(handle: string): Promise<EntryNode[]> {
     return this.request<EntryNode[]>('GET', `/api/collections/${handle}/tree`);

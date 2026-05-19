@@ -24,6 +24,7 @@ beforeEach(() => {
         canCreate: false,
         canUpdate: true,
         canDelete: false,
+        canPublish: false,
       },
     ],
   });
