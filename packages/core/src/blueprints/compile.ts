@@ -122,6 +122,7 @@ export function hashDefinition(def: BlueprintDefinition): string {
     singleton: def.singleton,
     tree: def.tree ?? false,
     maxDepth: def.maxDepth ?? null,
+    drafts: def.drafts ?? false,
     fields: def.fields.map((f) => ({
       name: f.name,
       label: f.label ?? null,
