@@ -86,6 +86,7 @@ export interface EntryListQuery {
   /** Filter to a parent: `null` for root entries, an id for direct children. Omit for all. */
   parentId?: string | null;
   includeDrafts?: boolean;
+  filter?: Record<string, { eq?: unknown }>;
 }
 
 export interface EntryListResponse {
@@ -260,6 +261,13 @@ class ApiClient {
       params.set('parent_id', query.parentId === null ? 'root' : (query.parentId as string));
     }
     if (query.includeDrafts === true) params.set('includeDrafts', '1');
+    if (query.filter) {
+      Object.entries(query.filter).forEach(([key, filterObj]) => {
+        if (filterObj.eq !== undefined) {
+          params.set(`filter[${key}][eq]`, String(filterObj.eq));
+        }
+      });
+    }
     const suffix = params.size > 0 ? `?${params.toString()}` : '';
     return this.request<Entry[] | EntryListResponse>(
       'GET',
