@@ -191,3 +191,119 @@ describe('PATCH /api/collections/:handle/:id with publish flag', () => {
     await db.close();
   });
 });
+
+describe('POST /:id/publish', () => {
+  it('promotes the draft and returns 200 with published entry', async () => {
+    const { app, db, authInstance, cookie } = await setup();
+
+    // Create entry with publish:false (draft)
+    const createRes = await app.request('http://x/api/collections/drafts-posts', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie },
+      body: JSON.stringify({ title: 'Draft Title', slug: 'draft-slug', publish: false }),
+    });
+    const { id } = (await createRes.json()) as { id: string };
+
+    // POST /publish
+    const publishRes = await app.request(`http://x/api/collections/drafts-posts/${id}/publish`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie },
+    });
+
+    expect(publishRes.status).toBe(200);
+    const published = (await publishRes.json()) as Record<string, unknown>;
+    expect(published.status).toBe('published');
+    expect(published.content).toEqual({ title: 'Draft Title', slug: 'draft-slug' });
+    expect(published.draftContent).toBeNull();
+
+    authInstance.close();
+    await db.close();
+  });
+
+  it('returns 401 when unauthenticated', async () => {
+    const { app, db, authInstance, cookie } = await setup();
+
+    // Create entry as super-user
+    const createRes = await app.request('http://x/api/collections/drafts-posts', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie },
+      body: JSON.stringify({ title: 'Draft Title', slug: 'draft-slug', publish: false }),
+    });
+    const { id } = (await createRes.json()) as { id: string };
+
+    // POST /publish without cookie
+    const publishRes = await app.request(`http://x/api/collections/drafts-posts/${id}/publish`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+    });
+
+    expect(publishRes.status).toBe(401);
+
+    authInstance.close();
+    await db.close();
+  });
+});
+
+describe('POST /:id/unpublish', () => {
+  it('demotes a published entry to draft and returns 200', async () => {
+    const { app, db, authInstance, cookie } = await setup();
+
+    // Create published entry
+    const createRes = await app.request('http://x/api/collections/drafts-posts', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie },
+      body: JSON.stringify({ title: 'Published Title', slug: 'published-slug', publish: true }),
+    });
+    const { id } = (await createRes.json()) as { id: string };
+
+    // POST /unpublish
+    const unpublishRes = await app.request(`http://x/api/collections/drafts-posts/${id}/unpublish`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie },
+    });
+
+    expect(unpublishRes.status).toBe(200);
+    const unpublished = (await unpublishRes.json()) as Record<string, unknown>;
+    expect(unpublished.status).toBe('draft');
+    expect(unpublished.draftContent).toEqual({ title: 'Published Title', slug: 'published-slug' });
+
+    authInstance.close();
+    await db.close();
+  });
+});
+
+describe('DELETE /:id/draft', () => {
+  it('clears the draft and returns the entry with draftContent=null', async () => {
+    const { app, db, authInstance, cookie } = await setup();
+
+    // Create published entry
+    const createRes = await app.request('http://x/api/collections/drafts-posts', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', cookie },
+      body: JSON.stringify({ title: 'Published', slug: 'published-slug', publish: true }),
+    });
+    const { id } = (await createRes.json()) as { id: string };
+
+    // Update with publish:false to create a draft
+    await app.request(`http://x/api/collections/drafts-posts/${id}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json', cookie },
+      body: JSON.stringify({ title: 'Draft Update', slug: 'draft-update' }),
+    });
+
+    // DELETE /draft
+    const discardRes = await app.request(`http://x/api/collections/drafts-posts/${id}/draft`, {
+      method: 'DELETE',
+      headers: { 'content-type': 'application/json', cookie },
+    });
+
+    expect(discardRes.status).toBe(200);
+    const discarded = (await discardRes.json()) as Record<string, unknown>;
+    expect(discarded.status).toBe('published');
+    expect(discarded.content).toEqual({ title: 'Published', slug: 'published-slug' });
+    expect(discarded.draftContent).toBeNull();
+
+    authInstance.close();
+    await db.close();
+  });
+});

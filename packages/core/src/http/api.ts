@@ -373,6 +373,48 @@ export function createApi(deps: ApiDeps): App {
     ),
   );
 
+  router.post(
+    '/api/collections/:handle/:id/publish',
+    withPerm(
+      { action: 'publish', adapter },
+      safe(async (event) => {
+        const handle = getRouterParam(event, 'handle') as string;
+        const id = getRouterParam(event, 'id') as string;
+        if (!blueprints.has(handle)) throw new NotFoundError(`unknown collection: ${handle}`);
+        const userId = event.context.user?.id;
+        return await content.publish(handle, id, userId ? { actor: { userId } } : undefined);
+      }),
+    ),
+  );
+
+  router.post(
+    '/api/collections/:handle/:id/unpublish',
+    withPerm(
+      { action: 'publish', adapter },
+      safe(async (event) => {
+        const handle = getRouterParam(event, 'handle') as string;
+        const id = getRouterParam(event, 'id') as string;
+        if (!blueprints.has(handle)) throw new NotFoundError(`unknown collection: ${handle}`);
+        const userId = event.context.user?.id;
+        return await content.unpublish(handle, id, userId ? { actor: { userId } } : undefined);
+      }),
+    ),
+  );
+
+  router.delete(
+    '/api/collections/:handle/:id/draft',
+    withPerm(
+      { action: 'update', adapter },
+      safe(async (event) => {
+        const handle = getRouterParam(event, 'handle') as string;
+        const id = getRouterParam(event, 'id') as string;
+        if (!blueprints.has(handle)) throw new NotFoundError(`unknown collection: ${handle}`);
+        const userId = event.context.user?.id;
+        return await content.discardDraft(handle, id, userId ? { actor: { userId } } : undefined);
+      }),
+    ),
+  );
+
   // ---- Revisions ----
   router.get(
     '/api/collections/:handle/:id/revisions',
