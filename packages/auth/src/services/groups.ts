@@ -7,6 +7,7 @@ export interface PermissionRowInput {
   canCreate: boolean;
   canUpdate: boolean;
   canDelete: boolean;
+  canPublish: boolean;
 }
 
 export interface GroupDTO {
@@ -20,9 +21,9 @@ export interface GroupDTO {
 async function loadPerms(adapter: DatabaseAdapter, groupId: string): Promise<PermissionRowInput[]> {
   const rows = await adapter.query<{
     collection_handle: string;
-    can_read: number; can_create: number; can_update: number; can_delete: number;
+    can_read: number; can_create: number; can_update: number; can_delete: number; can_publish: number;
   }>(
-    `SELECT collection_handle, can_read, can_create, can_update, can_delete
+    `SELECT collection_handle, can_read, can_create, can_update, can_delete, can_publish
      FROM group_permissions WHERE group_id = ?
      ORDER BY collection_handle`,
     [groupId],
@@ -33,6 +34,7 @@ async function loadPerms(adapter: DatabaseAdapter, groupId: string): Promise<Per
     canCreate: r.can_create === 1,
     canUpdate: r.can_update === 1,
     canDelete: r.can_delete === 1,
+    canPublish: r.can_publish === 1,
   }));
 }
 
@@ -95,9 +97,9 @@ export async function setPermissions(
     await adapter.exec(`DELETE FROM group_permissions WHERE group_id = ?`, [groupId]);
     for (const r of rows) {
       await adapter.exec(
-        `INSERT INTO group_permissions (group_id, collection_handle, can_read, can_create, can_update, can_delete)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        [groupId, r.collectionHandle, r.canRead ? 1 : 0, r.canCreate ? 1 : 0, r.canUpdate ? 1 : 0, r.canDelete ? 1 : 0],
+        `INSERT INTO group_permissions (group_id, collection_handle, can_read, can_create, can_update, can_delete, can_publish)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [groupId, r.collectionHandle, r.canRead ? 1 : 0, r.canCreate ? 1 : 0, r.canUpdate ? 1 : 0, r.canDelete ? 1 : 0, r.canPublish ? 1 : 0],
       );
     }
     await adapter.exec('COMMIT');

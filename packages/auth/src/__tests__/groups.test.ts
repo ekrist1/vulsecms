@@ -41,6 +41,7 @@ describe('groups service', () => {
         canCreate: true,
         canUpdate: false,
         canDelete: false,
+        canPublish: false,
       },
     ]);
     const got = await getGroup(adapter, 'a');
@@ -51,6 +52,7 @@ describe('groups service', () => {
         canCreate: true,
         canUpdate: false,
         canDelete: false,
+        canPublish: false,
       },
     ]);
     // Replace with empty.
@@ -73,9 +75,24 @@ describe('groups service', () => {
         canCreate: false,
         canUpdate: false,
         canDelete: false,
+        canPublish: false,
       },
     ]);
     await deleteGroup(adapter, g.id);
     expect(await getGroup(adapter, 'a')).toBeNull();
+  });
+
+  it('round-trips canPublish through setPermissions/getGroup', async () => {
+    const g = await createGroup(adapter, { handle: 'editors', label: 'Editors' });
+    await setPermissions(adapter, g.id, [{
+      collectionHandle: 'posts',
+      canRead: true,
+      canCreate: true,
+      canUpdate: true,
+      canDelete: false,
+      canPublish: true,
+    }]);
+    const reloaded = await getGroup(adapter, 'editors');
+    expect(reloaded?.permissions[0]?.canPublish).toBe(true);
   });
 });
