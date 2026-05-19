@@ -203,4 +203,30 @@ describe('resolveSiteRequest', () => {
     expect(state.route.type).toBe('list');
     expect(state.entries.map((e) => (e.content as { title: string }).title)).toEqual(['A']);
   });
+
+  it('draft-status entry 404s on the public site', async () => {
+    const draftEntry: Entry = {
+      id: 'd1',
+      collection: 'posts',
+      parentId: null,
+      sortOrder: 1,
+      status: 'draft',
+      protected: false,
+      content: { title: 'D', slug: 'd', body: [] },
+      createdAt: '',
+      updatedAt: '',
+    };
+    const draftContent: Pick<ContentService, 'list' | 'get'> = {
+      async list(handle) {
+        const items = handle === 'posts' ? [draftEntry] : [];
+        return { items, total: items.length, limit: 25, offset: 0 };
+      },
+      async get() {
+        return draftEntry;
+      },
+    };
+    const draftDeps = { blueprints, content: draftContent as ContentService };
+    const { status } = await resolveSiteRequest(draftDeps, new URL('http://x/posts/d'));
+    expect(status).toBe(404);
+  });
 });
