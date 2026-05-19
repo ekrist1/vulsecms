@@ -1,5 +1,5 @@
 import type { AuthInstance } from '@vulse/auth';
-import type { Blueprint, ContentService, Entry } from '@vulse/core';
+import type { Blueprint, ContentService, Entry, FieldFilter } from '@vulse/core';
 import { describe, expect, it } from 'vitest';
 import { resolveSiteRequest } from './render.js';
 
@@ -142,5 +142,65 @@ describe('resolveSiteRequest', () => {
     );
     expect(result.status).toBe(200);
     expect(result.state.entry?.id).toBe('secret');
+  });
+
+  it('resolveSiteRequest with a route override + filter returns only matching entries', async () => {
+    const postA: Entry = {
+      id: 'a',
+      collection: 'posts',
+      parentId: null,
+      sortOrder: 1,
+      status: 'published',
+      protected: false,
+      content: { title: 'A', slug: 'a', status: 'published' },
+      createdAt: '',
+      updatedAt: '',
+    };
+    const postB: Entry = {
+      id: 'b',
+      collection: 'posts',
+      parentId: null,
+      sortOrder: 2,
+      status: 'published',
+      protected: false,
+      content: { title: 'B', slug: 'b', status: 'draft' },
+      createdAt: '',
+      updatedAt: '',
+    };
+
+    const filterableContent: Pick<ContentService, 'list' | 'get'> = {
+      async list(handle, opts) {
+        let items = [postA, postB].filter((item) => item.collection === handle);
+        if (opts?.filter) {
+          for (const [field, spec] of Object.entries(opts.filter as Record<string, FieldFilter>)) {
+            if ('eq' in spec && spec.eq !== undefined) {
+              const val = spec.eq;
+              items = items.filter((item) => (item.content as Record<string, unknown>)[field] === val);
+            }
+          }
+        }
+        return { items, total: items.length, limit: opts?.limit ?? 25, offset: opts?.offset ?? 0 };
+      },
+      async get(handle, id) {
+        return [postA, postB].find((item) => item.collection === handle && item.id === id) ?? null;
+      },
+    };
+
+    const filterDeps = {
+      blueprints,
+      content: filterableContent as ContentService,
+      routes: {
+        '/blog': {
+          collection: 'posts',
+          list: true,
+          filter: { status: { eq: 'published' } },
+        },
+      },
+    };
+
+    const { status, state } = await resolveSiteRequest(filterDeps, new URL('http://x/blog'));
+    expect(status).toBe(200);
+    expect(state.route.type).toBe('list');
+    expect(state.entries.map((e) => (e.content as { title: string }).title)).toEqual(['A']);
   });
 });

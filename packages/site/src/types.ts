@@ -1,11 +1,13 @@
 import type { AuthInstance } from '@vulse/auth';
-import type { Blueprint, BlueprintMeta, ContentService, Entry } from '@vulse/core';
+import type { Blueprint, BlueprintMeta, ContentService, Entry, FieldFilter, SortSpec } from '@vulse/core';
 
 export interface SiteRouteOverride {
   collection: string;
   id?: string;
   slug?: string;
   list?: boolean;
+  filter?: Record<string, FieldFilter>;
+  sort?: SortSpec[];
 }
 
 export type SiteRouteOverrides = Record<string, SiteRouteOverride>;

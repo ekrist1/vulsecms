@@ -81,6 +81,8 @@ async function resolveOverride(
     const result = await deps.content.list(override.collection, {
       limit: 100,
       includeProtected: preview,
+      ...(override.filter ? { filter: override.filter } : {}),
+      ...(override.sort ? { sort: override.sort } : {}),
     });
     return {
       route: { type: 'list', collection: override.collection },
