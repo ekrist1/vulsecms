@@ -35,6 +35,7 @@ import type { ContentService } from '../content/types.js';
 import { NotFoundError, ValidationError } from '../errors.js';
 import { getRevision, listRevisions } from '../revisions/service.js';
 import type { CompiledSet } from '../sets/compile.js';
+import { parseListQuery } from './filter-parser.js';
 import { toMeta } from './meta.js';
 import { safe } from './safe.js';
 import { setsRoute } from './sets.js';
@@ -225,12 +226,24 @@ export function createApi(deps: ApiDeps): App {
       const q = (query.q as string | undefined) ?? undefined;
       const field = (query.field as string | undefined) ?? undefined;
       const parentId = parseParentIdQuery(query.parent_id as string | undefined);
+
+      // Flatten the h3 QueryObject into Record<string, string> for parseListQuery.
+      // When a key appears multiple times, take the first value.
+      const flatQuery: Record<string, string> = {};
+      for (const [k, v] of Object.entries(query)) {
+        if (typeof v === 'string') flatQuery[k] = v;
+        else if (Array.isArray(v) && typeof v[0] === 'string') flatQuery[k] = v[0] as string;
+      }
+      const { filter, sort } = parseListQuery(flatQuery);
+
       return await content.list(handle, {
         limit,
         offset,
         ...(q ? { q } : {}),
         ...(field ? { field } : {}),
         ...(parentId !== undefined ? { parentId } : {}),
+        ...(filter ? { filter } : {}),
+        ...(sort ? { sort } : {}),
         includeProtected: user !== null,
       });
     }),

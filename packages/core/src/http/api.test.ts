@@ -48,6 +48,21 @@ async function setup(seed?: (db: LibsqlAdapter) => Promise<void>) {
   return { db, app, authInstance, cookie };
 }
 
+async function seedPost(
+  ctx: Awaited<ReturnType<typeof setup>>,
+  data: Record<string, unknown>,
+): Promise<{ id: string }> {
+  const res = await ctx.app.request('http://x/api/collections/posts', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', cookie: ctx.cookie },
+    body: JSON.stringify({ body: [], ...data }),
+  });
+  if (res.status !== 201) {
+    throw new Error(`seedPost failed: ${res.status} ${await res.text()}`);
+  }
+  return (await res.json()) as { id: string };
+}
+
 describe('createApi', () => {
   it('lists entries as a paginated result', async () => {
     const { app, db, authInstance, cookie } = await setup();
@@ -216,6 +231,59 @@ describe('createApi', () => {
     expect(res.status).toBe(401);
     authInstance.close();
     await db.close();
+  });
+
+  it('GET /api/collections/:handle honors filter[status][eq]', async () => {
+    const ctx = await setup();
+    await seedPost(ctx, { title: 'A', status: 'published' });
+    await seedPost(ctx, { title: 'B', status: 'draft' });
+
+    const res = await ctx.app.request(
+      'http://x/api/collections/posts?filter[status][eq]=published',
+      { headers: { cookie: ctx.cookie } },
+    );
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { items: { content: { title: string } }[] };
+    expect(body.items.map((e) => e.content.title)).toEqual(['A']);
+    ctx.authInstance.close();
+    await ctx.db.close();
+  });
+
+  it('GET /api/collections/:handle honors sort=-publishedAt', async () => {
+    const ctx = await setup();
+    await seedPost(ctx, { title: 'A', publishedAt: '2024-01-01' });
+    await seedPost(ctx, { title: 'B', publishedAt: '2024-02-01' });
+
+    const res = await ctx.app.request('http://x/api/collections/posts?sort=-publishedAt', {
+      headers: { cookie: ctx.cookie },
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { items: { content: { title: string } }[] };
+    expect(body.items.map((e) => e.content.title)).toEqual(['B', 'A']);
+    ctx.authInstance.close();
+    await ctx.db.close();
+  });
+
+  it('GET /api/collections/:handle returns 422 on unknown filter field', async () => {
+    const ctx = await setup();
+    const res = await ctx.app.request(
+      'http://x/api/collections/posts?filter[totally_unknown][eq]=x',
+      { headers: { cookie: ctx.cookie } },
+    );
+    expect(res.status).toBe(422);
+    ctx.authInstance.close();
+    await ctx.db.close();
+  });
+
+  it('GET /api/collections/:handle returns 422 on malformed filter key', async () => {
+    const ctx = await setup();
+    const res = await ctx.app.request(
+      'http://x/api/collections/posts?filter[status]=published',
+      { headers: { cookie: ctx.cookie } },
+    );
+    expect(res.status).toBe(422);
+    ctx.authInstance.close();
+    await ctx.db.close();
   });
 
   it('GET /api/auth/me returns perms for editor in a group', async () => {
