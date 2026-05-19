@@ -30,6 +30,7 @@ export interface SiteServerDeps {
   content: ContentService;
   routes?: SiteRouteOverrides;
   authInstance?: AuthInstance;
+  previewSecret?: string;
 }
 
 export interface RenderPageOptions {

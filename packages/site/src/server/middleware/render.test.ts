@@ -229,4 +229,119 @@ describe('resolveSiteRequest', () => {
     const { status } = await resolveSiteRequest(draftDeps, new URL('http://x/posts/d'));
     expect(status).toBe(404);
   });
+
+  // --- Preview token tests: ?vulse-preview=<token> swaps draftContent for content ---
+
+  it('valid preview token swaps draft_content in for the targeted entry', async () => {
+    const { signPreviewToken } = await import('@vulse/core');
+    const secret = 'test-preview-secret';
+    const exp = Math.floor(Date.now() / 1000) + 60;
+    const token = signPreviewToken({ entryId: 'd1', userId: 'u1', exp }, secret);
+
+    const previewableEntry: Entry = {
+      id: 'd1',
+      collection: 'posts',
+      parentId: null,
+      sortOrder: 1,
+      status: 'published',
+      protected: false,
+      content: { title: 'live', slug: 'd', body: [] },
+      draftContent: { title: 'draft-version', slug: 'd', body: [] },
+      hasUnpublishedChanges: true,
+      publishedAt: '2026-01-01T00:00:00Z',
+      publishedBy: 'u1',
+      createdAt: '',
+      updatedAt: '',
+    };
+    const deps = {
+      blueprints,
+      previewSecret: secret,
+      content: {
+        list: async () => ({ items: [previewableEntry], total: 1, limit: 25, offset: 0 }),
+        get: async () => previewableEntry,
+      },
+    } as unknown as ReturnType<() => typeof deps>;
+
+    const { state } = await resolveSiteRequest(
+      deps,
+      new URL(`http://x/posts/d?vulse-preview=${token}`),
+    );
+    expect(state.entry?.content).toEqual({ title: 'draft-version', slug: 'd', body: [] });
+  });
+
+  it('expired preview token falls back to published rendering', async () => {
+    const { signPreviewToken } = await import('@vulse/core');
+    const secret = 'test-preview-secret';
+    const exp = Math.floor(Date.now() / 1000) - 60;
+    const token = signPreviewToken({ entryId: 'd1', userId: 'u1', exp }, secret);
+
+    const previewableEntry: Entry = {
+      id: 'd1',
+      collection: 'posts',
+      parentId: null,
+      sortOrder: 1,
+      status: 'published',
+      protected: false,
+      content: { title: 'live', slug: 'd', body: [] },
+      draftContent: { title: 'draft-version', slug: 'd', body: [] },
+      hasUnpublishedChanges: true,
+      publishedAt: '2026-01-01T00:00:00Z',
+      publishedBy: 'u1',
+      createdAt: '',
+      updatedAt: '',
+    };
+    const deps = {
+      blueprints,
+      previewSecret: secret,
+      content: {
+        list: async () => ({ items: [previewableEntry], total: 1, limit: 25, offset: 0 }),
+        get: async () => previewableEntry,
+      },
+    } as unknown as ReturnType<() => typeof deps>;
+
+    const { state } = await resolveSiteRequest(
+      deps,
+      new URL(`http://x/posts/d?vulse-preview=${token}`),
+    );
+    // Expired token → fall back to live content.
+    expect(state.entry?.content).toEqual({ title: 'live', slug: 'd', body: [] });
+  });
+
+  it('preview token can surface a status=draft entry (otherwise 404)', async () => {
+    const { signPreviewToken } = await import('@vulse/core');
+    const secret = 'test-preview-secret';
+    const exp = Math.floor(Date.now() / 1000) + 60;
+    const token = signPreviewToken({ entryId: 'd2', userId: 'u1', exp }, secret);
+
+    const draftEntry: Entry = {
+      id: 'd2',
+      collection: 'posts',
+      parentId: null,
+      sortOrder: 1,
+      status: 'draft',
+      protected: false,
+      content: {},
+      draftContent: { title: 'preview-only', slug: 'd2', body: [] },
+      hasUnpublishedChanges: true,
+      publishedAt: null,
+      publishedBy: null,
+      createdAt: '',
+      updatedAt: '',
+    };
+    const deps = {
+      blueprints,
+      previewSecret: secret,
+      content: {
+        list: async () => ({ items: [], total: 0, limit: 25, offset: 0 }), // mimics published filter
+        get: async () => draftEntry,
+      },
+    } as unknown as ReturnType<() => typeof deps>;
+
+    const { status, state } = await resolveSiteRequest(
+      deps,
+      new URL(`http://x/posts/d2?vulse-preview=${token}`),
+    );
+    expect(status).toBe(200);
+    expect(state.entry?.content).toEqual({ title: 'preview-only', slug: 'd2', body: [] });
+  });
 });

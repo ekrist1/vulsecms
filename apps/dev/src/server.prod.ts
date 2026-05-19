@@ -39,6 +39,7 @@ function resolvePreviewSecret(): string {
   return ephemeral;
 }
 
+const PREVIEW_SECRET = resolvePreviewSecret();
 const dbConfig = databaseConfigFromEnv();
 const dbSummary = describeConfig(dbConfig);
 const dbDetails = [
@@ -86,9 +87,15 @@ async function buildListeners() {
     authInstance,
     databaseSummary: dbSummary,
     sets,
-    previewSecret: resolvePreviewSecret(),
+    previewSecret: PREVIEW_SECRET,
   });
-  const site = createSiteServer({ blueprints, content, routes: routeOverrides, authInstance });
+  const site = createSiteServer({
+    blueprints,
+    content,
+    routes: routeOverrides,
+    authInstance,
+    previewSecret: PREVIEW_SECRET,
+  });
   return { api: toNodeListener(api), site: toNodeListener(site) };
 }
 
