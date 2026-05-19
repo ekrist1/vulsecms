@@ -90,9 +90,9 @@ describe('BlueprintDefinitionSchema drafts', () => {
     if (result.success) expect(result.data.drafts).toBe(true);
   });
 
-  it('defaults drafts to false when omitted', () => {
+  it('omits drafts when not provided (compileBlueprint normalizes to false)', () => {
     const result = BlueprintDefinitionSchema.safeParse(base);
     expect(result.success).toBe(true);
-    if (result.success) expect(result.data.drafts).toBe(false);
+    if (result.success) expect(result.data.drafts).toBeUndefined();
   });
 });
