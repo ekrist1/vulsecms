@@ -118,6 +118,32 @@ source, `VULSE_DB_URL` for the target (defaults to `file:./dev.db`).
 > (sessions, hashed passwords, content drafts). Treat `dev.db` as sensitive,
 > keep it out of git, and delete it when you're done debugging.
 
+## Drafts
+
+The `entries` table has three columns supporting the Statamic-style draft
+workflow. They're populated only when a collection has `drafts: true` in its
+blueprint definition.
+
+| Column          | Type   | Notes                                                                |
+| --------------- | ------ | -------------------------------------------------------------------- |
+| `draft_content` | TEXT   | Unpublished working copy as JSON. NULL when no pending changes.      |
+| `published_at`  | TEXT   | UTC timestamp of the most recent publish. NULL while status='draft'. |
+| `published_by`  | TEXT   | User id that last published. NULL if never published.                |
+
+`entries.status` values: `published` (live, `content` is current) and `draft`
+(never published, `content` is empty `'{}'`, working copy in `draft_content`).
+See [docs/drafts.md](./drafts.md) for the full workflow.
+
+## Per-collection publish permission
+
+`group_permissions` adds `can_publish INTEGER NOT NULL DEFAULT 0`. It surfaces
+as the `publish` action in `effectivePerms`, alongside read/create/update/delete.
+
+## Revisions kind
+
+`revisions.kind TEXT NOT NULL DEFAULT 'draft'` distinguishes draft saves
+(`'draft'`) from publish events (`'publish'`).
+
 ## Choosing a deployment
 
 |                      | Local file        | Turso Cloud         | Embedded replica       |
