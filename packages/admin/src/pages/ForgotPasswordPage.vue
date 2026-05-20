@@ -15,7 +15,8 @@ async function submit() {
     await api.forgotPassword(email.value);
     sent.value = true;
   } catch (err) {
-    error.value = (err as { response?: ApiError }).response?.message ?? 'Could not send reset email.';
+    error.value =
+      (err as { response?: ApiError }).response?.message ?? 'Could not send reset email.';
   } finally {
     submitting.value = false;
   }

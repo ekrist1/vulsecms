@@ -18,7 +18,8 @@ export const EmojiExtension = Node.create({
     return {
       value: {
         default: '🙂',
-        parseHTML: (element: HTMLElement) => element.getAttribute('data-value') ?? element.textContent ?? '🙂',
+        parseHTML: (element: HTMLElement) =>
+          element.getAttribute('data-value') ?? element.textContent ?? '🙂',
         renderHTML: (attrs: { value: string }) => ({ 'data-value': attrs.value }),
       },
       label: {

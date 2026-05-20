@@ -7,7 +7,11 @@ import { sanitizeMediaSrc } from '../url.js';
 const props = defineProps<{ node: BlockNode }>();
 const parsed = computed(() => parseIframeCode(props.node.attrs?.code));
 const src = computed(() => parsed.value?.src ?? sanitizeMediaSrc(props.node.attrs?.src));
-const title = computed(() => parsed.value?.title ?? (typeof props.node.attrs?.title === 'string' ? props.node.attrs.title : 'Embedded content'));
+const title = computed(
+  () =>
+    parsed.value?.title ??
+    (typeof props.node.attrs?.title === 'string' ? props.node.attrs.title : 'Embedded content'),
+);
 const width = computed(() => parsed.value?.width);
 const height = computed(() => parsed.value?.height);
 const allow = computed(() => parsed.value?.allow);

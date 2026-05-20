@@ -50,11 +50,7 @@ function resolvePreviewSecret(): string {
 const PREVIEW_SECRET = resolvePreviewSecret();
 
 function resolveImageSecret(): string {
-  return (
-    process.env.VULSE_IMAGE_SECRET ??
-    process.env.VULSE_SESSION_SECRET ??
-    PREVIEW_SECRET
-  );
+  return process.env.VULSE_IMAGE_SECRET ?? process.env.VULSE_SESSION_SECRET ?? PREVIEW_SECRET;
 }
 const IMAGE_SECRET = resolveImageSecret();
 const IMAGE_CACHE_DIR = resolve(appRoot, '.vulse', 'cache', 'img');

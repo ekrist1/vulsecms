@@ -2,7 +2,9 @@ import type { DatabaseAdapter } from '@vulse/db';
 import { compileSet, type CompiledSet } from './compile.js';
 import { SetDefinitionSchema } from './definition.js';
 
-export async function loadSets(opts: { adapter: DatabaseAdapter }): Promise<Map<string, CompiledSet>> {
+export async function loadSets(opts: { adapter: DatabaseAdapter }): Promise<
+  Map<string, CompiledSet>
+> {
   const rows = await opts.adapter.query<{ handle: string; definition: string }>(
     `SELECT handle, definition FROM sets ORDER BY created_at ASC`,
   );

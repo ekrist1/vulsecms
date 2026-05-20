@@ -19,7 +19,9 @@ const setHandle = computed<string | null>(() => {
 const setDef = computed(() => (setHandle.value ? store.get(setHandle.value) : undefined));
 
 const data = computed<Record<string, unknown>>(() => {
-  return ((props.node.attrs as { data?: unknown }).data as Record<string, unknown> | undefined) ?? {};
+  return (
+    ((props.node.attrs as { data?: unknown }).data as Record<string, unknown> | undefined) ?? {}
+  );
 });
 
 function updateField(name: string, value: unknown) {

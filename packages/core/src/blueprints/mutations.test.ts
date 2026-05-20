@@ -104,7 +104,9 @@ describe('createBlueprint', () => {
                 },
                 {
                   name: 'hero',
-                  fields: [{ name: 'author', ui: { kind: 'relationship', to: 'ghosts' }, optional: false }],
+                  fields: [
+                    { name: 'author', ui: { kind: 'relationship', to: 'ghosts' }, optional: false },
+                  ],
                 },
               ],
             },

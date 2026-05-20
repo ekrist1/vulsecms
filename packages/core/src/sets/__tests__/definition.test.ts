@@ -12,9 +12,17 @@ describe('SetDefinitionSchema', () => {
   });
 
   it('rejects handle with uppercase or invalid chars', () => {
-    const r1 = SetDefinitionSchema.safeParse({ handle: 'Quote', label: 'Q', fields: [{ name: 'x', ui: { kind: 'text' }, optional: false }] });
+    const r1 = SetDefinitionSchema.safeParse({
+      handle: 'Quote',
+      label: 'Q',
+      fields: [{ name: 'x', ui: { kind: 'text' }, optional: false }],
+    });
     expect(r1.success).toBe(false);
-    const r2 = SetDefinitionSchema.safeParse({ handle: '1quote', label: 'Q', fields: [{ name: 'x', ui: { kind: 'text' }, optional: false }] });
+    const r2 = SetDefinitionSchema.safeParse({
+      handle: '1quote',
+      label: 'Q',
+      fields: [{ name: 'x', ui: { kind: 'text' }, optional: false }],
+    });
     expect(r2.success).toBe(false);
   });
 
@@ -24,7 +32,11 @@ describe('SetDefinitionSchema', () => {
   });
 
   it('rejects empty label', () => {
-    const r = SetDefinitionSchema.safeParse({ handle: 'q', label: '', fields: [{ name: 'x', ui: { kind: 'text' }, optional: false }] });
+    const r = SetDefinitionSchema.safeParse({
+      handle: 'q',
+      label: '',
+      fields: [{ name: 'x', ui: { kind: 'text' }, optional: false }],
+    });
     expect(r.success).toBe(false);
   });
 
@@ -33,7 +45,14 @@ describe('SetDefinitionSchema', () => {
       handle: 'q',
       label: 'Q',
       fields: [
-        { name: 'nested', ui: { kind: 'replicator', sets: [{ name: 's', fields: [{ name: 'x', ui: { kind: 'text' }, optional: false }] }] }, optional: false },
+        {
+          name: 'nested',
+          ui: {
+            kind: 'replicator',
+            sets: [{ name: 's', fields: [{ name: 'x', ui: { kind: 'text' }, optional: false }] }],
+          },
+          optional: false,
+        },
       ],
     });
     expect(r.success).toBe(false);

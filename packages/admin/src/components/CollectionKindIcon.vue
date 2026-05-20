@@ -9,9 +9,7 @@ const props = withDefaults(
   { decorative: true },
 );
 
-const label = computed(() =>
-  props.singleton ? 'Singleton collection' : 'Collection',
-);
+const label = computed(() => (props.singleton ? 'Singleton collection' : 'Collection'));
 </script>
 
 <template>

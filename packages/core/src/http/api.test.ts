@@ -32,7 +32,14 @@ async function setup(seed?: (db: LibsqlAdapter) => Promise<void>) {
     client: db.client,
     env: { authSecret: 'x', baseUrl: 'http://x', allowPublicSignup: true, smtpUrl: undefined },
   });
-  const rawApp = createApi({ blueprints, content, adapter: db, authInstance, sets, previewSecret: 'test-preview-secret' });
+  const rawApp = createApi({
+    blueprints,
+    content,
+    adapter: db,
+    authInstance,
+    sets,
+    previewSecret: 'test-preview-secret',
+  });
   const handler = toWebHandler(rawApp);
   const app = {
     request: (url: string, init?: RequestInit) => handler(new Request(url, init)),
@@ -277,10 +284,9 @@ describe('createApi', () => {
 
   it('GET /api/collections/:handle returns 422 on malformed filter key', async () => {
     const ctx = await setup();
-    const res = await ctx.app.request(
-      'http://x/api/collections/posts?filter[status]=published',
-      { headers: { cookie: ctx.cookie } },
-    );
+    const res = await ctx.app.request('http://x/api/collections/posts?filter[status]=published', {
+      headers: { cookie: ctx.cookie },
+    });
     expect(res.status).toBe(422);
     ctx.authInstance.close();
     await ctx.db.close();

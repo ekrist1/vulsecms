@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  type ImageModifiers,
-  parseModifiers,
-  serializeModifiers,
-} from '../modifiers.js';
+import { type ImageModifiers, parseModifiers, serializeModifiers } from '../modifiers.js';
 
 describe('modifiers', () => {
   it('parses width/height/format/quality', () => {

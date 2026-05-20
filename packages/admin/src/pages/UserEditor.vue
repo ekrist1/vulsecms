@@ -33,9 +33,21 @@ async function save() {
   saving.value = true;
   try {
     if (isCreate.value) {
-      await api.createUser({ email: email.value, password: password.value, name: name.value, role: role.value, isSuper: isSuper.value, groupIds: groupIds.value });
+      await api.createUser({
+        email: email.value,
+        password: password.value,
+        name: name.value,
+        role: role.value,
+        isSuper: isSuper.value,
+        groupIds: groupIds.value,
+      });
     } else {
-      await api.updateUser(props.id!, { name: name.value, role: role.value, isSuper: isSuper.value, groupIds: groupIds.value });
+      await api.updateUser(props.id!, {
+        name: name.value,
+        role: role.value,
+        isSuper: isSuper.value,
+        groupIds: groupIds.value,
+      });
     }
     toasts.success('User saved');
     router.push('/settings/users');

@@ -42,7 +42,14 @@ describe('protected entries', () => {
     const sets = await loadSets({ adapter: db });
     const blueprints = await loadBlueprints({ adapter: db, sets });
     const content = createContentService(db, blueprints);
-    const rawApp = createApi({ blueprints, content, adapter: db, authInstance, sets, previewSecret: 'test-preview-secret' });
+    const rawApp = createApi({
+      blueprints,
+      content,
+      adapter: db,
+      authInstance,
+      sets,
+      previewSecret: 'test-preview-secret',
+    });
     const handler = toWebHandler(rawApp);
     app = {
       request: (url: string, init?: RequestInit) => handler(new Request(url, init)),

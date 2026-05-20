@@ -56,7 +56,9 @@ describe('sets service', () => {
 
   it('throws on update if handle does not match path', async () => {
     await createSet(adapter, quoteSet);
-    await expect(updateSet(adapter, 'quote', { ...quoteSet, handle: 'renamed' })).rejects.toThrow(/handle/);
+    await expect(updateSet(adapter, 'quote', { ...quoteSet, handle: 'renamed' })).rejects.toThrow(
+      /handle/,
+    );
   });
 
   it('deletes a set', async () => {

@@ -21,15 +21,11 @@ defineEmits<{ 'update:modelValue': [unknown] }>();
 const options = computed(() =>
   props.meta.ui.kind === 'select' ? props.meta.ui.options : undefined,
 );
-const sets = computed(() =>
-  props.meta.ui.kind === 'replicator' ? props.meta.ui.sets : undefined,
-);
+const sets = computed(() => (props.meta.ui.kind === 'replicator' ? props.meta.ui.sets : undefined));
 const blocksSets = computed(() =>
   props.meta.ui.kind === 'blocks' ? (props.meta.ui.sets ?? []) : [],
 );
-const to = computed(() =>
-  props.meta.ui.kind === 'relationship' ? props.meta.ui.to : undefined,
-);
+const to = computed(() => (props.meta.ui.kind === 'relationship' ? props.meta.ui.to : undefined));
 
 const component = computed<Component>(() => {
   switch (props.meta.ui.kind) {

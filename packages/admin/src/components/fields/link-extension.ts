@@ -18,9 +18,9 @@ export const VulseLinkExtension = Mark.create({
     return {
       href: {
         default: null,
-        parseHTML: (element: HTMLElement) => sanitizeLinkHref(element.getAttribute('href') ?? '') ?? null,
-        renderHTML: (attrs: { href?: string | null }) =>
-          attrs.href ? { href: attrs.href } : {},
+        parseHTML: (element: HTMLElement) =>
+          sanitizeLinkHref(element.getAttribute('href') ?? '') ?? null,
+        renderHTML: (attrs: { href?: string | null }) => (attrs.href ? { href: attrs.href } : {}),
       },
     };
   },

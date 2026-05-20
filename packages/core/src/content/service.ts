@@ -246,8 +246,12 @@ export function createContentService(
         const fields: string[] = ['content = ?', "updated_at = datetime('now')"];
         const params: unknown[] = [JSON.stringify(validated)];
         if (draftsEnabled) {
-          fields.push('draft_content = NULL', "status = 'published'",
-                      "published_at = datetime('now')", 'published_by = ?');
+          fields.push(
+            'draft_content = NULL',
+            "status = 'published'",
+            "published_at = datetime('now')",
+            'published_by = ?',
+          );
           params.push(actorId);
         }
         if ('protected' in (input as object)) {
@@ -407,11 +411,16 @@ export function createContentService(
       const b = blueprint(handle);
       if (!b.drafts) {
         throw new ValidationError([
-          { code: 'drafts_not_enabled', message: `Collection '${handle}' does not have drafts enabled.`, path: ['handle'] } as never,
+          {
+            code: 'drafts_not_enabled',
+            message: `Collection '${handle}' does not have drafts enabled.`,
+            path: ['handle'],
+          } as never,
         ]);
       }
       const row = await db.queryOne<EntryRow>(
-        'SELECT * FROM entries WHERE collection_handle = ? AND id = ?', [handle, id],
+        'SELECT * FROM entries WHERE collection_handle = ? AND id = ?',
+        [handle, id],
       );
       if (!row) throw new NotFoundError(`entry not found: ${id}`);
       const promote = row.draft_content ? JSON.parse(row.draft_content) : JSON.parse(row.content);
@@ -431,16 +440,25 @@ export function createContentService(
       const b = blueprint(handle);
       if (!b.drafts) {
         throw new ValidationError([
-          { code: 'drafts_not_enabled', message: `Collection '${handle}' does not have drafts enabled.`, path: ['handle'] } as never,
+          {
+            code: 'drafts_not_enabled',
+            message: `Collection '${handle}' does not have drafts enabled.`,
+            path: ['handle'],
+          } as never,
         ]);
       }
       const row = await db.queryOne<EntryRow>(
-        'SELECT * FROM entries WHERE collection_handle = ? AND id = ?', [handle, id],
+        'SELECT * FROM entries WHERE collection_handle = ? AND id = ?',
+        [handle, id],
       );
       if (!row) throw new NotFoundError(`entry not found: ${id}`);
       if (row.status === 'draft') {
         throw new ValidationError([
-          { code: 'entry_already_draft', message: 'Entry has never been published.', path: ['id'] } as never,
+          {
+            code: 'entry_already_draft',
+            message: 'Entry has never been published.',
+            path: ['id'],
+          } as never,
         ]);
       }
       await db.exec(
@@ -459,21 +477,34 @@ export function createContentService(
       const b = blueprint(handle);
       if (!b.drafts) {
         throw new ValidationError([
-          { code: 'drafts_not_enabled', message: `Collection '${handle}' does not have drafts enabled.`, path: ['handle'] } as never,
+          {
+            code: 'drafts_not_enabled',
+            message: `Collection '${handle}' does not have drafts enabled.`,
+            path: ['handle'],
+          } as never,
         ]);
       }
       const row = await db.queryOne<EntryRow>(
-        'SELECT * FROM entries WHERE collection_handle = ? AND id = ?', [handle, id],
+        'SELECT * FROM entries WHERE collection_handle = ? AND id = ?',
+        [handle, id],
       );
       if (!row) throw new NotFoundError(`entry not found: ${id}`);
       if (row.status === 'draft') {
         throw new ValidationError([
-          { code: 'cannot_discard_initial_draft', message: 'This entry has no published copy. Delete it instead.', path: ['id'] } as never,
+          {
+            code: 'cannot_discard_initial_draft',
+            message: 'This entry has no published copy. Delete it instead.',
+            path: ['id'],
+          } as never,
         ]);
       }
       if (row.draft_content === null) {
         throw new ValidationError([
-          { code: 'no_draft_to_discard', message: 'Entry has no pending draft.', path: ['id'] } as never,
+          {
+            code: 'no_draft_to_discard',
+            message: 'Entry has no pending draft.',
+            path: ['id'],
+          } as never,
         ]);
       }
       await db.exec(

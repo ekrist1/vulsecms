@@ -35,20 +35,23 @@ const children = ref<Entry[]>([]);
 const blueprint = computed(() => store.get(props.handle));
 const isTreeCollection = computed(() => blueprint.value?.tree === true);
 const draftsEnabled = computed(() => blueprint.value?.drafts === true);
-const canPublish = computed(() =>
-  auth.user?.isSuper === true ||
-  auth.perms?.[props.handle]?.includes('publish') === true,
+const canPublish = computed(
+  () => auth.user?.isSuper === true || auth.perms?.[props.handle]?.includes('publish') === true,
 );
 const currentEntry = ref<Entry | null>(null);
 const LAST_SAVE_KEY = 'vulse.editor.lastSaveAction';
 const lastSaveAction = ref<'draft' | 'publish'>(
-  (typeof localStorage !== 'undefined' && localStorage.getItem(LAST_SAVE_KEY) === 'publish')
+  typeof localStorage !== 'undefined' && localStorage.getItem(LAST_SAVE_KEY) === 'publish'
     ? 'publish'
     : 'draft',
 );
 function rememberAction(v: 'draft' | 'publish') {
   lastSaveAction.value = v;
-  try { localStorage.setItem(LAST_SAVE_KEY, v); } catch { /* SSR */ }
+  try {
+    localStorage.setItem(LAST_SAVE_KEY, v);
+  } catch {
+    /* SSR */
+  }
 }
 
 function entryLabel(entry: { id: string; content: Record<string, unknown> }): string {
@@ -242,10 +245,15 @@ async function save(action: 'draft' | 'publish') {
   try {
     let entry: Entry;
     if (props.id) {
-      entry = await api.update(props.handle, props.id, {
-        ...state,
-        protected: isProtected.value,
-      }, { publish });
+      entry = await api.update(
+        props.handle,
+        props.id,
+        {
+          ...state,
+          protected: isProtected.value,
+        },
+        { publish },
+      );
       // If the parent changed in the picker, apply the move after the content update.
       if (isTreeCollection.value && parentId.value !== originalParentId.value) {
         entry = await api.moveEntry(props.handle, props.id, { parentId: parentId.value });

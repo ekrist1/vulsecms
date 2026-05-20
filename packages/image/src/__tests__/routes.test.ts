@@ -38,8 +38,7 @@ async function setup() {
   return {
     db,
     cacheDir,
-    request: (path: string, init?: RequestInit) =>
-      handler(new Request(`http://test${path}`, init)),
+    request: (path: string, init?: RequestInit) => handler(new Request(`http://test${path}`, init)),
   };
 }
 

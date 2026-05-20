@@ -38,11 +38,18 @@ describe('VulseSetNodeView', () => {
   it('renders the set label from the store', () => {
     const store = useSetsStore();
     store.$patch({
-      map: new Map([['quote', {
-        handle: 'quote', label: 'Quote',
-        fields: [{ name: 'author', ui: { kind: 'text' }, optional: false }],
-        createdAt: '', updatedAt: '',
-      }]]),
+      map: new Map([
+        [
+          'quote',
+          {
+            handle: 'quote',
+            label: 'Quote',
+            fields: [{ name: 'author', ui: { kind: 'text' }, optional: false }],
+            createdAt: '',
+            updatedAt: '',
+          },
+        ],
+      ]),
       hydrated: true,
     });
     const { props } = makeProps();
@@ -59,11 +66,18 @@ describe('VulseSetNodeView', () => {
   it('expanding then editing a field calls updateAttributes with merged data', async () => {
     const store = useSetsStore();
     store.$patch({
-      map: new Map([['quote', {
-        handle: 'quote', label: 'Quote',
-        fields: [{ name: 'author', ui: { kind: 'text' }, optional: false }],
-        createdAt: '', updatedAt: '',
-      }]]),
+      map: new Map([
+        [
+          'quote',
+          {
+            handle: 'quote',
+            label: 'Quote',
+            fields: [{ name: 'author', ui: { kind: 'text' }, optional: false }],
+            createdAt: '',
+            updatedAt: '',
+          },
+        ],
+      ]),
       hydrated: true,
     });
     const { props, updateAttributes } = makeProps({ set: 'quote', data: { author: 'Anna' } });
@@ -80,11 +94,18 @@ describe('VulseSetNodeView', () => {
   it('Remove button calls deleteNode', async () => {
     const store = useSetsStore();
     store.$patch({
-      map: new Map([['quote', {
-        handle: 'quote', label: 'Quote',
-        fields: [{ name: 'q', ui: { kind: 'text' }, optional: false }],
-        createdAt: '', updatedAt: '',
-      }]]),
+      map: new Map([
+        [
+          'quote',
+          {
+            handle: 'quote',
+            label: 'Quote',
+            fields: [{ name: 'q', ui: { kind: 'text' }, optional: false }],
+            createdAt: '',
+            updatedAt: '',
+          },
+        ],
+      ]),
       hydrated: true,
     });
     const { props, deleteNode } = makeProps();

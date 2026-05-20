@@ -3,7 +3,9 @@ import { onMounted, ref } from 'vue';
 import { RouterLink } from 'vue-router';
 import { api, type GroupDTO } from '../api/client.js';
 const groups = ref<GroupDTO[]>([]);
-onMounted(async () => { groups.value = await api.listGroups(); });
+onMounted(async () => {
+  groups.value = await api.listGroups();
+});
 </script>
 
 <template>

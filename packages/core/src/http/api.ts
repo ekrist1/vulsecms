@@ -150,7 +150,9 @@ export function createApi(deps: ApiDeps): App {
   app.use(usersRoute(adapter).handler);
   app.use(groupsRoute(adapter).handler);
   app.use(setsRoute(adapter).handler);
-  app.use(assetRoutes(adapter, { ...(deps.probeImage ? { probeImage: deps.probeImage } : {}) }).handler);
+  app.use(
+    assetRoutes(adapter, { ...(deps.probeImage ? { probeImage: deps.probeImage } : {}) }).handler,
+  );
 
   if (deps.imageSecret && deps.imageCacheDir) {
     app.use(

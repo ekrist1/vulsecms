@@ -12,7 +12,12 @@ function bp(extra?: Partial<Blueprint>): Blueprint {
     schema: { safeParse: () => ({ success: true, data: {} }) } as unknown as Blueprint['schema'],
     fields: [
       { name: 'title', label: 'Title', ui: { kind: 'text' }, optional: false },
-      { name: 'status', label: 'Status', ui: { kind: 'select', options: ['draft', 'published', 'scheduled'] }, optional: false },
+      {
+        name: 'status',
+        label: 'Status',
+        ui: { kind: 'select', options: ['draft', 'published', 'scheduled'] },
+        optional: false,
+      },
       { name: 'publishedAt', label: 'Published', ui: { kind: 'date' }, optional: true },
       { name: 'featured', label: 'Featured', ui: { kind: 'boolean' }, optional: true },
     ],
@@ -34,13 +39,13 @@ describe('buildFilterSql', () => {
 
   it('builds equality on a content field via json_extract', () => {
     const out = buildFilterSql({ status: { eq: 'published' } }, bp());
-    expect(out.sql).toBe(" AND CAST(json_extract(content, ?) AS TEXT) = ?");
+    expect(out.sql).toBe(' AND CAST(json_extract(content, ?) AS TEXT) = ?');
     expect(out.params).toEqual(['$.status', 'published']);
   });
 
   it('builds IN with multiple values', () => {
     const out = buildFilterSql({ status: { in: ['published', 'scheduled'] } }, bp());
-    expect(out.sql).toBe(" AND CAST(json_extract(content, ?) AS TEXT) IN (?, ?)");
+    expect(out.sql).toBe(' AND CAST(json_extract(content, ?) AS TEXT) IN (?, ?)');
     expect(out.params).toEqual(['$.status', 'published', 'scheduled']);
   });
 
@@ -53,7 +58,7 @@ describe('buildFilterSql', () => {
   it('ANDs multiple operators on one field', () => {
     const out = buildFilterSql({ publishedAt: { gte: '2024-01-01', lt: '2025-01-01' } }, bp());
     expect(out.sql).toBe(
-      " AND CAST(json_extract(content, ?) AS TEXT) >= ? AND CAST(json_extract(content, ?) AS TEXT) < ?"
+      ' AND CAST(json_extract(content, ?) AS TEXT) >= ? AND CAST(json_extract(content, ?) AS TEXT) < ?',
     );
     expect(out.params).toEqual(['$.publishedAt', '2024-01-01', '$.publishedAt', '2025-01-01']);
   });
@@ -64,7 +69,7 @@ describe('buildFilterSql', () => {
       bp(),
     );
     expect(out.sql).toBe(
-      " AND CAST(json_extract(content, ?) AS TEXT) = ? AND CAST(json_extract(content, ?) AS TEXT) >= ?"
+      ' AND CAST(json_extract(content, ?) AS TEXT) = ? AND CAST(json_extract(content, ?) AS TEXT) >= ?',
     );
     expect(out.params).toEqual(['$.status', 'published', '$.publishedAt', '2024-01-01']);
   });

@@ -27,10 +27,11 @@ async function main(): Promise<void> {
         failed++;
         continue;
       }
-      await db.exec(
-        `UPDATE assets SET image_width = ?, image_height = ? WHERE id = ?`,
-        [meta.width, meta.height, row.id],
-      );
+      await db.exec(`UPDATE assets SET image_width = ?, image_height = ? WHERE id = ?`, [
+        meta.width,
+        meta.height,
+        row.id,
+      ]);
       ok++;
     } catch (err) {
       console.warn(`[backfill] ${row.id}: ${(err as Error).message}`);
