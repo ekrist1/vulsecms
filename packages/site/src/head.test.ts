@@ -128,4 +128,21 @@ describe('resolveHead', () => {
     expect(meta(head, 'og:image')).toBe('https://example.com/default.jpg');
     expect(head.jsonLd).toEqual([jsonLd]);
   });
+
+  it('uses resolveImage when provided', () => {
+    const head = resolveHead(
+      state({ seoImage: { id: '01HFCAT' } }),
+      {
+        url: 'https://example.com',
+        resolveImage: (raw) =>
+          raw && typeof raw === 'object' && 'id' in (raw as Record<string, unknown>)
+            ? `https://example.com/_vulse/img/sig/w_1200,h_630,f_jpg/${(raw as { id: string }).id}.jpg`
+            : undefined,
+      },
+    );
+    const og = head.meta.find((m) => 'property' in m && m.property === 'og:image');
+    expect(og?.content).toBe(
+      'https://example.com/_vulse/img/sig/w_1200,h_630,f_jpg/01HFCAT.jpg',
+    );
+  });
 });

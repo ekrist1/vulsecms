@@ -16,6 +16,15 @@ function firstString(content: Record<string, unknown>, fields: string[]): string
   return undefined;
 }
 
+function firstStringOrObject(content: Record<string, unknown>, fields: string[]): unknown {
+  for (const field of fields) {
+    const value = content[field];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+    if (value && typeof value === 'object') return value;
+  }
+  return undefined;
+}
+
 function isPlainRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -97,7 +106,10 @@ export function resolveHead(
     firstString(content, TITLE_FIELDS) ?? site.defaultTitle ?? site.name ?? DEFAULT_TITLE;
   const title = applyTitleTemplate(rawTitle, site.titleTemplate);
   const description = firstString(content, DESCRIPTION_FIELDS) ?? site.defaultDescription;
-  const image = normalizeAbsoluteUrl(firstString(content, IMAGE_FIELDS) ?? site.defaultImage, site);
+  const rawImage = firstStringOrObject(content, IMAGE_FIELDS) ?? site.defaultImage;
+  const resolved = site.resolveImage ? site.resolveImage(rawImage, site) : undefined;
+  const image =
+    resolved ?? normalizeAbsoluteUrl(typeof rawImage === 'string' ? rawImage : undefined, site);
   const canonical =
     normalizeAbsoluteUrl(firstString(content, CANONICAL_FIELDS), site) ??
     canonicalFromRequest(site, requestUrl);
