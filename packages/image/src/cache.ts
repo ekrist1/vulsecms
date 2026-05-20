@@ -13,9 +13,9 @@ export interface DiskCache {
   put(key: string, entry: CacheEntry): Promise<void>;
 }
 
-export function cacheKey(assetId: string, mods: string, ext: string): string {
-  const hash = createHash('sha256').update(`${assetId}|${mods}`).digest('hex');
-  return `${hash}.${ext}`;
+export function cacheKey(assetId: string, mods: string, resolvedFmt: string): string {
+  const hash = createHash('sha256').update(`${assetId}|${mods}|${resolvedFmt}`).digest('hex');
+  return `${hash}.${resolvedFmt}`;
 }
 
 export function createDiskCache(rootDir: string): DiskCache {

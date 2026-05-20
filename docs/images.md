@@ -29,17 +29,7 @@ probeImage: async (url) => {
 | `VULSE_IMAGE_SECRET` | No | falls back to `VULSE_SESSION_SECRET` | HMAC signing secret. |
 | `VULSE_IMAGE_CACHE_DIR` | No | `.vulse/cache/img` | Disk cache location. |
 
-### Config (`vulse.config.ts`)
-
-```ts
-image: {
-  provider: 'local',           // future: 'vercel' | 'netlify' | custom
-  cacheDir: '.vulse/cache/img',
-  maxWidth: 4096,
-  maxHeight: 4096,
-  defaultQuality: 75,
-},
-```
+Configuration is currently via environment variables only — see the table above.
 
 ## 2. Using `<VulseImage>`
 
@@ -184,7 +174,7 @@ Reads from the same `VULSE_DATABASE_URL` env vars the server uses.
 - **403 on every image URL:** `VULSE_IMAGE_SECRET` doesn't match between
   process serving the page and process serving `/_vulse/img/*`. Make sure
   they share a value (or both fall back to the same `VULSE_SESSION_SECRET`).
-- **Private S3 bucket:** the IPX server uses the same configured credentials
+- **Private S3 bucket:** the image server uses the same configured credentials
   to issue presigned GETs; nothing extra to set up.
 - **OOM on large originals:** sharp streams, but very large originals
   (~50 MP+) need RAM. Consider rejecting uploads above a size limit at the

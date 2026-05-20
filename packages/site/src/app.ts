@@ -7,6 +7,7 @@ import type { SiteInitialState } from './types.js';
 export interface CreateSiteAppOptions {
   history: 'memory' | 'web';
   initialState?: SiteInitialState;
+  imageSecret?: string;
 }
 
 export function createSiteApp(options: CreateSiteAppOptions) {
@@ -15,6 +16,7 @@ export function createSiteApp(options: CreateSiteAppOptions) {
   const router = createSiteRouter(options.history, initialState.blueprints);
 
   app.provide(SITE_STATE_KEY, initialState);
+  app.provide('vulse:imageSecret', options.imageSecret ?? '');
   app.use(router);
 
   return { app, router };

@@ -53,7 +53,9 @@ function resolveImageSecret(): string {
   return process.env.VULSE_IMAGE_SECRET ?? process.env.VULSE_SESSION_SECRET ?? PREVIEW_SECRET;
 }
 const IMAGE_SECRET = resolveImageSecret();
-const IMAGE_CACHE_DIR = resolve(appRoot, '.vulse', 'cache', 'img');
+const IMAGE_CACHE_DIR = process.env.VULSE_IMAGE_CACHE_DIR
+  ? resolve(process.env.VULSE_IMAGE_CACHE_DIR)
+  : resolve(appRoot, '.vulse', 'cache', 'img');
 
 const dbConfig = databaseConfigFromEnv();
 const dbSummary = describeConfig(dbConfig);
@@ -121,7 +123,7 @@ async function buildListeners() {
     globals,
     authInstance,
     previewSecret: PREVIEW_SECRET,
-    site: siteConfig,
+    site: { ...siteConfig, imageSecret: IMAGE_SECRET },
     ...(appConfig.routes ? { routes: appConfig.routes } : {}),
   });
   return { api: toNodeListener(api), site: toNodeListener(site) };

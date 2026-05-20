@@ -100,4 +100,21 @@ describe('imageRoutes', () => {
     const res = await ctx.request(url);
     expect(res.status).toBe(404);
   });
+
+  it('f=auto returns image/webp content-type and preserves it on cache hit', async () => {
+    const ctx = await setup();
+    cacheDir = ctx.cacheDir;
+    const url = buildImageUrl({ assetId: '01HFCAT', mods: { w: 100, f: 'auto' }, secret: SECRET });
+    const acceptHeader = { accept: 'image/webp,*/*' };
+
+    // First request: cache miss — should resolve auto → webp
+    const res1 = await ctx.request(url, { headers: acceptHeader });
+    expect(res1.status).toBe(200);
+    expect(res1.headers.get('content-type')).toBe('image/webp');
+
+    // Second request: cache hit — must still return image/webp, not image/jpeg
+    const res2 = await ctx.request(url, { headers: acceptHeader });
+    expect(res2.status).toBe(200);
+    expect(res2.headers.get('content-type')).toBe('image/webp');
+  });
 });

@@ -65,7 +65,7 @@ export async function transformImage(
   return { buffer, contentType: CONTENT_TYPES[format], ext: format === 'jpg' ? 'jpg' : format };
 }
 
-function resolveFormat(
+export function resolveFormat(
   requested: ImageFormat | undefined,
   accept: string,
 ): Exclude<ImageFormat, 'auto'> {

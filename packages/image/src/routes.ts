@@ -14,7 +14,7 @@ import { fetchAssetSource } from './fetch-source.js';
 import { parseModifiers } from './modifiers.js';
 import { parseImageUrl, buildImageUrl } from './url.js';
 import { verifyImagePath } from './sign.js';
-import { transformImage } from './transform.js';
+import { transformImage, resolveFormat } from './transform.js';
 
 export interface ImageRoutesOptions {
   secret: string;
@@ -48,7 +48,10 @@ export function imageRoutes(adapter: DatabaseAdapter, opts: ImageRoutesOptions):
         return { error: 'bad_modifiers', message: (err as Error).message };
       }
 
-      const key = cacheKey(parsed.assetId, parsed.modsRaw, parsed.ext);
+      const accept = getRequestHeader(event, 'accept') ?? '';
+      const resolvedFmt = resolveFormat(mods.f, accept);
+      const key = cacheKey(parsed.assetId, parsed.modsRaw, resolvedFmt);
+
       const hit = await cache.get(key);
       if (hit) {
         setResponseHeader(event, 'content-type', hit.contentType);
@@ -56,8 +59,6 @@ export function imageRoutes(adapter: DatabaseAdapter, opts: ImageRoutesOptions):
         setResponseHeader(event, 'etag', `"${key}"`);
         return hit.buffer;
       }
-
-      const accept = getRequestHeader(event, 'accept') ?? '';
 
       const result = await dedupe(key, async () => {
         const source = await fetchAssetSource(adapter, parsed.assetId);
