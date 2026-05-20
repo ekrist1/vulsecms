@@ -10,6 +10,9 @@ interface AssetRow {
   content_type: string | null;
   size: number | null;
   original_name: string | null;
+  image_width: number | null;
+  image_height: number | null;
+  image_blurhash: string | null;
   created_at: string;
 }
 
@@ -22,6 +25,9 @@ function rowToDTO(r: AssetRow): AssetDTO {
     contentType: r.content_type,
     size: r.size,
     originalName: r.original_name,
+    imageWidth: r.image_width,
+    imageHeight: r.image_height,
+    imageBlurhash: r.image_blurhash,
     createdAt: r.created_at,
   };
 }
@@ -57,6 +63,9 @@ export interface CreateAssetInput {
   contentType?: string | null;
   size?: number | null;
   originalName?: string | null;
+  imageWidth?: number | null;
+  imageHeight?: number | null;
+  imageBlurhash?: string | null;
 }
 
 export async function createAsset(
@@ -65,8 +74,9 @@ export async function createAsset(
 ): Promise<AssetDTO> {
   const id = ulid();
   await adapter.exec(
-    `INSERT INTO assets (id, key, bucket, url, content_type, size, original_name)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO assets (id, key, bucket, url, content_type, size, original_name,
+                         image_width, image_height, image_blurhash)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       id,
       input.key,
@@ -75,6 +85,9 @@ export async function createAsset(
       input.contentType ?? null,
       input.size ?? null,
       input.originalName ?? null,
+      input.imageWidth ?? null,
+      input.imageHeight ?? null,
+      input.imageBlurhash ?? null,
     ],
   );
   const row = await adapter.queryOne<AssetRow>('SELECT * FROM assets WHERE id = ?', [id]);
