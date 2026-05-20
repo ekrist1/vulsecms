@@ -30,9 +30,7 @@ body {
   justify-content: center;
   background: var(--vulse-color-accent);
   color: var(--vulse-color-paper);
-  transition:
-    background-color 150ms ease,
-    opacity 150ms ease;
+  transition: background-color 150ms ease, opacity 150ms ease;
 }
 
 .vulse-button-primary:hover {
@@ -49,9 +47,7 @@ body {
   position: relative;
   display: block;
   padding: 0.5rem 0.75rem 0.5rem 1.75rem;
-  transition:
-    background-color 150ms ease,
-    color 150ms ease;
+  transition: background-color 150ms ease, color 150ms ease;
 }
 
 .vulse-nav-link:hover {
@@ -65,7 +61,7 @@ body {
 }
 
 .vulse-nav-link-active::before {
-  content: '';
+  content: "";
   position: absolute;
   top: 50%;
   left: 0.75rem;

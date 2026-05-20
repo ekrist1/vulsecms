@@ -55,7 +55,13 @@ describe('FieldRenderer', () => {
           name: 'content',
           ui: {
             kind: 'replicator',
-            sets: [{ name: 'text', label: 'Text', fields: [{ name: 'body', ui: { kind: 'textarea' }, optional: false }] }],
+            sets: [
+              {
+                name: 'text',
+                label: 'Text',
+                fields: [{ name: 'body', ui: { kind: 'textarea' }, optional: false }],
+              },
+            ],
           },
           optional: false,
         },

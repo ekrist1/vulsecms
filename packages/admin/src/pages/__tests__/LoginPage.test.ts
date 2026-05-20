@@ -37,7 +37,9 @@ describe('LoginPage', () => {
   });
 
   it('shows error on invalid credentials', async () => {
-    vi.spyOn(client.api, 'login').mockRejectedValue({ response: { message: 'Invalid credentials' } });
+    vi.spyOn(client.api, 'login').mockRejectedValue({
+      response: { message: 'Invalid credentials' },
+    });
     router.push('/login');
     await router.isReady();
     const w = mount(LoginPage, { global: { plugins: [router] } });

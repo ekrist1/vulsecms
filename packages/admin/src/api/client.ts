@@ -477,6 +477,12 @@ class ApiClient {
   async deleteAsset(id: string): Promise<void> {
     return this.request<void>('DELETE', `/api/assets/${id}`);
   }
+  async getAssetThumbUrl(id: string, width = 240): Promise<{ url: string }> {
+    return this.request<{ url: string }>(
+      'GET',
+      `/api/assets/${encodeURIComponent(id)}/thumb-url?w=${width}`,
+    );
+  }
   async getS3Settings(): Promise<S3SettingsPublic> {
     return this.request<S3SettingsPublic>('GET', '/api/settings/s3');
   }

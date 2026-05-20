@@ -15,12 +15,24 @@ const handle = ref('');
 const label = ref('');
 const saving = ref(false);
 
-interface RowState { canRead: boolean; canCreate: boolean; canUpdate: boolean; canDelete: boolean; canPublish: boolean; }
+interface RowState {
+  canRead: boolean;
+  canCreate: boolean;
+  canUpdate: boolean;
+  canDelete: boolean;
+  canPublish: boolean;
+}
 const matrix = reactive<Record<string, RowState>>({});
 
 function ensureMatrixRow(bpHandle: string) {
   if (!matrix[bpHandle]) {
-    matrix[bpHandle] = { canRead: false, canCreate: false, canUpdate: false, canDelete: false, canPublish: false };
+    matrix[bpHandle] = {
+      canRead: false,
+      canCreate: false,
+      canUpdate: false,
+      canDelete: false,
+      canPublish: false,
+    };
   }
 }
 
@@ -35,7 +47,13 @@ async function load() {
   label.value = g.label;
   for (const p of g.permissions) {
     ensureMatrixRow(p.collectionHandle);
-    matrix[p.collectionHandle] = { canRead: p.canRead, canCreate: p.canCreate, canUpdate: p.canUpdate, canDelete: p.canDelete, canPublish: p.canPublish };
+    matrix[p.collectionHandle] = {
+      canRead: p.canRead,
+      canCreate: p.canCreate,
+      canUpdate: p.canUpdate,
+      canDelete: p.canDelete,
+      canPublish: p.canPublish,
+    };
   }
 }
 
@@ -51,7 +69,11 @@ async function save() {
     }
     const rows = Object.entries(matrix).map(([ch, r]) => ({
       collectionHandle: ch,
-      canRead: r.canRead, canCreate: r.canCreate, canUpdate: r.canUpdate, canDelete: r.canDelete, canPublish: r.canPublish,
+      canRead: r.canRead,
+      canCreate: r.canCreate,
+      canUpdate: r.canUpdate,
+      canDelete: r.canDelete,
+      canPublish: r.canPublish,
     }));
     await api.setGroupPermissions(g.handle, rows);
     toasts.success('Group saved');

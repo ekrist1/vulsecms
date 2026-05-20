@@ -77,8 +77,19 @@ export interface MutationContext {
 export interface ContentService {
   list(handle: string, opts?: ListEntriesOptions): Promise<ListEntriesResult>;
   get(handle: string, id: string): Promise<Entry | null>;
-  create(handle: string, input: unknown, ctx?: MutationContext, opts?: MutationOptions): Promise<Entry>;
-  update(handle: string, id: string, input: unknown, ctx?: MutationContext, opts?: MutationOptions): Promise<Entry>;
+  create(
+    handle: string,
+    input: unknown,
+    ctx?: MutationContext,
+    opts?: MutationOptions,
+  ): Promise<Entry>;
+  update(
+    handle: string,
+    id: string,
+    input: unknown,
+    ctx?: MutationContext,
+    opts?: MutationOptions,
+  ): Promise<Entry>;
   delete(handle: string, id: string): Promise<void>;
   /**
    * Move an entry within a tree-enabled collection. Updates `parent_id` and

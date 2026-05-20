@@ -27,13 +27,16 @@ export const VulseIframeExtension = Node.create({
       },
       src: {
         default: null,
-        parseHTML: (element: HTMLElement) => sanitizeMediaSrc(element.getAttribute('src') ?? '') ?? null,
+        parseHTML: (element: HTMLElement) =>
+          sanitizeMediaSrc(element.getAttribute('src') ?? '') ?? null,
         renderHTML: (attrs: { src?: string | null }) => (attrs.src ? { src: attrs.src } : {}),
       },
       title: {
         default: 'Embedded content',
         parseHTML: (element: HTMLElement) => element.getAttribute('title') ?? 'Embedded content',
-        renderHTML: (attrs: { title?: string | null }) => ({ title: attrs.title ?? 'Embedded content' }),
+        renderHTML: (attrs: { title?: string | null }) => ({
+          title: attrs.title ?? 'Embedded content',
+        }),
       },
     };
   },

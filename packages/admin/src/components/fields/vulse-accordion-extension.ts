@@ -23,7 +23,9 @@ export const VulseAccordionExtension = Node.create({
         default: 'Accordion',
         parseHTML: (element: HTMLElement) =>
           element.querySelector('summary')?.textContent?.trim() || 'Accordion',
-        renderHTML: (attrs: { summary?: string }) => ({ 'data-summary': attrs.summary ?? 'Accordion' }),
+        renderHTML: (attrs: { summary?: string }) => ({
+          'data-summary': attrs.summary ?? 'Accordion',
+        }),
       },
       open: {
         default: false,

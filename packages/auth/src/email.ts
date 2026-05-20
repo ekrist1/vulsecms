@@ -11,9 +11,7 @@ export async function sendResetEmail(
   smtpUrl: string | undefined,
 ): Promise<void> {
   if (!smtpUrl) {
-    process.stdout.write(
-      `\n[vulse:auth] Password reset for ${user.email}\n  ${resetUrl}\n\n`,
-    );
+    process.stdout.write(`\n[vulse:auth] Password reset for ${user.email}\n  ${resetUrl}\n\n`);
     return;
   }
   const transport = createTransport(smtpUrl);

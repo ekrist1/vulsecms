@@ -11,6 +11,7 @@ export default defineConfig({
     manifest: true,
     rollupOptions: {
       input: resolve(import.meta.dirname, 'src/entry-client.ts'),
+      external: (id) => id.includes('@vulse/image') || id.includes('/packages/image/'),
       output: {
         entryFileNames: 'entry-client.js',
         chunkFileNames: 'assets/[name]-[hash].js',

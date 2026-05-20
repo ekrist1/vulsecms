@@ -16,13 +16,19 @@ function nodeContentEndPos(props: NodeViewProps): number | null {
   return pos === null ? null : pos + props.node.nodeSize - 1;
 }
 
-export function insertContentAfter(props: NodeViewProps, content: JSONContent | JSONContent[]): void {
+export function insertContentAfter(
+  props: NodeViewProps,
+  content: JSONContent | JSONContent[],
+): void {
   const after = nodeEndPos(props);
   if (after === null) return;
   props.editor.chain().focus().insertContentAt(after, content).run();
 }
 
-export function appendContentInside(props: NodeViewProps, content: JSONContent | JSONContent[]): void {
+export function appendContentInside(
+  props: NodeViewProps,
+  content: JSONContent | JSONContent[],
+): void {
   const end = nodeContentEndPos(props);
   if (end === null) return;
   props.editor.chain().focus().insertContentAt(end, content).run();

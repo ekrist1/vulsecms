@@ -107,7 +107,9 @@ const draftsEnabled = computed(() => blueprint.value?.drafts === true);
 const collectionTypeLabel = computed(() =>
   isSingleton.value ? 'Singleton collection' : 'Collection',
 );
-const hasFilters = computed(() => searchQuery.value.length > 0 || searchField.value !== 'all' || statusFilter.value !== 'all');
+const hasFilters = computed(
+  () => searchQuery.value.length > 0 || searchField.value !== 'all' || statusFilter.value !== 'all',
+);
 const primaryEntryAction = computed(() => {
   if (isSingleton.value && singletonEntryId.value) {
     return {

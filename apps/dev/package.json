@@ -18,6 +18,7 @@
     "@vulse/auth": "workspace:*",
     "@vulse/core": "workspace:*",
     "@vulse/db": "workspace:*",
+    "@vulse/image": "workspace:*",
     "@vulse/site": "workspace:*",
     "h3": "^1.15.11",
     "pinia": "^2.2.4",

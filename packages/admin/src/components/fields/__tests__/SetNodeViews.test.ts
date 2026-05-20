@@ -67,7 +67,8 @@ describe('set node views', () => {
       global: nodeViewGlobal,
     });
 
-    const code = '<iframe src="https://example.com/embed" title="Product demo" width="640"></iframe>';
+    const code =
+      '<iframe src="https://example.com/embed" title="Product demo" width="640"></iframe>';
     await wrapper.get('[data-testid="iframe-code"]').setValue(code);
     await wrapper.get('[data-testid="iframe-code"]').trigger('blur');
     expect(updateAttributes).toHaveBeenCalledWith({

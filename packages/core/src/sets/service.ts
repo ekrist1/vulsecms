@@ -18,10 +18,7 @@ function parseRow(row: {
   return { ...def, createdAt: row.created_at, updatedAt: row.updated_at };
 }
 
-export async function createSet(
-  adapter: DatabaseAdapter,
-  input: SetDefinition,
-): Promise<SetDTO> {
+export async function createSet(adapter: DatabaseAdapter, input: SetDefinition): Promise<SetDTO> {
   const parsed = SetDefinitionSchema.safeParse(input);
   if (!parsed.success) throw new ValidationError(parsed.error.issues);
   const def = parsed.data;

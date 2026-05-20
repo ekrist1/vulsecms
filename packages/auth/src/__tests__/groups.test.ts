@@ -84,14 +84,16 @@ describe('groups service', () => {
 
   it('round-trips canPublish through setPermissions/getGroup', async () => {
     const g = await createGroup(adapter, { handle: 'editors', label: 'Editors' });
-    await setPermissions(adapter, g.id, [{
-      collectionHandle: 'posts',
-      canRead: true,
-      canCreate: true,
-      canUpdate: true,
-      canDelete: false,
-      canPublish: true,
-    }]);
+    await setPermissions(adapter, g.id, [
+      {
+        collectionHandle: 'posts',
+        canRead: true,
+        canCreate: true,
+        canUpdate: true,
+        canDelete: false,
+        canPublish: true,
+      },
+    ]);
     const reloaded = await getGroup(adapter, 'editors');
     expect(reloaded?.permissions[0]?.canPublish).toBe(true);
   });

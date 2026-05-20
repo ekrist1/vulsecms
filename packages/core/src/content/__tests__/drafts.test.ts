@@ -22,12 +22,9 @@ async function setup() {
 describe('drafts — update', () => {
   it('update({ publish: false }) on a published entry writes draft_content; content unchanged', async () => {
     const { db, content } = await setup();
-    const created = await content.create(
-      'drafts-posts',
-      { title: 'A', slug: 'a' },
-      undefined,
-      { publish: true },
-    );
+    const created = await content.create('drafts-posts', { title: 'A', slug: 'a' }, undefined, {
+      publish: true,
+    });
     const updated = await content.update(
       'drafts-posts',
       created.id,
@@ -44,19 +41,12 @@ describe('drafts — update', () => {
 
   it('update({ publish: true }) on a published entry with a pending draft promotes', async () => {
     const { db, content } = await setup();
-    const created = await content.create(
-      'drafts-posts',
-      { title: 'B', slug: 'b' },
-      undefined,
-      { publish: true },
-    );
-    await content.update(
-      'drafts-posts',
-      created.id,
-      { title: 'B-draft', slug: 'b' },
-      undefined,
-      { publish: false },
-    );
+    const created = await content.create('drafts-posts', { title: 'B', slug: 'b' }, undefined, {
+      publish: true,
+    });
+    await content.update('drafts-posts', created.id, { title: 'B-draft', slug: 'b' }, undefined, {
+      publish: false,
+    });
     const promoted = await content.update(
       'drafts-posts',
       created.id,
@@ -74,12 +64,9 @@ describe('drafts — update', () => {
 
   it('update({ publish: true }) on a never-published draft promotes status=published', async () => {
     const { db, content } = await setup();
-    const draft = await content.create(
-      'drafts-posts',
-      { title: 'C', slug: 'c' },
-      undefined,
-      { publish: false },
-    );
+    const draft = await content.create('drafts-posts', { title: 'C', slug: 'c' }, undefined, {
+      publish: false,
+    });
     expect(draft.status).toBe('draft');
     const promoted = await content.update(
       'drafts-posts',
@@ -96,12 +83,9 @@ describe('drafts — update', () => {
 
   it('update({ publish: false }) on a draft entry overwrites draft_content; content stays empty', async () => {
     const { db, content } = await setup();
-    const draft = await content.create(
-      'drafts-posts',
-      { title: 'D', slug: 'd' },
-      undefined,
-      { publish: false },
-    );
+    const draft = await content.create('drafts-posts', { title: 'D', slug: 'd' }, undefined, {
+      publish: false,
+    });
     const updated = await content.update(
       'drafts-posts',
       draft.id,
@@ -171,12 +155,9 @@ describe('drafts — create', () => {
 
   it('create on drafts-disabled collection ignores publish:false (regression guard)', async () => {
     const { db, content } = await setup();
-    const entry = await content.create(
-      'posts',
-      { title: 'P', body: [] },
-      undefined,
-      { publish: false },
-    );
+    const entry = await content.create('posts', { title: 'P', body: [] }, undefined, {
+      publish: false,
+    });
     expect(entry.status).toBe('published');
     expect(entry.content).toMatchObject({ title: 'P' });
     expect(entry.draftContent).toBeNull();
@@ -187,19 +168,12 @@ describe('drafts — create', () => {
 describe('drafts — publish/unpublish/discard', () => {
   async function makePublishedWithDraft() {
     const { db, content } = await setup();
-    const e = await content.create(
-      'drafts-posts',
-      { title: 'A', slug: 'a' },
-      undefined,
-      { publish: true },
-    );
-    await content.update(
-      'drafts-posts',
-      e.id,
-      { title: 'A-draft', slug: 'a' },
-      undefined,
-      { publish: false },
-    );
+    const e = await content.create('drafts-posts', { title: 'A', slug: 'a' }, undefined, {
+      publish: true,
+    });
+    await content.update('drafts-posts', e.id, { title: 'A-draft', slug: 'a' }, undefined, {
+      publish: false,
+    });
     return { db, content, id: e.id };
   }
 
@@ -215,12 +189,9 @@ describe('drafts — publish/unpublish/discard', () => {
 
   it('publish() with no pending draft re-publishes current content', async () => {
     const { db, content } = await setup();
-    const e = await content.create(
-      'drafts-posts',
-      { title: 'B', slug: 'b' },
-      undefined,
-      { publish: true },
-    );
+    const e = await content.create('drafts-posts', { title: 'B', slug: 'b' }, undefined, {
+      publish: true,
+    });
     const r = await content.publish('drafts-posts', e.id);
     expect(r.publishedAt).not.toBeNull();
     expect(r.content).toEqual({ title: 'B', slug: 'b' });
@@ -229,12 +200,9 @@ describe('drafts — publish/unpublish/discard', () => {
 
   it('unpublish() moves content to draft_content', async () => {
     const { db, content } = await setup();
-    const e = await content.create(
-      'drafts-posts',
-      { title: 'C', slug: 'c' },
-      undefined,
-      { publish: true },
-    );
+    const e = await content.create('drafts-posts', { title: 'C', slug: 'c' }, undefined, {
+      publish: true,
+    });
     const r = await content.unpublish('drafts-posts', e.id);
     expect(r.status).toBe('draft');
     expect(r.content).toEqual({});
@@ -246,12 +214,9 @@ describe('drafts — publish/unpublish/discard', () => {
 
   it('unpublish() on a never-published entry throws entry_already_draft', async () => {
     const { db, content } = await setup();
-    const e = await content.create(
-      'drafts-posts',
-      { title: 'D', slug: 'd' },
-      undefined,
-      { publish: false },
-    );
+    const e = await content.create('drafts-posts', { title: 'D', slug: 'd' }, undefined, {
+      publish: false,
+    });
     await expect(content.unpublish('drafts-posts', e.id)).rejects.toMatchObject({
       issues: [expect.objectContaining({ code: 'entry_already_draft' })],
     });
@@ -269,12 +234,9 @@ describe('drafts — publish/unpublish/discard', () => {
 
   it('discardDraft() on a status=draft entry throws cannot_discard_initial_draft', async () => {
     const { db, content } = await setup();
-    const e = await content.create(
-      'drafts-posts',
-      { title: 'E', slug: 'e' },
-      undefined,
-      { publish: false },
-    );
+    const e = await content.create('drafts-posts', { title: 'E', slug: 'e' }, undefined, {
+      publish: false,
+    });
     await expect(content.discardDraft('drafts-posts', e.id)).rejects.toMatchObject({
       issues: [expect.objectContaining({ code: 'cannot_discard_initial_draft' })],
     });
@@ -283,12 +245,9 @@ describe('drafts — publish/unpublish/discard', () => {
 
   it('discardDraft() on a published entry with no draft throws no_draft_to_discard', async () => {
     const { db, content } = await setup();
-    const e = await content.create(
-      'drafts-posts',
-      { title: 'F', slug: 'f' },
-      undefined,
-      { publish: true },
-    );
+    const e = await content.create('drafts-posts', { title: 'F', slug: 'f' }, undefined, {
+      publish: true,
+    });
     await expect(content.discardDraft('drafts-posts', e.id)).rejects.toMatchObject({
       issues: [expect.objectContaining({ code: 'no_draft_to_discard' })],
     });

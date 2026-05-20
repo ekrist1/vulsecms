@@ -22,7 +22,8 @@ export const VulseVideoExtension = Node.create({
     return {
       src: {
         default: null,
-        parseHTML: (element: HTMLElement) => sanitizeMediaSrc(element.getAttribute('src') ?? '') ?? null,
+        parseHTML: (element: HTMLElement) =>
+          sanitizeMediaSrc(element.getAttribute('src') ?? '') ?? null,
         renderHTML: (attrs: { src?: string | null }) => (attrs.src ? { src: attrs.src } : {}),
       },
     };

@@ -27,7 +27,11 @@ export const VulseSetExtension = Node.create({
         default: {} as Record<string, unknown>,
         parseHTML: (el: HTMLElement) => {
           const raw = el.getAttribute('data-vulse-data');
-          try { return raw ? JSON.parse(raw) : {}; } catch { return {}; }
+          try {
+            return raw ? JSON.parse(raw) : {};
+          } catch {
+            return {};
+          }
         },
         renderHTML: (attrs: { data: Record<string, unknown> }) => ({
           'data-vulse-data': JSON.stringify(attrs.data ?? {}),

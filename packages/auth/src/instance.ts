@@ -32,11 +32,7 @@ export function createAuth(opts: { client: Client; env: AuthInstanceEnv }) {
       enabled: true,
       requireEmailVerification: false,
       sendResetPassword: async ({ user, url }) => {
-        await sendResetEmail(
-          { email: user.email, name: user.name ?? null },
-          url,
-          opts.env.smtpUrl,
-        );
+        await sendResetEmail({ email: user.email, name: user.name ?? null }, url, opts.env.smtpUrl);
       },
     },
     user: {

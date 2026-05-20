@@ -21,7 +21,11 @@ export interface GroupDTO {
 async function loadPerms(adapter: DatabaseAdapter, groupId: string): Promise<PermissionRowInput[]> {
   const rows = await adapter.query<{
     collection_handle: string;
-    can_read: number; can_create: number; can_update: number; can_delete: number; can_publish: number;
+    can_read: number;
+    can_create: number;
+    can_update: number;
+    can_delete: number;
+    can_publish: number;
   }>(
     `SELECT collection_handle, can_read, can_create, can_update, can_delete, can_publish
      FROM group_permissions WHERE group_id = ?
@@ -43,25 +47,40 @@ export async function createGroup(
   input: { handle: string; label: string },
 ): Promise<GroupDTO> {
   const id = ulid();
-  await adapter.exec(
-    `INSERT INTO groups (id, handle, label) VALUES (?, ?, ?)`,
-    [id, input.handle, input.label],
-  );
-  const row = await adapter.queryOne<{ id: string; handle: string; label: string; created_at: string }>(
-    `SELECT id, handle, label, created_at FROM groups WHERE id = ?`,
-    [id],
-  );
-  return { id: row!.id, handle: row!.handle, label: row!.label, createdAt: row!.created_at, permissions: [] };
+  await adapter.exec(`INSERT INTO groups (id, handle, label) VALUES (?, ?, ?)`, [
+    id,
+    input.handle,
+    input.label,
+  ]);
+  const row = await adapter.queryOne<{
+    id: string;
+    handle: string;
+    label: string;
+    created_at: string;
+  }>(`SELECT id, handle, label, created_at FROM groups WHERE id = ?`, [id]);
+  return {
+    id: row!.id,
+    handle: row!.handle,
+    label: row!.label,
+    createdAt: row!.created_at,
+    permissions: [],
+  };
 }
 
 export async function listGroups(adapter: DatabaseAdapter): Promise<GroupDTO[]> {
-  const rows = await adapter.query<{ id: string; handle: string; label: string; created_at: string }>(
-    `SELECT id, handle, label, created_at FROM groups ORDER BY created_at ASC`,
-  );
+  const rows = await adapter.query<{
+    id: string;
+    handle: string;
+    label: string;
+    created_at: string;
+  }>(`SELECT id, handle, label, created_at FROM groups ORDER BY created_at ASC`);
   const out: GroupDTO[] = [];
   for (const r of rows) {
     out.push({
-      id: r.id, handle: r.handle, label: r.label, createdAt: r.created_at,
+      id: r.id,
+      handle: r.handle,
+      label: r.label,
+      createdAt: r.created_at,
       permissions: await loadPerms(adapter, r.id),
     });
   }
@@ -69,12 +88,20 @@ export async function listGroups(adapter: DatabaseAdapter): Promise<GroupDTO[]> 
 }
 
 export async function getGroup(adapter: DatabaseAdapter, handle: string): Promise<GroupDTO | null> {
-  const row = await adapter.queryOne<{ id: string; handle: string; label: string; created_at: string }>(
-    `SELECT id, handle, label, created_at FROM groups WHERE handle = ?`,
-    [handle],
-  );
+  const row = await adapter.queryOne<{
+    id: string;
+    handle: string;
+    label: string;
+    created_at: string;
+  }>(`SELECT id, handle, label, created_at FROM groups WHERE handle = ?`, [handle]);
   if (!row) return null;
-  return { id: row.id, handle: row.handle, label: row.label, createdAt: row.created_at, permissions: await loadPerms(adapter, row.id) };
+  return {
+    id: row.id,
+    handle: row.handle,
+    label: row.label,
+    createdAt: row.created_at,
+    permissions: await loadPerms(adapter, row.id),
+  };
 }
 
 export async function updateGroup(
@@ -99,7 +126,15 @@ export async function setPermissions(
       await adapter.exec(
         `INSERT INTO group_permissions (group_id, collection_handle, can_read, can_create, can_update, can_delete, can_publish)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [groupId, r.collectionHandle, r.canRead ? 1 : 0, r.canCreate ? 1 : 0, r.canUpdate ? 1 : 0, r.canDelete ? 1 : 0, r.canPublish ? 1 : 0],
+        [
+          groupId,
+          r.collectionHandle,
+          r.canRead ? 1 : 0,
+          r.canCreate ? 1 : 0,
+          r.canUpdate ? 1 : 0,
+          r.canDelete ? 1 : 0,
+          r.canPublish ? 1 : 0,
+        ],
       );
     }
     await adapter.exec('COMMIT');

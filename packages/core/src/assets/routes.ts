@@ -31,7 +31,15 @@ const RegisterBodySchema = z.object({
   originalName: z.string().optional().nullable(),
 });
 
-export function assetRoutes(adapter: DatabaseAdapter): Router {
+export interface AssetRoutesOptions {
+  probeImage?: (
+    assetUrl: string,
+    bucket: string,
+    key: string,
+  ) => Promise<{ width: number; height: number } | null>;
+}
+
+export function assetRoutes(adapter: DatabaseAdapter, opts: AssetRoutesOptions = {}): Router {
   const router = createRouter();
 
   // ---- S3 settings (super only) ----
@@ -159,6 +167,16 @@ export function assetRoutes(adapter: DatabaseAdapter): Router {
       const body = await readBody(event);
       const parsed = RegisterBodySchema.safeParse(body);
       if (!parsed.success) throw new ValidationError(parsed.error.issues);
+
+      let imageDims: { width: number; height: number } | null = null;
+      if (opts.probeImage && (parsed.data.contentType ?? '').startsWith('image/')) {
+        try {
+          imageDims = await opts.probeImage(parsed.data.url, parsed.data.bucket, parsed.data.key);
+        } catch {
+          imageDims = null;
+        }
+      }
+
       const asset = await createAsset(adapter, {
         key: parsed.data.key,
         bucket: parsed.data.bucket,
@@ -166,6 +184,8 @@ export function assetRoutes(adapter: DatabaseAdapter): Router {
         contentType: parsed.data.contentType ?? null,
         size: parsed.data.size ?? null,
         originalName: parsed.data.originalName ?? null,
+        imageWidth: imageDims?.width ?? null,
+        imageHeight: imageDims?.height ?? null,
       });
       setResponseStatus(event, 201);
       return asset;

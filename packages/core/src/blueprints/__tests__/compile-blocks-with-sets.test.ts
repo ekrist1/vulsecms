@@ -14,9 +14,7 @@ describe('compileBlueprint with blocks-with-sets', () => {
     handle: 'posts',
     label: 'Posts',
     singleton: false,
-    fields: [
-      { name: 'body', ui: { kind: 'blocks' as const, sets: ['quote'] }, optional: false },
-    ],
+    fields: [{ name: 'body', ui: { kind: 'blocks' as const, sets: ['quote'] }, optional: false }],
   };
 
   it('accepts valid body with a good set node', () => {

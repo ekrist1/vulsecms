@@ -64,9 +64,7 @@ export function parseListQuery(query: Record<string, string>): ParsedListQuery {
 
 function parseSort(raw: string): SortSpec[] {
   if (!raw || raw.trim() === '') {
-    throw new ValidationError([
-      { code: 'custom', message: 'Empty sort value.', path: ['sort'] },
-    ]);
+    throw new ValidationError([{ code: 'custom', message: 'Empty sort value.', path: ['sort'] }]);
   }
   const segments = raw.split(',').map((s) => s.trim());
   return segments.map((seg) => {

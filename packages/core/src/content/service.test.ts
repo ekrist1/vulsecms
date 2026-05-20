@@ -59,9 +59,7 @@ describe('ContentService', () => {
       handle: 'home-page',
       label: 'Home page',
       singleton: true,
-      fields: [
-        { name: 'title', label: 'Title', ui: { kind: 'text' }, optional: false },
-      ],
+      fields: [{ name: 'title', label: 'Title', ui: { kind: 'text' }, optional: false }],
     });
     const blueprints = await loadBlueprints({ adapter: db });
     const content = createContentService(db, blueprints);
@@ -144,7 +142,10 @@ describe('ContentService', () => {
 });
 
 describe('list with filters and sort', () => {
-  async function seed(content: Awaited<ReturnType<typeof setup>>['content'], rows: Array<Record<string, unknown>>): Promise<string[]> {
+  async function seed(
+    content: Awaited<ReturnType<typeof setup>>['content'],
+    rows: Array<Record<string, unknown>>,
+  ): Promise<string[]> {
     const ids: string[] = [];
     for (const row of rows) {
       const entry = await content.create('posts', { body: [], ...row });
@@ -172,7 +173,9 @@ describe('list with filters and sort', () => {
       { title: 'B', status: 'draft' },
       { title: 'C', status: 'scheduled' },
     ]);
-    const res = await content.list('posts', { filter: { status: { in: ['published', 'scheduled'] } } });
+    const res = await content.list('posts', {
+      filter: { status: { in: ['published', 'scheduled'] } },
+    });
     expect(res.items.map((e) => e.content.title).sort()).toEqual(['A', 'C']);
     await db.close();
   });

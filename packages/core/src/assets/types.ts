@@ -30,5 +30,8 @@ export interface AssetDTO {
   contentType: string | null;
   size: number | null;
   originalName: string | null;
+  imageWidth: number | null;
+  imageHeight: number | null;
+  imageBlurhash: string | null;
   createdAt: string;
 }

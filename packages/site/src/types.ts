@@ -44,9 +44,17 @@ export interface SiteConfig {
   defaultTitle?: string;
   defaultDescription?: string;
   defaultImage?: string;
+  /**
+   * Optional hook to convert the raw entry image value (string URL or object)
+   * into a final absolute URL. If undefined, only string values are passed
+   * through.
+   */
+  resolveImage?: (raw: unknown, site: SiteConfig) => string | undefined;
   routes?: SiteRouteOverrides;
   scripts?: SiteScript[];
   seo?: SiteSeoConfig;
+  /** HMAC secret for signing image URLs. Provided to the Vue app via `vulse:imageSecret`. */
+  imageSecret?: string;
 }
 
 export interface HeadMetaTag {

@@ -2,8 +2,9 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createAuth, seedSuperUser } from '@vulse/auth';
 import { LibsqlAdapter, MIGRATIONS_DIR, runMigrations } from '@vulse/db';
+import { probeMetadata } from '@vulse/image';
 import { toWebHandler } from 'h3';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { loadBlueprints } from '../blueprints/load.js';
 import { seedBlueprintsFromCode } from '../blueprints/seed.js';
 import { createContentService } from '../content/service.js';
@@ -30,7 +31,20 @@ async function setup() {
     client: db.client,
     env: { authSecret: 'x', baseUrl: 'http://x', allowPublicSignup: true, smtpUrl: undefined },
   });
-  const rawApp = createApi({ blueprints, content, adapter: db, authInstance, sets, previewSecret: 'test-preview-secret' });
+  const rawApp = createApi({
+    blueprints,
+    content,
+    adapter: db,
+    authInstance,
+    sets,
+    previewSecret: 'test-preview-secret',
+    probeImage: async (url) => {
+      const res = await fetch(url);
+      if (!res.ok) return null;
+      const buf = Buffer.from(await res.arrayBuffer());
+      return probeMetadata(buf);
+    },
+  });
   const handler = toWebHandler(rawApp);
   const app = {
     request: (url: string, init?: RequestInit) => handler(new Request(url, init)),
@@ -143,5 +157,51 @@ describe('assets API', () => {
     const res = await app.request('http://x/api/assets');
     expect(res.status).toBe(401);
     authInstance.close();
+  });
+
+  it('probes image dimensions when registering an image asset', async () => {
+    const { app, cookie } = await setup();
+    // Put an S3 config so the fetch path is valid
+    await app.request('http://x/api/settings/s3', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json', cookie },
+      body: JSON.stringify({
+        accessKeyId: 'AKIAEXAMPLE',
+        secretAccessKey: 'secret-secret-secret',
+        region: 'us-east-1',
+        bucket: 'examplebucket',
+      }),
+    });
+
+    const { readFile } = await import('node:fs/promises');
+    const { fileURLToPath } = await import('node:url');
+    const { join, dirname } = await import('node:path');
+    const here = dirname(fileURLToPath(import.meta.url));
+    const fixture = await readFile(
+      join(here, '..', '..', '..', 'image', 'src', '__tests__', '__fixtures__', 'cat.jpg'),
+    );
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response(fixture, { status: 200 }));
+
+    try {
+      const res = await app.request('http://x/api/assets', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', cookie },
+        body: JSON.stringify({
+          key: 'cats/cat.jpg',
+          bucket: 'examplebucket',
+          url: 'https://examplebucket.s3.us-east-1.amazonaws.com/cats/cat.jpg',
+          contentType: 'image/jpeg',
+          originalName: 'cat.jpg',
+        }),
+      });
+      expect(res.status).toBe(201);
+      const body = await res.json();
+      expect(body.imageWidth).toBe(200);
+      expect(body.imageHeight).toBe(133);
+    } finally {
+      fetchSpy.mockRestore();
+    }
   });
 });

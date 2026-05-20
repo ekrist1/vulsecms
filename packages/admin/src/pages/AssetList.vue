@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import { RouterLink } from 'vue-router';
 import { type AssetItem, api } from '../api/client.js';
 import { useAuthStore } from '../stores/auth.js';
@@ -9,6 +9,17 @@ const auth = useAuthStore();
 const toasts = useToastsStore();
 
 const assets = ref<AssetItem[]>([]);
+const thumbUrls = reactive<Record<string, string>>({});
+
+async function ensureThumb(id: string): Promise<void> {
+  if (thumbUrls[id]) return;
+  try {
+    const { url } = await api.getAssetThumbUrl(id, 240);
+    thumbUrls[id] = url;
+  } catch {
+    /* fall back to raw url */
+  }
+}
 const total = ref(0);
 const loading = ref(false);
 const uploading = ref(false);
@@ -21,6 +32,9 @@ async function load() {
     const res = await api.listAssets({ limit: 200 });
     assets.value = res.items;
     total.value = res.total;
+    for (const a of res.items) {
+      if (isImage(a)) ensureThumb(a.id);
+    }
   } catch {
     toasts.error('Could not load assets');
   } finally {
@@ -186,7 +200,7 @@ onMounted(async () => {
         :data-testid="`asset-card-${a.id}`"
       >
         <div class="flex h-32 w-full items-center justify-center overflow-hidden rounded bg-zinc-50">
-          <img v-if="isImage(a)" :src="a.url" alt="" class="h-full w-full object-cover" />
+          <img v-if="isImage(a)" :src="thumbUrls[a.id] ?? a.url" alt="" class="h-full w-full object-cover" />
           <span v-else class="px-1 text-center text-[10px] text-zinc-500 break-all">
             {{ a.originalName ?? a.key }}
           </span>

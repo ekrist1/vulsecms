@@ -38,9 +38,7 @@ describe('validateSetNodes', () => {
   it('flags missing required field', () => {
     const doc = {
       type: 'doc',
-      content: [
-        { type: 'vulseSet', attrs: { set: 'quote', data: { quote: 'L' } } },
-      ],
+      content: [{ type: 'vulseSet', attrs: { set: 'quote', data: { quote: 'L' } } }],
     };
     const issues = collect(doc);
     expect(issues.length).toBeGreaterThan(0);
@@ -61,10 +59,12 @@ describe('validateSetNodes', () => {
   it('walks nested content (set inside a block-quote)', () => {
     const doc = {
       type: 'doc',
-      content: [{
-        type: 'blockquote',
-        content: [{ type: 'vulseSet', attrs: { set: 'quote', data: { quote: 'L' } } }],
-      }],
+      content: [
+        {
+          type: 'blockquote',
+          content: [{ type: 'vulseSet', attrs: { set: 'quote', data: { quote: 'L' } } }],
+        },
+      ],
     };
     const issues = collect(doc);
     expect(issues.length).toBeGreaterThan(0);

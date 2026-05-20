@@ -171,10 +171,7 @@ export function buildFilterSql(
   return { sql: ` AND ${clauses.join(' AND ')}`, params };
 }
 
-export function buildOrderSql(
-  sort: SortSpec[] | undefined,
-  b: Blueprint,
-): SqlFragment {
+export function buildOrderSql(sort: SortSpec[] | undefined, b: Blueprint): SqlFragment {
   if (!sort || sort.length === 0) {
     return { sql: 'ORDER BY sort_order ASC, created_at DESC', params: [] };
   }
@@ -189,7 +186,11 @@ export function buildOrderSql(
     const field = b.fields.find((f) => f.name === spec.field);
     if (!field) {
       throw new ValidationError([
-        { code: 'custom', message: `Unknown sort field: ${spec.field}`, path: ['sort', spec.field] },
+        {
+          code: 'custom',
+          message: `Unknown sort field: ${spec.field}`,
+          path: ['sort', spec.field],
+        },
       ]);
     }
     parts.push(`json_extract(content, ?) ${direction}`);

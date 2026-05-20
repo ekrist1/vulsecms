@@ -84,10 +84,9 @@ describe('effectivePerms', () => {
       u.email,
     ]);
     const g1 = ulid();
-    await adapter.exec(
-      `INSERT INTO groups (id, handle, label) VALUES (?, 'editors', 'Editors')`,
-      [g1],
-    );
+    await adapter.exec(`INSERT INTO groups (id, handle, label) VALUES (?, 'editors', 'Editors')`, [
+      g1,
+    ]);
     await adapter.exec(`INSERT INTO user_groups (user_id, group_id) VALUES (?, ?)`, [u.id, g1]);
     await adapter.exec(
       `INSERT INTO group_permissions (group_id, collection_handle, can_read, can_create, can_update, can_delete, can_publish)

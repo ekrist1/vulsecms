@@ -5,9 +5,7 @@ import { deleteCurrentNode, insertParagraphAfter } from './set-node-utils.js';
 
 const props = defineProps<NodeViewProps>();
 
-const tone = computed(() =>
-  String(props.node.attrs?.tone === 'warn' ? 'warn' : 'info'),
-);
+const tone = computed(() => String(props.node.attrs?.tone === 'warn' ? 'warn' : 'info'));
 
 function onToneChange(event: Event) {
   const next = (event.target as HTMLSelectElement).value === 'warn' ? 'warn' : 'info';

@@ -7,9 +7,17 @@ beforeEach(() => setActivePinia(createPinia()));
 
 describe('useSetsStore', () => {
   it('hydrates once', async () => {
-    const spy = vi.spyOn(client.api, 'listSets').mockResolvedValue([
-      { handle: 'q', label: 'Q', fields: [{ name: 'a', ui: { kind: 'text' }, optional: false }], createdAt: '', updatedAt: '' },
-    ]);
+    const spy = vi
+      .spyOn(client.api, 'listSets')
+      .mockResolvedValue([
+        {
+          handle: 'q',
+          label: 'Q',
+          fields: [{ name: 'a', ui: { kind: 'text' }, optional: false }],
+          createdAt: '',
+          updatedAt: '',
+        },
+      ]);
     const s = useSetsStore();
     await s.hydrate();
     await s.hydrate();

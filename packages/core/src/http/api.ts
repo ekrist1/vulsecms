@@ -24,7 +24,8 @@ import {
   readBody,
   setResponseStatus,
 } from 'h3';
-import { assetRoutes } from '../assets/routes.js';
+import { imageRoutes } from '@vulse/image';
+import { assetRoutes, type AssetRoutesOptions } from '../assets/routes.js';
 import {
   BlueprintDefinitionSchema,
   BlueprintDefinitionWithRenamesSchema,
@@ -51,6 +52,9 @@ export interface ApiDeps {
   sets?: Map<string, CompiledSet>;
   previewSecret: string;
   globals?: GlobalService;
+  probeImage?: AssetRoutesOptions['probeImage'];
+  imageSecret?: string;
+  imageCacheDir?: string;
 }
 
 function deny(event: Parameters<typeof setResponseStatus>[0], status: number, body: object) {
@@ -146,7 +150,15 @@ export function createApi(deps: ApiDeps): App {
   app.use(usersRoute(adapter).handler);
   app.use(groupsRoute(adapter).handler);
   app.use(setsRoute(adapter).handler);
-  app.use(assetRoutes(adapter).handler);
+  app.use(
+    assetRoutes(adapter, { ...(deps.probeImage ? { probeImage: deps.probeImage } : {}) }).handler,
+  );
+
+  if (deps.imageSecret && deps.imageCacheDir) {
+    app.use(
+      imageRoutes(adapter, { secret: deps.imageSecret, cacheDir: deps.imageCacheDir }).handler,
+    );
+  }
 
   // ---- Better Auth wildcard ----
   app.use(

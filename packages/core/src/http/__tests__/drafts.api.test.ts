@@ -14,10 +14,7 @@ import { createApi } from '../api.js';
 const here = dirname(fileURLToPath(import.meta.url));
 const fixturesDir = join(here, '..', '..', 'blueprints', '__fixtures__');
 
-async function setup(
-  seed?: (db: LibsqlAdapter) => Promise<void>,
-  previewSecret?: string,
-) {
+async function setup(seed?: (db: LibsqlAdapter) => Promise<void>, previewSecret?: string) {
   const db = new LibsqlAdapter({ url: ':memory:' });
   await runMigrations(db, MIGRATIONS_DIR);
   await seedBlueprintsFromCode({ adapter: db, dir: fixturesDir });
@@ -268,10 +265,13 @@ describe('POST /:id/unpublish', () => {
     const { id } = (await createRes.json()) as { id: string };
 
     // POST /unpublish
-    const unpublishRes = await app.request(`http://x/api/collections/drafts-posts/${id}/unpublish`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', cookie },
-    });
+    const unpublishRes = await app.request(
+      `http://x/api/collections/drafts-posts/${id}/unpublish`,
+      {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', cookie },
+      },
+    );
 
     expect(unpublishRes.status).toBe(200);
     const unpublished = (await unpublishRes.json()) as Record<string, unknown>;

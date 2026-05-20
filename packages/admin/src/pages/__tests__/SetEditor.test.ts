@@ -17,9 +17,11 @@ beforeEach(() => {
 describe('SetEditor', () => {
   it('creates a set with handle, label, and one text field', async () => {
     const create = vi.spyOn(client.api, 'createSet').mockResolvedValue({
-      handle: 'quote', label: 'Quote',
+      handle: 'quote',
+      label: 'Quote',
       fields: [{ name: 'q', ui: { kind: 'text' }, optional: false }],
-      createdAt: '', updatedAt: '',
+      createdAt: '',
+      updatedAt: '',
     });
     const w = mount(SetEditor, { props: { handle: null }, global: { plugins: [router] } });
     await flushPromises();
@@ -29,10 +31,12 @@ describe('SetEditor', () => {
     await w.find('[data-testid="set-field-name-0"]').setValue('q');
     await w.find('[data-testid="set-save"]').trigger('click');
     await flushPromises();
-    expect(create).toHaveBeenCalledWith(expect.objectContaining({
-      handle: 'quote',
-      label: 'Quote',
-      fields: [expect.objectContaining({ name: 'q' })],
-    }));
+    expect(create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        handle: 'quote',
+        label: 'Quote',
+        fields: [expect.objectContaining({ name: 'q' })],
+      }),
+    );
   });
 });

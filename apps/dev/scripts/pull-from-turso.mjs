@@ -84,9 +84,10 @@ function localFilePath(url) {
 }
 
 async function confirmOverwrite(targetPath, sizeBytes) {
-  const size = sizeBytes >= 1024 * 1024
-    ? `${(sizeBytes / 1024 / 1024).toFixed(1)} MiB`
-    : `${(sizeBytes / 1024).toFixed(1)} KiB`;
+  const size =
+    sizeBytes >= 1024 * 1024
+      ? `${(sizeBytes / 1024 / 1024).toFixed(1)} MiB`
+      : `${(sizeBytes / 1024).toFixed(1)} KiB`;
   console.warn(`\n⚠️  Target database already exists: ${targetPath} (${size}).`);
   console.warn('   Pulling from Turso will OVERWRITE its contents.');
   if (!input.isTTY) {

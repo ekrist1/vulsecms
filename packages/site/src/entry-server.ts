@@ -96,7 +96,13 @@ export async function renderPage(
   initialState: SiteInitialState,
   options: RenderPageOptions = {},
 ): Promise<string> {
-  const { app, router } = createSiteApp({ history: 'memory', initialState });
+  const { app, router } = createSiteApp({
+    history: 'memory',
+    initialState,
+    ...(options.site?.imageSecret !== undefined
+      ? { imageSecret: options.site.imageSecret }
+      : {}),
+  });
   await router.push(url);
   await router.isReady();
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import { type AssetItem, api } from '../../api/client.js';
 import { useToastsStore } from '../../stores/toasts.js';
 
@@ -13,6 +13,17 @@ const emit = defineEmits<{ 'update:modelValue': [string | undefined] }>();
 const toasts = useToastsStore();
 const pickerOpen = ref(false);
 const assets = ref<AssetItem[]>([]);
+const thumbUrls = reactive<Record<string, string>>({});
+
+async function ensureThumb(id: string): Promise<void> {
+  if (thumbUrls[id]) return;
+  try {
+    const { url } = await api.getAssetThumbUrl(id, 240);
+    thumbUrls[id] = url;
+  } catch {
+    /* fall back to raw url */
+  }
+}
 const loading = ref(false);
 const uploading = ref(false);
 const fileInput = ref<HTMLInputElement | null>(null);
@@ -27,6 +38,9 @@ async function loadAssets() {
   try {
     const res = await api.listAssets({ limit: 100 });
     assets.value = res.items;
+    for (const a of res.items) {
+      if (isImage(a)) ensureThumb(a.id);
+    }
   } catch (e) {
     toasts.error('Could not load assets');
   } finally {
@@ -76,6 +90,7 @@ async function onUpload(event: Event) {
       originalName: file.name,
     });
     assets.value = [asset, ...assets.value];
+    if (isImage(asset)) ensureThumb(asset.id);
     emit('update:modelValue', asset.url);
     toasts.success('Asset uploaded');
     pickerOpen.value = false;
@@ -123,7 +138,7 @@ function fileNameFromUrl(url: string): string {
       >
         <img
           v-if="isImage(selectedAsset) || /\.(png|jpe?g|gif|webp|svg|avif)$/i.test(modelValue)"
-          :src="modelValue"
+          :src="thumbUrls[selectedAsset?.id ?? ''] ?? modelValue"
           alt=""
           class="h-full w-full object-cover"
         />
@@ -205,7 +220,7 @@ function fileNameFromUrl(url: string): string {
               @click="selectAsset(a)"
             >
               <div class="flex h-28 w-full items-center justify-center overflow-hidden rounded bg-zinc-50">
-                <img v-if="isImage(a)" :src="a.url" alt="" class="h-full w-full object-cover" />
+                <img v-if="isImage(a)" :src="thumbUrls[a.id] ?? a.url" alt="" class="h-full w-full object-cover" />
                 <span v-else class="px-1 text-center text-[10px] text-zinc-500 break-all">
                   {{ a.originalName ?? a.key }}
                 </span>
