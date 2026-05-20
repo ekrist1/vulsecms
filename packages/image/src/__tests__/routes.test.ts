@@ -45,7 +45,8 @@ async function setup() {
 
 describe('imageRoutes', () => {
   let cacheDir: string | undefined;
-  let fetchSpy: ReturnType<typeof vi.spyOn>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let fetchSpy: ReturnType<typeof vi.spyOn<any, any>>;
 
   beforeEach(async () => {
     const fixture = await readFile(fixturePath);
