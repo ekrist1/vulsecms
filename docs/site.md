@@ -9,6 +9,8 @@ block component with your own.
 
 For authentication concepts and the underlying REST API, see
 [`docs/auth.md`](./auth.md).
+For the frontend foundation APIs added around site config, SEO, and
+script injection, see [`docs/frontend-foundation.md`](./frontend-foundation.md).
 
 ## 1. Mounting the site
 
