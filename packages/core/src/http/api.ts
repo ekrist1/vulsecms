@@ -24,7 +24,7 @@ import {
   readBody,
   setResponseStatus,
 } from 'h3';
-import { assetRoutes } from '../assets/routes.js';
+import { assetRoutes, type AssetRoutesOptions } from '../assets/routes.js';
 import {
   BlueprintDefinitionSchema,
   BlueprintDefinitionWithRenamesSchema,
@@ -51,6 +51,7 @@ export interface ApiDeps {
   sets?: Map<string, CompiledSet>;
   previewSecret: string;
   globals?: GlobalService;
+  probeImage?: AssetRoutesOptions['probeImage'];
 }
 
 function deny(event: Parameters<typeof setResponseStatus>[0], status: number, body: object) {
@@ -146,7 +147,7 @@ export function createApi(deps: ApiDeps): App {
   app.use(usersRoute(adapter).handler);
   app.use(groupsRoute(adapter).handler);
   app.use(setsRoute(adapter).handler);
-  app.use(assetRoutes(adapter).handler);
+  app.use(assetRoutes(adapter, { ...(deps.probeImage ? { probeImage: deps.probeImage } : {}) }).handler);
 
   // ---- Better Auth wildcard ----
   app.use(
