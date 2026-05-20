@@ -1,8 +1,8 @@
+import { randomBytes } from 'node:crypto';
 import { createReadStream, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { randomBytes } from 'node:crypto';
 import { createAuth, seedSuperUser } from '@vulse/auth';
 import {
   blueprintEvents,
@@ -20,7 +20,7 @@ import {
   describeConfig,
   runMigrations,
 } from '@vulse/db';
-import { type SiteRouteOverrides, createSiteServer } from '@vulse/site/server';
+import { type SiteConfig, type SiteRouteOverrides, createSiteServer } from '@vulse/site/server';
 import { toNodeListener } from 'h3';
 import config from '../vulse.config.js';
 
@@ -29,7 +29,12 @@ const appRoot = resolve(__dirname, '..', '..');
 const adminStaticRoot = resolve(__dirname, '..');
 const siteClientEntry = fileURLToPath(import.meta.resolve('@vulse/site/client'));
 const siteStaticRoot = dirname(siteClientEntry);
-const routeOverrides = (config as { routes?: SiteRouteOverrides }).routes;
+const appConfig = config as { routes?: SiteRouteOverrides; site?: SiteConfig };
+const configuredRoutes = appConfig.site?.routes ?? appConfig.routes;
+const siteConfig: SiteConfig = {
+  ...(appConfig.site ?? {}),
+  ...(configuredRoutes ? { routes: configuredRoutes } : {}),
+};
 
 function resolvePreviewSecret(): string {
   const v = process.env.VULSE_PREVIEW_SECRET ?? process.env.VULSE_SESSION_SECRET;
@@ -92,9 +97,10 @@ async function buildListeners() {
   const site = createSiteServer({
     blueprints,
     content,
-    routes: routeOverrides,
     authInstance,
     previewSecret: PREVIEW_SECRET,
+    site: siteConfig,
+    ...(appConfig.routes ? { routes: appConfig.routes } : {}),
   });
   return { api: toNodeListener(api), site: toNodeListener(site) };
 }

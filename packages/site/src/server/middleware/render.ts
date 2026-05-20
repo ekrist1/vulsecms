@@ -1,4 +1,5 @@
 import { fileURLToPath } from 'node:url';
+import { verifyPreviewToken } from '@vulse/core';
 import {
   type App,
   type EventHandler,
@@ -9,13 +10,21 @@ import {
   setResponseHeader,
   setResponseStatus,
 } from 'h3';
-import { verifyPreviewToken } from '@vulse/core';
 import { findPublicEntryBySlug, getPublicEntryById } from '../../composables/useEntry.js';
 import { renderPage } from '../../entry-server.js';
+export { resolveHead } from '../../head.js';
 import type { SiteInitialState, SiteRouteOverride, SiteServerDeps } from '../../types.js';
 
 export const SITE_CLIENT_BASE = '/_vulse/site/';
-export type { SiteRouteOverrides } from '../../types.js';
+export type {
+  HeadLinkTag,
+  HeadMetaTag,
+  ResolvedHead,
+  SiteConfig,
+  SiteRouteOverrides,
+  SiteScript,
+  SiteSeoConfig,
+} from '../../types.js';
 
 export function resolveSiteClientRoot(): string {
   return fileURLToPath(new URL('../../client/', import.meta.url));
@@ -147,7 +156,7 @@ export async function resolveSiteRequest(
   const previewToken = readPreviewToken(deps, url);
   const preview = await resolvePreview(deps, url, headers);
   const pathname = toRouteKey(url.pathname);
-  const override = deps.routes?.[pathname];
+  const override = deps.site?.routes?.[pathname] ?? deps.routes?.[pathname];
   if (override) {
     const state = await resolveOverride(deps, override, preview);
     return { status: state.route.type === 'not-found' ? 404 : 200, state };
@@ -201,7 +210,7 @@ export async function resolveSiteRequest(
       // If entry is null and we have a valid preview token, try raw fetch for draft entries.
       if (!entry && previewToken) {
         const raw = await deps.content.get('pages', previewToken.entryId);
-        if (raw && raw.draftContent) {
+        if (raw?.draftContent) {
           entry = { ...raw, content: raw.draftContent };
         }
       }
@@ -227,7 +236,7 @@ export async function resolveSiteRequest(
       // If entry is null and we have a valid preview token, try raw fetch for draft entries.
       if (!entry && previewToken) {
         const raw = await deps.content.get(collection, previewToken.entryId);
-        if (raw && raw.draftContent) {
+        if (raw?.draftContent) {
           entry = { ...raw, content: raw.draftContent };
         }
       }
@@ -265,7 +274,10 @@ export function createSiteRenderer(deps: SiteServerDeps): EventHandler {
       setResponseHeader(event, 'x-robots-tag', 'noindex, nofollow');
       setResponseHeader(event, 'cache-control', 'no-store');
     }
-    return await renderPage(`${url.pathname}${url.search}`, state);
+    return await renderPage(`${url.pathname}${url.search}`, state, {
+      requestUrl: url,
+      ...(deps.site ? { site: deps.site } : {}),
+    });
   });
 }
 

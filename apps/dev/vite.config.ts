@@ -5,6 +5,7 @@ import vue from '@vitejs/plugin-vue';
 import { vulseDevPlugin } from '@vulse/core/vite';
 import { databaseConfigFromEnv } from '@vulse/db';
 import {
+  type SiteConfig,
   type SiteRouteOverrides,
   createSiteServer,
   resolveSiteClientRoot,
@@ -13,6 +14,12 @@ import { defineConfig } from 'vite';
 import config from './vulse.config.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const appConfig = config as { routes?: SiteRouteOverrides; site?: SiteConfig };
+const configuredRoutes = appConfig.site?.routes ?? appConfig.routes;
+const siteConfig: SiteConfig = {
+  ...(appConfig.site ?? {}),
+  ...(configuredRoutes ? { routes: configuredRoutes } : {}),
+};
 
 export default defineConfig({
   base: '/admin/',
@@ -29,7 +36,8 @@ export default defineConfig({
             blueprints,
             content,
             authInstance,
-            routes: (config as { routes?: SiteRouteOverrides }).routes,
+            site: siteConfig,
+            ...(appConfig.routes ? { routes: appConfig.routes } : {}),
           }),
       },
     }),
