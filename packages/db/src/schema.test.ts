@@ -11,7 +11,7 @@ async function freshDb() {
 }
 
 describe('v1 schema', () => {
-  it('creates all five tables plus the migrations table', async () => {
+  it('creates the core tables plus the migrations table', async () => {
     const db = await freshDb();
     const rows = await db.query<{ name: string }>(
       "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name",
@@ -22,6 +22,8 @@ describe('v1 schema', () => {
         '_vulse_migrations',
         'collections',
         'entries',
+        'global_sets',
+        'global_values',
         'navigation',
         'revisions',
         'settings',
@@ -89,9 +91,7 @@ describe('v1 schema', () => {
     await runMigrations(db, MIGRATIONS_DIR);
     // Insert a row that pretends to predate the migration by mimicking the old
     // shape (published_at NULL).
-    await db.exec(
-      `INSERT INTO collections (handle, blueprint_hash) VALUES ('p', 'h1')`,
-    );
+    await db.exec(`INSERT INTO collections (handle, blueprint_hash) VALUES ('p', 'h1')`);
     await db.exec(
       `INSERT INTO entries (id, collection_handle, parent_id, sort_order, status, content, updated_at, published_at)
        VALUES ('e1', 'p', NULL, 1, 'published', '{}', '2024-01-01 00:00:00', NULL)`,
@@ -106,6 +106,22 @@ describe('v1 schema', () => {
     );
     expect(row?.published_at).toBe('2024-01-01 00:00:00');
 
+    await db.close();
+  });
+
+  it('011_globals adds global set tables and cascades values', async () => {
+    const db = await freshDb();
+    await db.exec(
+      `INSERT INTO global_sets (handle, label, definition, blueprint_hash)
+       VALUES ('site', 'Site', '{"handle":"site","label":"Site","fields":[{"name":"siteName","ui":{"kind":"text"},"optional":false}]}', 'h1')`,
+    );
+    await db.exec(
+      `INSERT INTO global_values (handle, content) VALUES ('site', '{"siteName":"Vulse"}')`,
+    );
+
+    await db.exec("DELETE FROM global_sets WHERE handle = 'site'");
+    const values = await db.query<{ handle: string }>('SELECT handle FROM global_values');
+    expect(values).toEqual([]);
     await db.close();
   });
 });

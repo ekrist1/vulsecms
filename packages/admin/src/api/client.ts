@@ -233,6 +233,21 @@ export interface SetDTO {
   updatedAt: string;
 }
 
+export interface GlobalSetDTO {
+  handle: string;
+  label: string;
+  fields: FieldMeta[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GlobalValueDTO {
+  handle: string;
+  content: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+}
+
 function normalizeEntryList(data: Entry[] | EntryListResponse): EntryListResponse {
   if (Array.isArray(data)) {
     return {
@@ -262,11 +277,11 @@ class ApiClient {
     }
     if (query.includeDrafts === true) params.set('includeDrafts', '1');
     if (query.filter) {
-      Object.entries(query.filter).forEach(([key, filterObj]) => {
+      for (const [key, filterObj] of Object.entries(query.filter)) {
         if (filterObj.eq !== undefined) {
           params.set(`filter[${key}][eq]`, String(filterObj.eq));
         }
-      });
+      }
     }
     const suffix = params.size > 0 ? `?${params.toString()}` : '';
     return this.request<Entry[] | EntryListResponse>(
@@ -281,11 +296,20 @@ class ApiClient {
   get(handle: string, id: string): Promise<Entry> {
     return this.request<Entry>('GET', `/api/collections/${handle}/${id}`);
   }
-  create(handle: string, input: Record<string, unknown>, opts?: { publish?: boolean }): Promise<Entry> {
+  create(
+    handle: string,
+    input: Record<string, unknown>,
+    opts?: { publish?: boolean },
+  ): Promise<Entry> {
     const body = opts?.publish !== undefined ? { ...input, publish: opts.publish } : input;
     return this.request<Entry>('POST', `/api/collections/${handle}`, body);
   }
-  update(handle: string, id: string, input: Record<string, unknown>, opts?: { publish?: boolean }): Promise<Entry> {
+  update(
+    handle: string,
+    id: string,
+    input: Record<string, unknown>,
+    opts?: { publish?: boolean },
+  ): Promise<Entry> {
     const body = opts?.publish !== undefined ? { ...input, publish: opts.publish } : input;
     return this.request<Entry>('PATCH', `/api/collections/${handle}/${id}`, body);
   }
@@ -302,7 +326,11 @@ class ApiClient {
     return this.request<Entry>('DELETE', `/api/collections/${handle}/${id}/draft`);
   }
   previewToken(handle: string, id: string): Promise<{ token: string; expiresAt: string }> {
-    return this.request<{ token: string; expiresAt: string }>('POST', `/api/collections/${handle}/${id}/preview-token`, {});
+    return this.request<{ token: string; expiresAt: string }>(
+      'POST',
+      `/api/collections/${handle}/${id}/preview-token`,
+      {},
+    );
   }
   getTree(handle: string): Promise<EntryNode[]> {
     return this.request<EntryNode[]>('GET', `/api/collections/${handle}/tree`);
@@ -476,6 +504,38 @@ class ApiClient {
   }
   async deleteSet(handle: string): Promise<void> {
     return this.request<void>('DELETE', `/api/sets/${handle}`);
+  }
+
+  async listGlobalSets(): Promise<GlobalSetDTO[]> {
+    return this.request<GlobalSetDTO[]>('GET', '/api/globals');
+  }
+  async getGlobalSet(handle: string): Promise<{ set: GlobalSetDTO; value: GlobalValueDTO | null }> {
+    return this.request<{ set: GlobalSetDTO; value: GlobalValueDTO | null }>(
+      'GET',
+      `/api/globals/${handle}`,
+    );
+  }
+  async createGlobalSet(body: {
+    handle: string;
+    label: string;
+    fields: FieldMeta[];
+  }): Promise<GlobalSetDTO> {
+    return this.request<GlobalSetDTO>('POST', '/api/globals', body);
+  }
+  async updateGlobalSet(
+    handle: string,
+    body: { handle: string; label: string; fields: FieldMeta[] },
+  ): Promise<GlobalSetDTO> {
+    return this.request<GlobalSetDTO>('PATCH', `/api/globals/${handle}`, body);
+  }
+  async updateGlobalValue(
+    handle: string,
+    content: Record<string, unknown>,
+  ): Promise<GlobalValueDTO> {
+    return this.request<GlobalValueDTO>('PUT', `/api/globals/${handle}/value`, content);
+  }
+  async deleteGlobalSet(handle: string): Promise<void> {
+    return this.request<void>('DELETE', `/api/globals/${handle}`);
   }
 
   me(): Promise<MeResponse> {

@@ -33,6 +33,7 @@ import { createBlueprint, deleteBlueprint, updateBlueprint } from '../blueprints
 import type { Blueprint } from '../blueprints/types.js';
 import type { ContentService } from '../content/types.js';
 import { NotFoundError, ValidationError } from '../errors.js';
+import { type GlobalService, createGlobalService } from '../globals/service.js';
 import { signPreviewToken } from '../preview/preview-token.js';
 import { getRevision, listRevisions } from '../revisions/service.js';
 import type { CompiledSet } from '../sets/compile.js';
@@ -49,6 +50,7 @@ export interface ApiDeps {
   databaseSummary?: DatabaseConfigSummary;
   sets?: Map<string, CompiledSet>;
   previewSecret: string;
+  globals?: GlobalService;
 }
 
 function deny(event: Parameters<typeof setResponseStatus>[0], status: number, body: object) {
@@ -101,6 +103,7 @@ function buildWebRequest(event: H3Event): Request {
 
 export function createApi(deps: ApiDeps): App {
   const { blueprints, content, adapter, authInstance, databaseSummary, previewSecret } = deps;
+  const globals = deps.globals ?? createGlobalService(adapter, new Map());
 
   const app = createApp({
     onError: (err, event) => {
@@ -208,6 +211,89 @@ export function createApi(deps: ApiDeps): App {
     safe(() => {
       return [...blueprints.values()].map(toMeta);
     }),
+  );
+
+  router.get(
+    '/api/public/globals',
+    safe(async () => {
+      return await globals.publicValues();
+    }),
+  );
+
+  router.get(
+    '/api/public/globals/:handle',
+    safe(async (event) => {
+      const handle = getRouterParam(event, 'handle') as string;
+      const value = await globals.getValue(handle);
+      if (!value) throw new NotFoundError('global set not found');
+      return value.content;
+    }),
+  );
+
+  router.get(
+    '/api/globals',
+    safe(async (event) => {
+      if (!event.context.user) return deny(event, 401, { error: 'auth_required' });
+      return await globals.listSets();
+    }),
+  );
+
+  router.get(
+    '/api/globals/:handle',
+    safe(async (event) => {
+      if (!event.context.user) return deny(event, 401, { error: 'auth_required' });
+      const handle = getRouterParam(event, 'handle') as string;
+      const set = await globals.getSet(handle);
+      if (!set) throw new NotFoundError('global set not found');
+      const value = await globals.getValue(handle);
+      return { set, value };
+    }),
+  );
+
+  router.post(
+    '/api/globals',
+    withSuper(
+      safe(async (event) => {
+        const body = await readBody(event);
+        const set = await globals.createSet(body);
+        setResponseStatus(event, 201);
+        return set;
+      }),
+    ),
+  );
+
+  router.patch(
+    '/api/globals/:handle',
+    withSuper(
+      safe(async (event) => {
+        const handle = getRouterParam(event, 'handle') as string;
+        const body = await readBody(event);
+        return await globals.updateSet(handle, body);
+      }),
+    ),
+  );
+
+  router.put(
+    '/api/globals/:handle/value',
+    withSuper(
+      safe(async (event) => {
+        const handle = getRouterParam(event, 'handle') as string;
+        const body = await readBody(event);
+        return await globals.updateValue(handle, body);
+      }),
+    ),
+  );
+
+  router.delete(
+    '/api/globals/:handle',
+    withSuper(
+      safe(async (event) => {
+        const handle = getRouterParam(event, 'handle') as string;
+        await globals.deleteSet(handle);
+        setResponseStatus(event, 204);
+        return null;
+      }),
+    ),
   );
 
   router.get(
@@ -322,13 +408,9 @@ export function createApi(deps: ApiDeps): App {
         const body = (await readBody(event)) as Record<string, unknown> & { publish?: boolean };
         const { publish, ...input } = body;
         const userId = event.context.user?.id;
-        return await content.update(
-          handle,
-          id,
-          input,
-          userId ? { actor: { userId } } : undefined,
-          { publish: publish ?? false },
-        );
+        return await content.update(handle, id, input, userId ? { actor: { userId } } : undefined, {
+          publish: publish ?? false,
+        });
       }),
     ),
   );
@@ -432,10 +514,7 @@ export function createApi(deps: ApiDeps): App {
         const entry = await content.get(handle, id);
         if (!entry) throw new NotFoundError('entry not found');
         const exp = Math.floor(Date.now() / 1000) + 15 * 60;
-        const token = signPreviewToken(
-          { entryId: id, userId: user.id, exp },
-          previewSecret,
-        );
+        const token = signPreviewToken({ entryId: id, userId: user.id, exp }, previewSecret);
         return { token, expiresAt: new Date(exp * 1000).toISOString() };
       }),
     ),

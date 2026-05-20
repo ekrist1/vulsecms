@@ -28,6 +28,7 @@ function state(
   return {
     route,
     blueprints: [],
+    globals: {},
     entry: route.type === 'entry' ? entry(content) : null,
     entries: [],
   };

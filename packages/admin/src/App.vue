@@ -145,6 +145,15 @@ watch(storageOpen, (v) => persistOpen(STORAGE_OPEN_KEY, v));
           >
             Sets
           </RouterLink>
+          <RouterLink
+            v-if="auth.user?.isSuper"
+            to="/settings/globals"
+            class="block rounded px-2 py-1.5 text-sm hover:bg-zinc-100"
+            active-class="bg-zinc-100 font-medium"
+            data-testid="schema-nav-globals"
+          >
+            Globals
+          </RouterLink>
         </div>
         <template v-if="auth.user?.isSuper">
           <button

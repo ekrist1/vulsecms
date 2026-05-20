@@ -8,7 +8,9 @@ import {
   blueprintEvents,
   createApi,
   createContentService,
+  createGlobalService,
   loadBlueprints,
+  loadGlobalSets,
   loadSets,
   seedBlueprintsFromCode,
   setsEvents,
@@ -85,6 +87,8 @@ let sets = await loadSets({ adapter: db });
 async function buildListeners() {
   const blueprints = await loadBlueprints({ adapter: db, sets });
   const content = createContentService(db, blueprints);
+  const globalSets = await loadGlobalSets({ adapter: db });
+  const globals = createGlobalService(db, globalSets);
   const api = createApi({
     blueprints,
     content,
@@ -93,10 +97,12 @@ async function buildListeners() {
     databaseSummary: dbSummary,
     sets,
     previewSecret: PREVIEW_SECRET,
+    globals,
   });
   const site = createSiteServer({
     blueprints,
     content,
+    globals,
     authInstance,
     previewSecret: PREVIEW_SECRET,
     site: siteConfig,

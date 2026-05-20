@@ -9,6 +9,8 @@ block component with your own.
 
 For authentication concepts and the underlying REST API, see
 [`docs/auth.md`](./auth.md).
+For site-wide content available on every frontend request, see
+[`docs/globals.md`](./globals.md).
 For the frontend foundation APIs added around site config, SEO, and
 script injection, see [`docs/frontend-foundation.md`](./frontend-foundation.md).
 
@@ -106,7 +108,7 @@ unchanged.
 Inside any view component, use the `useEntry()` composable:
 
 ```ts
-import { useEntry } from '@vulse/site';
+import { useEntry } from '@vulse/site/composables';
 // (path: packages/site/src/composables/useEntry.ts)
 
 const { state, entry, entries } = useEntry();
@@ -125,7 +127,7 @@ middleware. They're public — call them from your own h3 handlers
 or `routes` overrides:
 
 ```ts
-import { findPublicEntryBySlug, getPublicEntryById } from '@vulse/site';
+import { findPublicEntryBySlug, getPublicEntryById } from '@vulse/site/composables';
 
 const post = await findPublicEntryBySlug(content, 'posts', 'hello-world');
 const draft = await findPublicEntryBySlug(content, 'posts', 'draft', {

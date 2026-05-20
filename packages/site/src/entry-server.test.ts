@@ -35,6 +35,7 @@ const state: SiteInitialState = {
       fields: [],
     },
   ],
+  globals: {},
   entry,
   entries: [],
 };

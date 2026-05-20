@@ -10,6 +10,9 @@ turning it into a theme system. The built-in Vue SSR site provides
 defaults, but the same metadata rules can be reused by Astro, Nuxt, or a
 custom h3 frontend later.
 
+For site-wide editor-managed content such as footer copy, contact details,
+shared SEO defaults, and social links, see [`docs/globals.md`](./globals.md).
+
 ## 1. Site config
 
 Configure frontend behavior through the `site` key in `vulse.config.ts`.

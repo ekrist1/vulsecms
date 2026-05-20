@@ -76,6 +76,17 @@ describe('resolveSiteRequest', () => {
     expect(result.state.entry?.id).toBe('public');
   });
 
+  it('serializes public globals into every resolved site state', async () => {
+    const globals = {
+      publicValues: async () => ({ site: { siteName: 'Vulse' } }),
+    };
+    const result = await resolveSiteRequest(
+      { ...deps, globals: globals as never },
+      new URL('http://x/posts/hello'),
+    );
+    expect(result.state.globals).toEqual({ site: { siteName: 'Vulse' } });
+  });
+
   it('does not resolve protected entries without preview', async () => {
     const result = await resolveSiteRequest(deps, new URL('http://x/posts/secret'));
     expect(result.status).toBe(404);

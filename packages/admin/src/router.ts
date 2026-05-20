@@ -101,6 +101,23 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: true, requiresSuper: true },
   },
   {
+    path: '/settings/globals',
+    component: () => import('./pages/GlobalSetList.vue'),
+    meta: { requiresAuth: true, requiresSuper: true },
+  },
+  {
+    path: '/settings/globals/new',
+    component: () => import('./pages/GlobalSetEditor.vue'),
+    props: () => ({ handle: null }),
+    meta: { requiresAuth: true, requiresSuper: true },
+  },
+  {
+    path: '/settings/globals/:handle',
+    component: () => import('./pages/GlobalSetEditor.vue'),
+    props: true,
+    meta: { requiresAuth: true, requiresSuper: true },
+  },
+  {
     path: '/assets',
     component: () => import('./pages/AssetList.vue'),
     meta: { requiresAuth: true },

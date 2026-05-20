@@ -1,5 +1,6 @@
 export { renderPage } from './entry-server.js';
 export { resolveHead } from './head.js';
+export { useEntry, useGlobals } from './composables/useEntry.js';
 export {
   SITE_CLIENT_BASE,
   createSiteRenderer,

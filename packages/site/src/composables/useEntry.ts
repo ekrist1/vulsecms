@@ -11,6 +11,13 @@ export function useEntry() {
   };
 }
 
+export function useGlobals() {
+  const state = inject(SITE_STATE_KEY, defaultState());
+  return {
+    globals: computed(() => state.globals),
+  };
+}
+
 export async function findPublicEntryBySlug(
   content: Pick<ContentService, 'list'>,
   collection: string,

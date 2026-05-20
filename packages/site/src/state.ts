@@ -7,6 +7,7 @@ export function defaultState(): SiteInitialState {
   return {
     route: { type: 'landing' },
     blueprints: [],
+    globals: {},
     entry: null,
     entries: [],
   };

@@ -22,6 +22,19 @@ export { compileSet, type CompiledSet } from './sets/compile.js';
 export { loadSets, reloadSet } from './sets/load.js';
 export { createSet, listSets, getSet, updateSet, deleteSet, type SetDTO } from './sets/service.js';
 export { setsEvents, type SetsChangeEvent } from './sets/events.js';
+export {
+  GlobalSetDefinitionSchema,
+  type GlobalSetDefinition,
+} from './globals/definition.js';
+export { compileGlobalSet, type CompiledGlobalSet } from './globals/compile.js';
+export { loadGlobalSets, type LoadGlobalSetsOptions } from './globals/load.js';
+export {
+  createGlobalService,
+  type GlobalService,
+  type GlobalSetDTO,
+  type GlobalValueDTO,
+  type PublicGlobals,
+} from './globals/service.js';
 export { createContentService } from './content/service.js';
 export type {
   ContentService,

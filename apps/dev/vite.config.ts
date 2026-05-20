@@ -31,10 +31,11 @@ export default defineConfig({
       database: databaseConfigFromEnv(),
       site: {
         clientAssetsDir: resolveSiteClientRoot(),
-        createApp: ({ blueprints, content, authInstance }) =>
+        createApp: ({ blueprints, content, authInstance, globals }) =>
           createSiteServer({
             blueprints,
             content,
+            globals,
             authInstance,
             site: siteConfig,
             ...(appConfig.routes ? { routes: appConfig.routes } : {}),

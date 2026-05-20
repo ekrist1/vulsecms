@@ -5,6 +5,8 @@ import type {
   ContentService,
   Entry,
   FieldFilter,
+  GlobalService,
+  PublicGlobals,
   SortSpec,
 } from '@vulse/core';
 
@@ -76,6 +78,7 @@ export interface SiteRouteState {
 export interface SiteInitialState {
   route: SiteRouteState;
   blueprints: BlueprintMeta[];
+  globals: PublicGlobals;
   entry: Entry | null;
   entries: Entry[];
 }
@@ -83,6 +86,7 @@ export interface SiteInitialState {
 export interface SiteServerDeps {
   blueprints: Map<string, Blueprint>;
   content: ContentService;
+  globals?: GlobalService;
   /** @deprecated Use site.routes instead. Kept for existing Vulse apps. */
   routes?: SiteRouteOverrides;
   site?: SiteConfig;

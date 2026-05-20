@@ -12,6 +12,7 @@ import {
 } from 'h3';
 import { findPublicEntryBySlug, getPublicEntryById } from '../../composables/useEntry.js';
 import { renderPage } from '../../entry-server.js';
+export { renderPage } from '../../entry-server.js';
 export { resolveHead } from '../../head.js';
 import type { SiteInitialState, SiteRouteOverride, SiteServerDeps } from '../../types.js';
 
@@ -108,6 +109,7 @@ async function resolveOverride(
   deps: SiteServerDeps,
   override: SiteRouteOverride,
   preview: boolean,
+  globals: SiteInitialState['globals'],
 ): Promise<SiteInitialState> {
   const blueprints = [...deps.blueprints.values()].map(toMeta);
   if (override.list) {
@@ -120,6 +122,7 @@ async function resolveOverride(
     return {
       route: { type: 'list', collection: override.collection },
       blueprints,
+      globals,
       entry: null,
       entries: result.items,
     };
@@ -142,6 +145,7 @@ async function resolveOverride(
       slug: override.slug,
     },
     blueprints,
+    globals,
     entry,
     entries: [],
   };
@@ -153,12 +157,13 @@ export async function resolveSiteRequest(
   headers?: Headers,
 ): Promise<{ status: number; state: SiteInitialState }> {
   const blueprints = [...deps.blueprints.values()].map(toMeta);
+  const globals = deps.globals ? await deps.globals.publicValues() : {};
   const previewToken = readPreviewToken(deps, url);
   const preview = await resolvePreview(deps, url, headers);
   const pathname = toRouteKey(url.pathname);
   const override = deps.site?.routes?.[pathname] ?? deps.routes?.[pathname];
   if (override) {
-    const state = await resolveOverride(deps, override, preview);
+    const state = await resolveOverride(deps, override, preview, globals);
     return { status: state.route.type === 'not-found' ? 404 : 200, state };
   }
 
@@ -173,6 +178,7 @@ export async function resolveSiteRequest(
         state: {
           route: { type: entry ? 'entry' : 'landing', collection: 'home' },
           blueprints,
+          globals,
           entry,
           entries: [],
         },
@@ -181,7 +187,7 @@ export async function resolveSiteRequest(
 
     return {
       status: 200,
-      state: { route: { type: 'landing' }, blueprints, entry: null, entries: [] },
+      state: { route: { type: 'landing' }, blueprints, globals, entry: null, entries: [] },
     };
   }
 
@@ -197,6 +203,7 @@ export async function resolveSiteRequest(
         state: {
           route: { type: 'list', collection: slugOrHandle },
           blueprints,
+          globals,
           entry: null,
           entries: result.items,
         },
@@ -220,6 +227,7 @@ export async function resolveSiteRequest(
         state: {
           route: { type: entry ? 'entry' : 'not-found', collection: 'pages', slug: slugOrHandle },
           blueprints,
+          globals,
           entry,
           entries: [],
         },
@@ -246,6 +254,7 @@ export async function resolveSiteRequest(
         state: {
           route: { type: entry ? 'entry' : 'not-found', collection, slug },
           blueprints,
+          globals,
           entry,
           entries: [],
         },
@@ -255,7 +264,7 @@ export async function resolveSiteRequest(
 
   return {
     status: 404,
-    state: { route: { type: 'not-found' }, blueprints, entry: null, entries: [] },
+    state: { route: { type: 'not-found' }, blueprints, globals, entry: null, entries: [] },
   };
 }
 

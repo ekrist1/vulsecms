@@ -1,5 +1,5 @@
-import { createReadStream, statSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
+import { createReadStream, statSync } from 'node:fs';
 import { createAuth, seedSuperUser } from '@vulse/auth';
 import { LibsqlAdapter, MIGRATIONS_DIR, describeConfig, runMigrations } from '@vulse/db';
 import { type App, toNodeListener } from 'h3';
@@ -10,6 +10,8 @@ import type { Blueprint } from '../blueprints/types.js';
 import { createContentService } from '../content/service.js';
 import type { ContentService } from '../content/types.js';
 import { blueprintEvents } from '../events.js';
+import { loadGlobalSets } from '../globals/load.js';
+import { type GlobalService, createGlobalService } from '../globals/service.js';
 import { createApi } from '../http/api.js';
 import { setsEvents } from '../sets/events.js';
 import { loadSets } from '../sets/load.js';
@@ -24,6 +26,7 @@ export interface VulseDevOptions {
       blueprints: Map<string, Blueprint>;
       content: ContentService;
       authInstance: ReturnType<typeof createAuth>;
+      globals: GlobalService;
     }) => App | Promise<App>;
   };
 }
@@ -106,6 +109,8 @@ export function vulseDevPlugin(opts: VulseDevOptions): Plugin {
       async function build() {
         const blueprints = await loadBlueprints({ adapter: adapter!, sets });
         const content = createContentService(adapter!, blueprints);
+        const globalSets = await loadGlobalSets({ adapter: adapter! });
+        const globals = createGlobalService(adapter!, globalSets);
         const api = createApi({
           blueprints,
           content,
@@ -114,9 +119,10 @@ export function vulseDevPlugin(opts: VulseDevOptions): Plugin {
           databaseSummary,
           sets,
           previewSecret: resolvePreviewSecret(),
+          globals,
         });
         const site = opts.site
-          ? await opts.site.createApp({ blueprints, content, authInstance: authInstance! })
+          ? await opts.site.createApp({ blueprints, content, authInstance: authInstance!, globals })
           : null;
         return {
           api: toNodeListener(api),

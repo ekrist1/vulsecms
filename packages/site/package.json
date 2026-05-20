@@ -4,12 +4,19 @@
   "private": true,
   "type": "module",
   "main": "./dist/server/middleware/render.js",
-  "types": "./dist/types/index.d.ts",
+  "types": "./dist/types/server/middleware/render.d.ts",
   "exports": {
-    ".": { "types": "./dist/types/index.d.ts", "import": "./dist/server/middleware/render.js" },
+    ".": {
+      "types": "./dist/types/server/middleware/render.d.ts",
+      "import": "./dist/server/middleware/render.js"
+    },
     "./server": {
       "types": "./dist/types/server/middleware/render.d.ts",
       "import": "./dist/server/middleware/render.js"
+    },
+    "./composables": {
+      "types": "./dist/types/composables/useEntry.d.ts",
+      "import": "./dist/server/composables/useEntry.js"
     },
     "./client": "./dist/client/entry-client.js",
     "./style.css": "./dist/client/style.css"
