@@ -22,6 +22,7 @@ import {
   describeConfig,
   runMigrations,
 } from '@vulse/db';
+import { probeMetadata } from '@vulse/image';
 import { type SiteConfig, type SiteRouteOverrides, createSiteServer } from '@vulse/site/server';
 import { toNodeListener } from 'h3';
 import config from '../vulse.config.js';
@@ -47,6 +48,17 @@ function resolvePreviewSecret(): string {
 }
 
 const PREVIEW_SECRET = resolvePreviewSecret();
+
+function resolveImageSecret(): string {
+  return (
+    process.env.VULSE_IMAGE_SECRET ??
+    process.env.VULSE_SESSION_SECRET ??
+    PREVIEW_SECRET
+  );
+}
+const IMAGE_SECRET = resolveImageSecret();
+const IMAGE_CACHE_DIR = resolve(appRoot, '.vulse', 'cache', 'img');
+
 const dbConfig = databaseConfigFromEnv();
 const dbSummary = describeConfig(dbConfig);
 const dbDetails = [
@@ -98,6 +110,14 @@ async function buildListeners() {
     sets,
     previewSecret: PREVIEW_SECRET,
     globals,
+    imageSecret: IMAGE_SECRET,
+    imageCacheDir: IMAGE_CACHE_DIR,
+    probeImage: async (url) => {
+      const res = await fetch(url);
+      if (!res.ok) return null;
+      const buf = Buffer.from(await res.arrayBuffer());
+      return probeMetadata(buf);
+    },
   });
   const site = createSiteServer({
     blueprints,
@@ -170,6 +190,18 @@ function serveStatic(
 const port = Number(process.env.PORT ?? '3000');
 const server = createServer((req, res) => {
   if (req.url?.startsWith('/api/')) {
+    Promise.resolve(listeners.api(req, res)).catch((err) => {
+      console.error(err);
+      if (!res.headersSent) {
+        res.statusCode = 500;
+        res.setHeader('content-type', 'application/json');
+      }
+      res.end(JSON.stringify({ error: 'internal' }));
+    });
+    return;
+  }
+
+  if (req.url?.startsWith('/_vulse/img/')) {
     Promise.resolve(listeners.api(req, res)).catch((err) => {
       console.error(err);
       if (!res.headersSent) {
