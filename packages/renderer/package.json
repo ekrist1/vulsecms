@@ -15,6 +15,9 @@
     "check": "vue-tsc -p tsconfig.json --noEmit",
     "test": "vitest run"
   },
+  "dependencies": {
+    "@vulse/image": "workspace:*"
+  },
   "peerDependencies": { "vue": "^3.5.0" },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.1.4",

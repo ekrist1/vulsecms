@@ -250,6 +250,10 @@ importers:
         version: 2.1.9(@types/node@22.19.19)(jsdom@25.0.1)(lightningcss@1.32.0)(terser@5.47.1)
 
   packages/renderer:
+    dependencies:
+      '@vulse/image':
+        specifier: workspace:*
+        version: link:../image
     devDependencies:
       '@vitejs/plugin-vue':
         specifier: ^5.1.4
