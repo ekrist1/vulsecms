@@ -1,6 +1,7 @@
 export { renderPage } from './entry-server.js';
 export { resolveHead } from './head.js';
-export { useEntry, useGlobals } from './composables/useEntry.js';
+export { useCollection, useEntry, useGlobals } from './composables/useEntry.js';
+export { definePageMeta } from './page-meta.js';
 export {
   SITE_CLIENT_BASE,
   createSiteRenderer,

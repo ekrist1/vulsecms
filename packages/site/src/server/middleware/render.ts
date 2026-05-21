@@ -14,6 +14,7 @@ import { findPublicEntryBySlug, getPublicEntryById } from '../../composables/use
 import { renderPage } from '../../entry-server.js';
 export { renderPage } from '../../entry-server.js';
 export { resolveHead } from '../../head.js';
+import { matchManifestRoute } from '../../runtime/manifest.js';
 import type { SiteInitialState, SiteRouteOverride, SiteServerDeps } from '../../types.js';
 
 export const SITE_CLIENT_BASE = '/_vulse/site/';
@@ -120,7 +121,11 @@ async function resolveOverride(
       ...(override.sort ? { sort: override.sort } : {}),
     });
     return {
-      route: { type: 'list', collection: override.collection },
+      route: {
+        type: 'list',
+        collection: override.collection,
+        layout: override.layout ?? 'default',
+      },
       blueprints,
       globals,
       entry: null,
@@ -141,12 +146,83 @@ async function resolveOverride(
   return {
     route: {
       type: entry ? 'entry' : 'not-found',
+      layout: override.layout ?? 'default',
       collection: override.collection,
       slug: override.slug,
     },
     blueprints,
     globals,
     entry,
+    entries: [],
+  };
+}
+
+async function resolveManifest(
+  deps: SiteServerDeps,
+  match: NonNullable<ReturnType<typeof matchManifestRoute>>,
+  preview: boolean,
+  previewToken: PreviewMatch | null,
+  globals: SiteInitialState['globals'],
+): Promise<SiteInitialState> {
+  const blueprints = [...deps.blueprints.values()].map(toMeta);
+  const { route, params } = match;
+  const layout = route.layout || 'default';
+
+  if (route.kind === 'page') {
+    return {
+      route: { type: 'page', layout },
+      blueprints,
+      globals,
+      entry: null,
+      entries: [],
+    };
+  }
+
+  if (route.kind === 'list' && route.collection) {
+    const result = await deps.content.list(route.collection, {
+      limit: 100,
+      includeProtected: preview,
+    });
+    return {
+      route: { type: 'list', collection: route.collection, layout },
+      blueprints,
+      globals,
+      entry: null,
+      entries: result.items,
+    };
+  }
+
+  if (route.kind === 'entry' && route.collection) {
+    const slug = params.slug;
+    let entry = slug
+      ? await findPublicEntryBySlug(deps.content, route.collection, slug, {
+          includeProtected: preview,
+        })
+      : null;
+    if (!entry && previewToken) {
+      const raw = await deps.content.get(route.collection, previewToken.entryId);
+      if (raw?.draftContent) entry = { ...raw, content: raw.draftContent };
+    }
+    entry = applyPreview(entry, previewToken);
+    return {
+      route: {
+        type: entry ? 'entry' : 'not-found',
+        collection: route.collection,
+        slug,
+        layout,
+      },
+      blueprints,
+      globals,
+      entry,
+      entries: [],
+    };
+  }
+
+  return {
+    route: { type: 'not-found', layout },
+    blueprints,
+    globals,
+    entry: null,
     entries: [],
   };
 }
@@ -167,6 +243,12 @@ export async function resolveSiteRequest(
     return { status: state.route.type === 'not-found' ? 404 : 200, state };
   }
 
+  const manifestMatch = matchManifestRoute(deps.manifest, pathname);
+  if (manifestMatch) {
+    const state = await resolveManifest(deps, manifestMatch, preview, previewToken, globals);
+    return { status: state.route.type === 'not-found' ? 404 : 200, state };
+  }
+
   const parts = segments(pathname);
   if (parts.length === 0) {
     if (deps.blueprints.has('home')) {
@@ -176,7 +258,7 @@ export async function resolveSiteRequest(
       return {
         status: entry ? 200 : 200,
         state: {
-          route: { type: entry ? 'entry' : 'landing', collection: 'home' },
+          route: { type: entry ? 'entry' : 'landing', collection: 'home', layout: 'default' },
           blueprints,
           globals,
           entry,
@@ -187,7 +269,13 @@ export async function resolveSiteRequest(
 
     return {
       status: 200,
-      state: { route: { type: 'landing' }, blueprints, globals, entry: null, entries: [] },
+      state: {
+        route: { type: 'landing', layout: 'default' },
+        blueprints,
+        globals,
+        entry: null,
+        entries: [],
+      },
     };
   }
 
@@ -201,7 +289,7 @@ export async function resolveSiteRequest(
       return {
         status: 200,
         state: {
-          route: { type: 'list', collection: slugOrHandle },
+          route: { type: 'list', collection: slugOrHandle, layout: 'default' },
           blueprints,
           globals,
           entry: null,
@@ -225,7 +313,12 @@ export async function resolveSiteRequest(
       return {
         status: entry ? 200 : 404,
         state: {
-          route: { type: entry ? 'entry' : 'not-found', collection: 'pages', slug: slugOrHandle },
+          route: {
+            type: entry ? 'entry' : 'not-found',
+            collection: 'pages',
+            slug: slugOrHandle,
+            layout: 'default',
+          },
           blueprints,
           globals,
           entry,
@@ -252,7 +345,7 @@ export async function resolveSiteRequest(
       return {
         status: entry ? 200 : 404,
         state: {
-          route: { type: entry ? 'entry' : 'not-found', collection, slug },
+          route: { type: entry ? 'entry' : 'not-found', collection, slug, layout: 'default' },
           blueprints,
           globals,
           entry,
@@ -264,7 +357,13 @@ export async function resolveSiteRequest(
 
   return {
     status: 404,
-    state: { route: { type: 'not-found' }, blueprints, globals, entry: null, entries: [] },
+    state: {
+      route: { type: 'not-found', layout: 'default' },
+      blueprints,
+      globals,
+      entry: null,
+      entries: [],
+    },
   };
 }
 
@@ -286,6 +385,9 @@ export function createSiteRenderer(deps: SiteServerDeps): EventHandler {
     return await renderPage(`${url.pathname}${url.search}`, state, {
       requestUrl: url,
       ...(deps.site ? { site: deps.site } : {}),
+      ...(deps.manifest ? { manifest: deps.manifest } : {}),
+      ...(deps.layouts ? { layouts: deps.layouts } : {}),
+      ...(deps.render ?? {}),
     });
   });
 }

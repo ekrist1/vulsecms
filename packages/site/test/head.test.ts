@@ -1,7 +1,7 @@
 import type { Entry } from '@vulse/core';
 import { describe, expect, it } from 'vitest';
-import { resolveHead } from './head.js';
-import type { SiteInitialState } from './types.js';
+import { resolveHead } from '../src/head.js';
+import type { SiteInitialState } from '../src/types.js';
 
 function entry(content: Record<string, unknown>): Entry {
   return {
@@ -23,7 +23,12 @@ function entry(content: Record<string, unknown>): Entry {
 
 function state(
   content: Record<string, unknown>,
-  route: SiteInitialState['route'] = { type: 'entry', collection: 'posts', slug: 'hello' },
+  route: SiteInitialState['route'] = {
+    type: 'entry',
+    collection: 'posts',
+    slug: 'hello',
+    layout: 'default',
+  },
 ): SiteInitialState {
   return {
     route,
@@ -106,7 +111,9 @@ describe('resolveHead', () => {
       'noindex, nofollow',
     );
 
-    expect(meta(resolveHead(state({}, { type: 'not-found' })), 'robots')).toBe('noindex, nofollow');
+    expect(meta(resolveHead(state({}, { type: 'not-found', layout: 'default' })), 'robots')).toBe(
+      'noindex, nofollow',
+    );
   });
 
   it('falls back to site defaults and includes entry JSON-LD', () => {

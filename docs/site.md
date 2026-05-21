@@ -62,7 +62,60 @@ Inherits the Vulse env vars documented in
 Draft preview links also use `VULSE_PREVIEW_SECRET` (falling back to
 `VULSE_SESSION_SECRET`) when preview tokens are enabled.
 
-## 2. Routing
+## 2. Project pages and layouts
+
+Vulse apps can override the built-in frontend with a project-local
+`site/` folder. The structure is intentionally close to Laravel-style
+resource pages:
+
+```txt
+site/
+  layouts/
+    marketing.vue
+  pages/
+    elearning/
+      index.vue
+      show.vue
+```
+
+Generated routes:
+
+| File | Route | Data loaded |
+| --- | --- | --- |
+| `site/pages/index.vue` | `/` | static page component |
+| `site/pages/about.vue` | `/about` | static page component |
+| `site/pages/<handle>/index.vue` | `/<handle>` | `content.list(<handle>)` |
+| `site/pages/<handle>/show.vue` | `/<handle>/:slug` | entry from `<handle>` by `slug` |
+
+Use the client-safe imports inside project Vue files:
+
+```vue
+<script setup lang="ts">
+import { useEntry } from '@vulse/site/composables';
+import { definePageMeta } from '@vulse/site/page-meta';
+
+definePageMeta({ layout: 'marketing' });
+
+const { entry } = useEntry();
+</script>
+```
+
+Layouts are plain Vue components in `site/layouts/*.vue` with a
+`<slot />`. The built-in fallback layout is `default`; custom layouts are
+selected per page through `definePageMeta({ layout: 'name' })`.
+
+`site.frontend.dir` can point at another folder if you do not want to use
+`site/`:
+
+```ts
+export default {
+  site: {
+    frontend: { dir: 'frontend' },
+  },
+};
+```
+
+## 3. Routing
 
 The default routing table lives in
 `packages/site/src/server/middleware/render.ts`:
@@ -74,6 +127,9 @@ The default routing table lives in
 | `/<slug>` | entry | When `pages` blueprint exists and contains a matching slug, render `PageDetail.vue`. |
 | `/<collection>/<slug>` | entry | Render `PostDetail.vue` for the matching entry. |
 | anything else | 404 | `NotFound.vue` |
+
+Project `site/pages` routes are matched before the built-in default
+routes. Explicit `site.routes` overrides are still the highest priority.
 
 ### Custom route overrides
 
@@ -101,7 +157,7 @@ Each override resolves the entry (by `slug` or `id`) or list (when
 shape the built-in routes use, so `useEntry()` works in your view
 unchanged.
 
-## 3. Querying and filtering collections
+## 4. Querying and filtering collections
 
 ### Reading the current route's state
 
@@ -276,7 +332,7 @@ row; that's fine for the entry sizes Vulse handles today (single-
 machine libsql, thousands per collection). Heavy content-field
 filtering at scale would want a dedicated indexed-column migration.
 
-## 4. Block-level customization
+## 5. Block-level customization
 
 The site's `EntryBody.vue` renders entry body content via
 `<BlockRenderer>` from `@vulse/renderer`. To customize how a block
@@ -359,7 +415,7 @@ aside[data-vulse-callout] p:first-of-type::first-letter {
 }
 ```
 
-## 5. External user login (current state + workaround)
+## 6. External user login (current state + workaround)
 
 The site package **does not ship a sign-in flow** today. Specifically:
 
@@ -423,7 +479,7 @@ frontend components.
 For the underlying auth endpoints (sign-up, password reset, etc.),
 see [`docs/auth.md`](./auth.md#4-api-reference).
 
-## 6. SEO and head tags
+## 7. SEO and head tags
 
 The SSR shell now resolves the document head server-side through
 `resolveHead(state, siteConfig, requestUrl)`. This means social crawlers
@@ -508,7 +564,7 @@ The resolver returns a structured object with `title`, `meta`, `links`,
 `scripts`, and `jsonLd`, so Astro/Nuxt/custom frontends can map the same
 rules into their own head APIs later.
 
-## 7. Script injection
+## 8. Script injection
 
 Use `site.scripts` for analytics and tag-manager snippets. Scripts are
 configured in code, not authored in content entries, so they stay

@@ -27,6 +27,8 @@ export interface VulseDevOptions {
       content: ContentService;
       authInstance: ReturnType<typeof createAuth>;
       globals: GlobalService;
+      previewSecret: string;
+      server: ViteDevServer;
     }) => App | Promise<App>;
   };
 }
@@ -87,6 +89,7 @@ export function vulseDevPlugin(opts: VulseDevOptions): Plugin {
       await adapter.exec('PRAGMA foreign_keys = ON');
       await runMigrations(adapter, MIGRATIONS_DIR);
       await seedBlueprintsFromCode({ adapter, dir: opts.blueprintsDir });
+      const previewSecret = resolvePreviewSecret();
 
       authInstance = createAuth({
         client: adapter.client,
@@ -118,11 +121,18 @@ export function vulseDevPlugin(opts: VulseDevOptions): Plugin {
           authInstance: authInstance!,
           databaseSummary,
           sets,
-          previewSecret: resolvePreviewSecret(),
+          previewSecret,
           globals,
         });
         const site = opts.site
-          ? await opts.site.createApp({ blueprints, content, authInstance: authInstance!, globals })
+          ? await opts.site.createApp({
+              blueprints,
+              content,
+              authInstance: authInstance!,
+              globals,
+              previewSecret,
+              server,
+            })
           : null;
         return {
           api: toNodeListener(api),

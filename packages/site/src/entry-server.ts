@@ -1,4 +1,5 @@
 import { renderToString } from '@vue/server-renderer';
+import { buildImageUrl } from '@vulse/image/url';
 import { createSiteApp } from './app.js';
 import { resolveHead, scriptsForEnvironment } from './head.js';
 import type { RenderPageOptions, SiteInitialState } from './types.js';
@@ -96,12 +97,22 @@ export async function renderPage(
   initialState: SiteInitialState,
   options: RenderPageOptions = {},
 ): Promise<string> {
+  const imageSecret = options.site?.imageSecret;
   const { app, router } = createSiteApp({
     history: 'memory',
     initialState,
-    ...(options.site?.imageSecret !== undefined
-      ? { imageSecret: options.site.imageSecret }
+    ...(imageSecret !== undefined ? { imageSecret } : {}),
+    ...(imageSecret
+      ? {
+          imageUrlBuilder: (input) =>
+            buildImageUrl({
+              ...input,
+              secret: imageSecret,
+            }),
+        }
       : {}),
+    ...(options.manifest ? { manifest: options.manifest } : {}),
+    ...(options.layouts ? { layouts: options.layouts } : {}),
   });
   await router.push(url);
   await router.isReady();

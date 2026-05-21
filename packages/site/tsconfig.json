@@ -6,6 +6,10 @@
     "jsx": "preserve",
     "module": "ESNext",
     "moduleResolution": "Bundler",
+    "paths": {
+      "virtual:vulse-site-manifest": ["./src/runtime/virtual-site-manifest.ts"],
+      "virtual:vulse-site-dev-client": ["./src/runtime/virtual-site-dev-client.ts"]
+    },
     "types": ["vite/client", "node"]
   },
   "include": ["src/**/*", "src/**/*.vue"],

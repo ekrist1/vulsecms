@@ -1,7 +1,7 @@
 import type { AuthInstance } from '@vulse/auth';
 import type { Blueprint, ContentService, Entry, FieldFilter } from '@vulse/core';
 import { describe, expect, it } from 'vitest';
-import { resolveSiteRequest } from './render.js';
+import { resolveSiteRequest } from '../../src/server/middleware/render.js';
 
 function entry(id: string, collection: string, slug: string, protectedEntry = false): Entry {
   return {

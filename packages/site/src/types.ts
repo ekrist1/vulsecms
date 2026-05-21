@@ -9,12 +9,15 @@ import type {
   PublicGlobals,
   SortSpec,
 } from '@vulse/core';
+import type { SiteLayoutRegistry } from './runtime/layouts.js';
+import type { SiteRouteManifest } from './runtime/manifest.js';
 
 export interface SiteRouteOverride {
   collection: string;
   id?: string;
   slug?: string;
   list?: boolean;
+  layout?: string;
   filter?: Record<string, FieldFilter>;
   sort?: SortSpec[];
 }
@@ -50,6 +53,9 @@ export interface SiteConfig {
    * through.
    */
   resolveImage?: (raw: unknown, site: SiteConfig) => string | undefined;
+  frontend?: {
+    dir?: string;
+  };
   routes?: SiteRouteOverrides;
   scripts?: SiteScript[];
   seo?: SiteSeoConfig;
@@ -78,7 +84,8 @@ export interface ResolvedHead {
 }
 
 export interface SiteRouteState {
-  type: 'landing' | 'entry' | 'list' | 'not-found';
+  type: 'landing' | 'page' | 'entry' | 'list' | 'not-found';
+  layout: string;
   collection?: string | undefined;
   slug?: string | undefined;
 }
@@ -100,6 +107,9 @@ export interface SiteServerDeps {
   site?: SiteConfig;
   authInstance?: AuthInstance;
   previewSecret?: string;
+  manifest?: SiteRouteManifest;
+  layouts?: SiteLayoutRegistry;
+  render?: Pick<RenderPageOptions, 'clientEntry' | 'stylesheet' | 'environment'>;
 }
 
 export interface RenderPageOptions {
@@ -108,4 +118,6 @@ export interface RenderPageOptions {
   site?: SiteConfig;
   requestUrl?: string | URL;
   environment?: string;
+  manifest?: SiteRouteManifest;
+  layouts?: SiteLayoutRegistry;
 }

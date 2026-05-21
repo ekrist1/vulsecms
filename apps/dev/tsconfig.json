@@ -8,5 +8,5 @@
     "jsx": "preserve",
     "types": ["vite/client", "node"]
   },
-  "include": ["src/**/*", "src/**/*.vue", "blueprints/**/*", "vulse.config.ts"]
+  "include": ["src/**/*", "src/**/*.vue", "site/**/*", "blueprints/**/*", "vulse.config.ts"]
 }

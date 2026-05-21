@@ -1,9 +1,9 @@
 # Frontend foundation
 
 This document covers the developer-facing frontend features in
-`@vulse/site`: site configuration, route overrides, SSR head rendering,
-SEO field conventions, script injection, and reuse from custom frontend
-adapters.
+`@vulse/site`: the project `site/` folder, layout selection, route
+overrides, SSR head rendering, SEO field conventions, script injection,
+and reuse from custom frontend adapters.
 
 The goal is to give Vulse a production-ready frontend foundation without
 turning it into a theme system. The built-in Vue SSR site provides
@@ -46,7 +46,85 @@ export default {
 used to generate canonical URLs and convert relative image paths into
 absolute OpenGraph/Twitter image URLs.
 
-## 2. Route overrides
+## 2. Project site folder
+
+Vulse apps can define frontend pages in a project-local `site/` folder.
+This gives the Laravel/Statamic-style structure where a collection has an
+`index.vue` list page and a `show.vue` detail page, while still using the
+same in-process content service and SSR runtime.
+
+```txt
+site/
+  env.d.ts
+  layouts/
+    marketing.vue
+  pages/
+    posts/
+      index.vue
+      show.vue
+```
+
+Route generation:
+
+| File | Route | Data loaded |
+| --- | --- | --- |
+| `site/pages/index.vue` | `/` | static page component |
+| `site/pages/about.vue` | `/about` | static page component |
+| `site/pages/posts/index.vue` | `/posts` | `content.list('posts')` |
+| `site/pages/posts/show.vue` | `/posts/:slug` | post entry by `slug` |
+
+Collection folders map directly to blueprint handles. If your collection
+is `elearning`, create `site/pages/elearning/index.vue` and
+`site/pages/elearning/show.vue`.
+
+Inside project pages, use client-safe subpath imports:
+
+```vue
+<script setup lang="ts">
+import { useCollection } from '@vulse/site/composables';
+import { definePageMeta } from '@vulse/site/page-meta';
+
+definePageMeta({ layout: 'marketing' });
+
+const { entries } = useCollection('elearning');
+</script>
+```
+
+Avoid importing composables from the root `@vulse/site` package in Vue
+pages. The root export is server-capable; client pages should use
+`@vulse/site/composables` and `@vulse/site/page-meta`.
+
+## 3. Layouts
+
+Layouts live in `site/layouts/*.vue` and wrap the active route component
+with a plain `<slot />`. The built-in fallback layout is named `default`.
+
+```vue
+<!-- site/layouts/marketing.vue -->
+<template>
+  <div class="marketing-shell">
+    <header>...</header>
+    <main>
+      <slot />
+    </main>
+  </div>
+</template>
+```
+
+Select a layout from a page with `definePageMeta()`:
+
+```vue
+<script setup lang="ts">
+import { definePageMeta } from '@vulse/site/page-meta';
+
+definePageMeta({ layout: 'marketing' });
+</script>
+```
+
+The Vite plugin validates missing layouts during build. If a page uses
+`layout: 'marketing'`, `site/layouts/marketing.vue` must exist.
+
+## 4. Route overrides
 
 Put frontend route overrides under `site.routes`.
 
@@ -67,7 +145,7 @@ const site = {
 The old top-level `routes` option still works for compatibility, but
 `site.routes` wins when both define the same pathname.
 
-## 3. SSR head rendering
+## 5. SSR head rendering
 
 The built-in SSR shell calls:
 
@@ -105,7 +183,7 @@ shell emits:
 Custom adapters can call `resolveHead()` directly and map the returned
 object into their own framework head API.
 
-## 4. SEO field conventions
+## 6. SEO field conventions
 
 Vulse reads SEO values from ordinary blueprint fields. There is no
 special SEO field type.
@@ -144,7 +222,7 @@ export class PostsBlueprint {
 `noindex: true`, 404 routes, `?preview=1`, and
 `?vulse-preview=<token>` emit `noindex, nofollow`.
 
-## 5. JSON-LD
+## 7. JSON-LD
 
 For structured data, store a JSON object or array on one of the JSON-LD
 convention fields.
@@ -167,7 +245,7 @@ If the entry contains `jsonLd: articleJsonLd`, SSR outputs it as:
 Keep JSON-LD deterministic. Avoid values like `Date.now()` during SSR,
 because they can cause hydration or cache inconsistencies.
 
-## 6. Script injection
+## 8. Script injection
 
 Use `site.scripts` for analytics, tag managers, and other global
 frontend scripts.
@@ -206,7 +284,7 @@ Each script supports:
 Scripts are configured in code, not authored in content entries. This is
 intentional: global scripts should be reviewable and easy to disable.
 
-## 7. Google Tag Manager example
+## 9. Google Tag Manager example
 
 ```ts
 const site = {
@@ -236,7 +314,7 @@ const site = {
 
 Replace `GTM-XXXXXXX` with the real container id.
 
-## 8. Rendering manually
+## 10. Rendering manually
 
 Most Vulse apps should use `createSiteServer()`, but lower-level rendering
 is still available.
@@ -256,7 +334,7 @@ const html = await renderPage(`${url.pathname}${url.search}`, state, {
 `renderPage()` already calls `resolveHead()`. Calling it manually is useful
 when you are building a custom adapter and need structured metadata.
 
-## 9. Boundaries
+## 11. Boundaries
 
 Frontend foundation v1 deliberately does not include:
 

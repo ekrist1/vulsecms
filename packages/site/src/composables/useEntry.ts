@@ -11,6 +11,20 @@ export function useEntry() {
   };
 }
 
+export function useCollection(handle?: string) {
+  const state = inject(SITE_STATE_KEY, defaultState());
+  const collection = computed(() => handle ?? state.route.collection);
+  return {
+    state,
+    collection,
+    entries: computed(() =>
+      collection.value
+        ? state.entries.filter((entry) => entry.collection === collection.value)
+        : state.entries,
+    ),
+  };
+}
+
 export function useGlobals() {
   const state = inject(SITE_STATE_KEY, defaultState());
   return {

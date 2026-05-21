@@ -35,6 +35,9 @@ importers:
       '@vulse/image':
         specifier: workspace:*
         version: link:../../packages/image
+      '@vulse/renderer':
+        specifier: workspace:*
+        version: link:../../packages/renderer
       '@vulse/site':
         specifier: workspace:*
         version: link:../../packages/site
@@ -294,6 +297,9 @@ importers:
       '@vulse/core':
         specifier: workspace:*
         version: link:../core
+      '@vulse/image':
+        specifier: workspace:*
+        version: link:../image
       '@vulse/renderer':
         specifier: workspace:*
         version: link:../renderer

@@ -23,15 +23,15 @@ import {
   runMigrations,
 } from '@vulse/db';
 import { probeMetadata } from '@vulse/image';
-import { type SiteConfig, type SiteRouteOverrides, createSiteServer } from '@vulse/site/server';
+import { createProjectSiteServer } from '@vulse/site/project-server';
+import type { SiteConfig, SiteRouteOverrides } from '@vulse/site/server';
 import { toNodeListener } from 'h3';
 import config from '../vulse.config.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const appRoot = resolve(__dirname, '..', '..');
 const adminStaticRoot = resolve(__dirname, '..');
-const siteClientEntry = fileURLToPath(import.meta.resolve('@vulse/site/client'));
-const siteStaticRoot = dirname(siteClientEntry);
+const siteStaticRoot = resolve(appRoot, 'dist', 'site');
 const appConfig = config as { routes?: SiteRouteOverrides; site?: SiteConfig };
 const configuredRoutes = appConfig.site?.routes ?? appConfig.routes;
 const siteConfig: SiteConfig = {
@@ -117,7 +117,7 @@ async function buildListeners() {
       return probeMetadata(buf);
     },
   });
-  const site = createSiteServer({
+  const site = createProjectSiteServer({
     blueprints,
     content,
     globals,

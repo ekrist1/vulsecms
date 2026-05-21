@@ -1,7 +1,7 @@
 import type { Entry } from '@vulse/core';
 import { describe, expect, it } from 'vitest';
-import { renderPage } from './entry-server.js';
-import type { SiteInitialState } from './types.js';
+import { renderPage } from '../src/entry-server.js';
+import type { SiteInitialState } from '../src/types.js';
 
 const entry: Entry = {
   id: 'entry-1',
@@ -25,7 +25,7 @@ const entry: Entry = {
 };
 
 const state: SiteInitialState = {
-  route: { type: 'entry', collection: 'posts', slug: 'rendered' },
+  route: { type: 'entry', collection: 'posts', slug: 'rendered', layout: 'default' },
   blueprints: [
     {
       handle: 'posts',

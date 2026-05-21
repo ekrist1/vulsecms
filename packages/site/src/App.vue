@@ -1,18 +1,19 @@
 <script setup lang="ts">
-import { RouterView } from 'vue-router';
+import { computed, inject } from 'vue';
+import { RouterView, useRoute } from 'vue-router';
+import DefaultLayout from './layouts/DefaultLayout.vue';
+import { SITE_LAYOUTS_KEY } from './runtime/layouts.js';
+
+const route = useRoute();
+const layouts = inject(SITE_LAYOUTS_KEY, { default: DefaultLayout });
+const layout = computed(() => {
+  const name = String(route.meta.layout ?? 'default');
+  return layouts[name] ?? layouts.default ?? DefaultLayout;
+});
 </script>
 
 <template>
-  <div class="site-shell">
-    <header class="site-header">
-      <a class="site-brand" href="/">Vulse</a>
-      <nav class="site-nav" aria-label="Primary">
-        <a href="/posts">Posts</a>
-        <a href="/admin">Admin</a>
-      </nav>
-    </header>
-    <main class="site-main">
-      <RouterView />
-    </main>
-  </div>
+  <component :is="layout">
+    <RouterView />
+  </component>
 </template>

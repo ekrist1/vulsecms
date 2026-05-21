@@ -9,28 +9,21 @@ const siteDir = resolve(__dirname, 'site');
 
 export default defineConfig({
   plugins: [vulseSitePlugin({ dir: siteDir }), vue()],
-  ssr: {
-    external: [
-      '@libsql/client',
-      '@vulse/auth',
-      '@vulse/core',
-      '@vulse/db',
-      '@vulse/image',
-      '@vue/server-renderer',
-      'sharp',
-      'vue',
-      'vue-router',
-    ],
-    noExternal: ['@vulse/site'],
-  },
   build: {
-    ssr: true,
-    outDir: 'dist/server',
+    outDir: 'dist/site',
     emptyOutDir: true,
+    cssCodeSplit: false,
+    manifest: true,
     rollupOptions: {
-      input: resolve(__dirname, 'src/server.prod.ts'),
-      output: { format: 'esm', entryFileNames: 'server.prod.js' },
+      input: '@vulse/site/project-client',
+      output: {
+        entryFileNames: 'entry-client.js',
+        chunkFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: '[name][extname]',
+      },
     },
-    target: 'node22',
+  },
+  ssr: {
+    noExternal: ['@vulse/site'],
   },
 });

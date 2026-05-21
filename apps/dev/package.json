@@ -6,7 +6,7 @@
   "scripts": {
     "predev": "pnpm -r --filter @vulse/db --filter @vulse/renderer --filter @vulse/auth --filter @vulse/core --filter @vulse/site build",
     "dev": "vite",
-    "build": "vite build && vite build -c vite.config.server.ts",
+    "build": "vite build && vite build -c vite.config.site.ts && vite build -c vite.config.server.ts",
     "start": "node dist/server/server.prod.js",
     "check": "vue-tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
@@ -19,6 +19,7 @@
     "@vulse/core": "workspace:*",
     "@vulse/db": "workspace:*",
     "@vulse/image": "workspace:*",
+    "@vulse/renderer": "workspace:*",
     "@vulse/site": "workspace:*",
     "h3": "^1.15.11",
     "pinia": "^2.2.4",

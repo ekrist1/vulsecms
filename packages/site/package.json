@@ -3,12 +3,12 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "main": "./dist/server/middleware/render.js",
-  "types": "./dist/types/server/middleware/render.d.ts",
+  "main": "./dist/server/index.js",
+  "types": "./dist/types/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/types/server/middleware/render.d.ts",
-      "import": "./dist/server/middleware/render.js"
+      "types": "./dist/types/index.d.ts",
+      "import": "./dist/server/index.js"
     },
     "./server": {
       "types": "./dist/types/server/middleware/render.d.ts",
@@ -17,6 +17,23 @@
     "./composables": {
       "types": "./dist/types/composables/useEntry.d.ts",
       "import": "./dist/server/composables/useEntry.js"
+    },
+    "./project-client": "./dist/server/project-client.js",
+    "./project-server": {
+      "types": "./dist/types/project-server.d.ts",
+      "import": "./dist/server/project-server.js"
+    },
+    "./page-meta": {
+      "types": "./dist/types/page-meta.d.ts",
+      "import": "./dist/server/page-meta.js"
+    },
+    "./virtual": {
+      "types": "./dist/types/virtual.d.ts",
+      "import": "./dist/server/virtual.js"
+    },
+    "./vite": {
+      "types": "./dist/types/vite/plugin.d.ts",
+      "import": "./dist/server/vite/plugin.js"
     },
     "./client": "./dist/client/entry-client.js",
     "./style.css": "./dist/client/style.css"
@@ -31,6 +48,7 @@
     "@vue/server-renderer": "^3.5.0",
     "@vulse/auth": "workspace:*",
     "@vulse/core": "workspace:*",
+    "@vulse/image": "workspace:*",
     "@vulse/renderer": "workspace:*",
     "h3": "^1.15.11",
     "vue": "^3.5.0",

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { inject, computed } from 'vue';
-import { buildImageUrl, type ImageModifiers } from '@vulse/image/url';
+import type { ImageModifiers } from '@vulse/image/url';
+import { computed, inject } from 'vue';
 
 type ImageFormat = 'webp' | 'avif' | 'jpg' | 'png' | 'auto';
 type ImageFit = 'cover' | 'contain' | 'inside' | 'outside';
@@ -11,7 +11,17 @@ interface AssetLike {
   imageHeight?: number | null;
   originalName?: string | null;
   key?: string | null;
+  url?: string | null;
+  src?: string | null;
 }
+
+interface ImageUrlBuilderInput {
+  assetId: string;
+  mods: ImageModifiers;
+  originalExt?: string;
+}
+
+type ImageUrlBuilder = (input: ImageUrlBuilderInput) => string;
 
 const props = withDefaults(
   defineProps<{
@@ -35,7 +45,7 @@ const props = withDefaults(
   },
 );
 
-const secret = inject<string>('vulse:imageSecret', '');
+const imageUrlBuilder = inject<ImageUrlBuilder | null>('vulse:buildImageUrl', null);
 
 const originalExt = computed(() => {
   const src = props.asset.originalName ?? props.asset.key ?? '';
@@ -56,17 +66,23 @@ function mods(w: number): ImageModifiers {
   return m;
 }
 
+const fallbackUrl = computed(() => {
+  if (typeof props.asset.url === 'string') return props.asset.url;
+  if (typeof props.asset.src === 'string') return props.asset.src;
+  return '';
+});
+
 function url(w: number): string {
-  return buildImageUrl({
+  if (!imageUrlBuilder) return fallbackUrl.value;
+  return imageUrlBuilder({
     assetId: props.asset.id,
     mods: mods(w),
-    secret,
     originalExt: originalExt.value,
   });
 }
 
 const widths = computed(() => {
-  if (props.widths && props.widths.length) return props.widths;
+  if (props.widths?.length) return props.widths;
   return Array.from(
     new Set(
       [Math.round(props.width * 0.5), props.width, props.width * 2].map((w) =>
