@@ -5,5 +5,6 @@ export default [
   'packages/create-vulse',
   'packages/renderer',
   'packages/admin',
+  'packages/astro',
   'apps/dev',
 ];

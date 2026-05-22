@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { DatabaseAdapter } from '@vulse/db';
 import { ulid } from 'ulid';
 import type { Blueprint } from '../blueprints/types.js';
@@ -55,6 +56,7 @@ export function createContentService(
       status: row.status,
       protected: row.protected === 1,
       content: JSON.parse(row.content),
+      contentHash: createHash('sha256').update(row.content).digest('hex').slice(0, 16),
       draftContent,
       hasUnpublishedChanges: draftContent !== null,
       publishedAt: row.published_at,
@@ -132,8 +134,25 @@ export function createContentService(
           parentParams.push(opts.parentId);
         }
       }
-      const whereSql = `WHERE collection_handle = ?${protectedClause}${draftsClause}${parentClause}${search.sql}${filter.sql}`;
-      const whereParams = [handle, ...parentParams, ...search.params, ...filter.params];
+      let sinceClause = '';
+      const sinceParams: unknown[] = [];
+      if (typeof opts.updatedSince === 'string' && opts.updatedSince.length > 0) {
+        // `updated_at` is stored via SQLite's `datetime('now')` which yields
+        // 'YYYY-MM-DD HH:MM:SS'. The caller typically passes an ISO-8601
+        // string ('YYYY-MM-DDTHH:MM:SS.sssZ'). Use SQLite's `datetime()` on
+        // both sides to normalise — it accepts both formats and produces a
+        // canonical comparison.
+        sinceClause = ' AND datetime(updated_at) > datetime(?)';
+        sinceParams.push(opts.updatedSince);
+      }
+      const whereSql = `WHERE collection_handle = ?${protectedClause}${draftsClause}${parentClause}${sinceClause}${search.sql}${filter.sql}`;
+      const whereParams = [
+        handle,
+        ...parentParams,
+        ...sinceParams,
+        ...search.params,
+        ...filter.params,
+      ];
 
       const totalRow = await db.queryOne<{ total: number }>(
         `SELECT COUNT(*) AS total FROM entries ${whereSql}`,

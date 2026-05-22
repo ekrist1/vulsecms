@@ -6,6 +6,12 @@ export interface Entry {
   status: string;
   protected: boolean;
   content: Record<string, unknown>;
+  /**
+   * SHA-256 hex digest of the canonical stored `content` JSON (16-char
+   * prefix). Stable for unchanged content; used by content loaders
+   * (e.g. `@vulse/astro`) as the digest for incremental sync.
+   */
+  contentHash: string;
   draftContent: Record<string, unknown> | null;
   hasUnpublishedChanges: boolean;
   publishedAt: string | null;
@@ -44,6 +50,11 @@ export interface ListEntriesOptions {
   includeProtected?: boolean;
   /** Include draft-status rows in the result. Default false. */
   includeDrafts?: boolean;
+  /**
+   * ISO-8601 timestamp. When set, returns only entries with
+   * `updated_at > updatedSince`. Useful for incremental content loaders.
+   */
+  updatedSince?: string;
   /**
    * Filter to a specific parent. Pass `null` for root-level entries (no parent),
    * a string id for that parent's direct children. Omit to disable the filter
