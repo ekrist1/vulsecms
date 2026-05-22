@@ -98,62 +98,6 @@ describe('apps/dev smoke', () => {
     expect(body.items.find((item) => item.id === entry.id)).toBeDefined();
   });
 
-  it('SSR renders public posts through the built-in site', async () => {
-    const slug = `ssr-${Date.now()}`;
-    const created = await fetch(`${base}/api/collections/posts`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', cookie: superCookie },
-      body: JSON.stringify({
-        title: 'SSR Post',
-        headline: 'SSR Post',
-        slug,
-        body: {
-          type: 'doc',
-          content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Rendered body' }] }],
-        },
-        status: 'draft',
-      }),
-    });
-    expect(created.status).toBe(201);
-
-    const res = await fetch(`${base}/posts/${slug}`, { headers: { accept: 'text/html' } });
-    expect(res.status).toBe(200);
-    const html = await res.text();
-    expect(html).toContain('SSR Post');
-    expect(html).toContain('Rendered body');
-    expect(html).toContain('/_vulse/site/entry-client.js');
-  });
-
-  it('SSR renders the project posts index with published entries', async () => {
-    const slug = `index-${Date.now()}`;
-    const created = await fetch(`${base}/api/collections/posts`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', cookie: superCookie },
-      body: JSON.stringify({
-        title: 'Index Post',
-        headline: 'Index Post',
-        slug,
-        body: { type: 'doc', content: [{ type: 'paragraph' }] },
-        status: 'published',
-      }),
-    });
-    expect(created.status).toBe(201);
-
-    const res = await fetch(`${base}/posts`, { headers: { accept: 'text/html' } });
-    expect(res.status).toBe(200);
-    const html = await res.text();
-    expect(html).toContain('Index Post');
-    expect(html).not.toContain('No published posts yet.');
-  });
-
-  it('serves a client-compiled site hydration entry', async () => {
-    const res = await fetch(`${base}/_vulse/site/entry-client.js`);
-    expect(res.status).toBe(200);
-    const js = await res.text();
-    expect(js).not.toContain('ssrContext.modules');
-    expect(js).not.toContain('app-DEwoyrtk');
-  });
-
   it('renames a field on a blueprint and reflects it in /api/_meta/collections', async () => {
     // Read the current Posts definition
     const getRes = await fetch(`${base}/api/blueprints/posts`, {

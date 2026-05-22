@@ -11,18 +11,11 @@ import {
   prepareDatabase,
   resolveSecrets,
 } from '@vulse/host';
-import type { SiteConfig, SiteRouteOverrides } from '@vulse/site/server';
-import config from '../vulse.config.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const appRoot = resolve(__dirname, '..', '..');
 const adminStaticRoot = resolve(__dirname, '..');
-const siteStaticRoot = resolve(appRoot, 'dist', 'site');
 const blueprintsDir = resolve(appRoot, 'blueprints');
-
-const appConfig = config as { routes?: SiteRouteOverrides; site?: SiteConfig };
-const siteConfig: SiteConfig = appConfig.site ?? {};
-const siteRoutes = appConfig.site?.routes ?? appConfig.routes;
 
 const { db, summary: dbSummary } = await prepareDatabase(databaseConfigFromEnv());
 console.log(`[vulse:db] driver=${dbSummary.driver} scheme=${dbSummary.scheme}`);
@@ -68,7 +61,6 @@ const handlerOpts = {
   previewSecret: secrets.previewSecret,
   imageSecret: secrets.imageSecret,
   imageCacheDir: secrets.imageCacheDir,
-  site: { config: siteConfig, ...(siteRoutes ? { routes: siteRoutes } : {}) },
 };
 let listeners = await buildHandlers(handlerOpts);
 const rebuild = async () => {
@@ -80,10 +72,7 @@ setsEvents.on('change', rebuild);
 const server = createNodeServer({
   getListeners: () => listeners,
   apiPrefixes: ['/api/', '/_vulse/img/'],
-  staticRoots: [
-    { root: siteStaticRoot, base: '/_vulse/site/' },
-    { root: adminStaticRoot, base: '/admin', spaFallback: true },
-  ],
+  staticRoots: [{ root: adminStaticRoot, base: '/admin', spaFallback: true }],
 });
 
 const port = Number(process.env.PORT ?? '3000');

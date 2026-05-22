@@ -33,17 +33,21 @@ Configuration is currently via environment variables only — see the table abov
 
 ## 2. Using `<VulseImage>`
 
+`<VulseImage>` is published in `@vulse/renderer` and can be used from any
+Vue-based frontend. The `asset` prop is the asset DTO returned by the
+Vulse HTTP API (e.g. `entry.content.cover`).
+
 ```vue
 <script setup lang="ts">
 import { VulseImage } from '@vulse/renderer';
-import { useEntry } from '@vulse/site/composables';
-const { entry } = useEntry();
+
+const props = defineProps<{ entry: { content: { cover?: { id: string } } } }>();
 </script>
 
 <template>
   <VulseImage
-    v-if="entry?.content.cover"
-    :asset="entry.content.cover"
+    v-if="props.entry.content.cover"
+    :asset="props.entry.content.cover"
     :width="800"
     format="webp"
     sizes="(min-width: 768px) 50vw, 100vw"
@@ -51,6 +55,10 @@ const { entry } = useEntry();
   />
 </template>
 ```
+
+For non-Vue frontends (Astro, Next, SvelteKit), construct the signed image
+URL directly with the helper from `@vulse/image/url` — it has no Vue or
+Sharp dependency and is safe to import at build time.
 
 ### Props
 

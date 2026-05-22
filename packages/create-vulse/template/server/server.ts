@@ -2,6 +2,10 @@
 // node_modules — feel free to add custom routes, listeners, or middleware
 // here. Upgrade Vulse with `pnpm up @vulse/*`; this file should rarely
 // need to change.
+//
+// Vulse ships as a headless CMS: point your Astro / Next / SvelteKit
+// frontend at the public HTTP API mounted under `/api/`. See
+// `docs/frontend-foundation.md` for the integration recipe.
 
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -22,18 +26,11 @@ import {
   prepareDatabase,
   resolveSecrets,
 } from '@vulse/host';
-import type { SiteConfig, SiteRouteOverrides } from '@vulse/site/server';
 import { modules } from '../modules/index.js';
-import config from '../vulse.config.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const appRoot = resolve(__dirname, '..', '..');
 const adminStaticRoot = resolve(appRoot, 'dist');
-const siteStaticRoot = resolve(appRoot, 'dist', 'site');
-
-const appConfig = config as { routes?: SiteRouteOverrides; site?: SiteConfig };
-const siteConfig: SiteConfig = appConfig.site ?? {};
-const siteRoutes = appConfig.site?.routes ?? appConfig.routes;
 
 const { db, summary: dbSummary } = await prepareDatabase(databaseConfigFromEnv());
 await seedBlueprintsFromCode({ adapter: db, dir: resolve(appRoot, 'blueprints') });
@@ -77,7 +74,6 @@ const handlerOpts = {
   previewSecret: secrets.previewSecret,
   imageSecret: secrets.imageSecret,
   imageCacheDir: secrets.imageCacheDir,
-  site: { config: siteConfig, ...(siteRoutes ? { routes: siteRoutes } : {}) },
 };
 let listeners = await buildHandlers(handlerOpts);
 const rebuild = async () => {
@@ -89,10 +85,7 @@ setsEvents.on('change', rebuild);
 const server = createNodeServer({
   getListeners: () => listeners,
   apiPrefixes: ['/api/', '/_vulse/img/'],
-  staticRoots: [
-    { root: siteStaticRoot, base: '/_vulse/site/' },
-    { root: adminStaticRoot, base: '/admin', spaFallback: true },
-  ],
+  staticRoots: [{ root: adminStaticRoot, base: '/admin', spaFallback: true }],
 });
 
 const port = Number(process.env.PORT ?? '3000');

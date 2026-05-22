@@ -1,7 +1,7 @@
 # @vulse/host
 
 Composable helpers that assemble `@vulse/core` + `@vulse/auth` + `@vulse/db`
-+ `@vulse/site` into a runnable HTTP server.
+into a runnable headless CMS server.
 
 A user's `server.ts` typically uses these helpers to compose ~50–100 lines
 of boot code. Upgrading Vulse becomes `pnpm up @vulse/*`.
@@ -12,7 +12,7 @@ of boot code. Upgrading Vulse becomes `pnpm up @vulse/*`.
 - `resolveSecrets({ appRoot, env })` — preview & image secrets, cache dir
 - `createDefaultMailer({ bus, baseUrl, from })` — register welcome + reset templates
 - `createDefaultAuth({ client, env, bus })` — `createAuth` with bus-wired callbacks
-- `buildHandlers(opts)` — compose API + SSR site listeners from runtime services
+- `buildHandlers(opts)` — compose the API listener from runtime services
 - `createNodeServer({ getListeners, apiPrefixes, staticRoots })` — Node `http.Server`
 - `resolveStaticAsset(opts)` — static-file resolver with SPA fallback
 

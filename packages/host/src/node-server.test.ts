@@ -26,7 +26,6 @@ describe('createNodeServer', () => {
           res.setHeader('content-type', 'application/json');
           res.end('{"ok":true}');
         },
-        site: null,
       }),
       apiPrefixes: ['/api/'],
       staticRoots: [],
@@ -38,11 +37,10 @@ describe('createNodeServer', () => {
     expect(apiCalled).toBe(1);
   });
 
-  it('returns 404 when no site handler is configured and url is non-api', async () => {
+  it('returns 404 for non-api URLs that do not match a static asset', async () => {
     const server = createNodeServer({
       getListeners: () => ({
         api: (_req, res) => res.end('api'),
-        site: null,
       }),
       apiPrefixes: ['/api/'],
       staticRoots: [],
@@ -50,27 +48,5 @@ describe('createNodeServer', () => {
     const url = await listen(server);
     const res = await fetch(`${url}/other`);
     expect(res.status).toBe(404);
-  });
-
-  it('falls through to site listener when no api prefix matches', async () => {
-    let siteCalled = 0;
-    const server = createNodeServer({
-      getListeners: () => ({
-        api: (_req, res) => res.end('api'),
-        site: (_req, res) => {
-          siteCalled++;
-          res.statusCode = 200;
-          res.setHeader('content-type', 'text/html');
-          res.end('<!doctype html><p>site</p>');
-        },
-      }),
-      apiPrefixes: ['/api/'],
-      staticRoots: [],
-    });
-    const url = await listen(server);
-    const res = await fetch(`${url}/page`);
-    expect(res.status).toBe(200);
-    expect(await res.text()).toContain('site');
-    expect(siteCalled).toBe(1);
   });
 });

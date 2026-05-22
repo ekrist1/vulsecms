@@ -14,10 +14,11 @@ export interface StaticRoot {
 export interface CreateNodeServerOptions {
   // Returns the current listeners. We accept a getter (not the values
   // directly) because dev/prod rebuild listeners on blueprint changes.
-  getListeners: () => { api: RequestListener; site: RequestListener | null };
+  getListeners: () => { api: RequestListener };
   // Path prefixes routed to the API listener (e.g. ['/api/', '/_vulse/img/']).
   apiPrefixes: string[];
-  // Static asset roots tried in order before falling through to the site.
+  // Static asset roots tried in order. Anything that doesn't match an API
+  // prefix and isn't a static asset returns 404.
   staticRoots: StaticRoot[];
 }
 
@@ -51,20 +52,8 @@ export function createNodeServer(opts: CreateNodeServerOptions): Server {
       }
     }
 
-    const site = opts.getListeners().site;
-    if (!site) {
-      res.statusCode = 404;
-      res.setHeader('content-type', 'text/plain; charset=utf-8');
-      res.end('Not found');
-      return;
-    }
-    Promise.resolve(site(req, res)).catch((err) => {
-      console.error(err);
-      if (!res.headersSent) {
-        res.statusCode = 500;
-        res.setHeader('content-type', 'text/html; charset=utf-8');
-      }
-      res.end('<!doctype html><h1>Internal server error</h1>');
-    });
+    res.statusCode = 404;
+    res.setHeader('content-type', 'text/plain; charset=utf-8');
+    res.end('Not found');
   });
 }

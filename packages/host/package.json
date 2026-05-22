@@ -4,7 +4,7 @@
   "private": false,
   "type": "module",
   "license": "MIT",
-  "description": "Composable helpers that wire @vulse/core + @vulse/auth + @vulse/db + @vulse/site into a runnable app.",
+  "description": "Composable helpers that wire @vulse/core + @vulse/auth + @vulse/db into a runnable headless CMS server.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -23,7 +23,6 @@
     "@vulse/core": "workspace:*",
     "@vulse/db": "workspace:*",
     "@vulse/image": "workspace:*",
-    "@vulse/site": "workspace:*",
     "h3": "^1.15.11"
   },
   "devDependencies": {
