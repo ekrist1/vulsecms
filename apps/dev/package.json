@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@vulse/admin": "workspace:*",
+    "@vulse/astro": "workspace:*",
     "@vulse/auth": "workspace:*",
     "@vulse/core": "workspace:*",
     "@vulse/db": "workspace:*",

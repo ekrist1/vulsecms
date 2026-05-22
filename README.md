@@ -21,6 +21,7 @@ over the HTTP API.
 | `@vulse/renderer` | Vue field renderers (admin SPA + optional Vue frontends) |
 | `@vulse/admin`    | Vue 3 admin SPA (consumed as source)                 |
 | `@vulse/host`     | Composable helpers that compose the above into a server |
+| `@vulse/astro`    | Astro Content Layer loader (headless integration)    |
 | `create-vulse`    | Scaffold CLI (`npm create vulse@latest`)             |
 
 All `@vulse/*` packages are *linked* in `.changeset/config.json` and ship

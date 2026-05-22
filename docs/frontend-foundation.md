@@ -21,7 +21,7 @@ default).
 | Endpoint                                       | Returns                                         |
 | ---------------------------------------------- | ----------------------------------------------- |
 | `GET /api/public/collections/:handle`          | Paginated list of published entries             |
-| `GET /api/public/collections/:handle/:id`      | A single published entry                        |
+| `GET /api/public/collections/:handle/:id`      | A single published entry (or a draft with `?preview=`) |
 | `GET /api/public/collections/:handle/tree`     | Nested tree of entries (tree-enabled types)     |
 | `GET /api/public/globals`                      | All public Globals                              |
 | `GET /api/public/globals/:handle`              | One Global Set's value                          |
@@ -40,6 +40,7 @@ Common list query parameters:
 | `parent_id`               | tree collections — children of a parent (or `null`)    |
 | `sort` / `-sort`          | `sort=updatedAt` ascending, `sort=-updatedAt` desc     |
 | `filter[name][op]=value`  | `eq`, `neq`, `in`, `gt`, `gte`, `lt`, `lte`            |
+| `since`                   | ISO-8601 timestamp. Returns only entries with `updated_at > since`. Useful for incremental content loaders. |
 
 Entries are returned with this shape:
 
@@ -52,6 +53,7 @@ type Entry = {
   status: 'draft' | 'published';
   protected: boolean;
   content: Record<string, unknown>; // validated against the blueprint
+  contentHash: string; // 16-char SHA-256 prefix; stable for unchanged content
   publishedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -66,43 +68,23 @@ or a preview token (see [drafts.md](./drafts.md)).
 
 ## 2. Astro recipe
 
-The smallest possible Astro integration uses Astro's
-[Content Layer API](https://docs.astro.build/en/guides/content-collections/).
-The loader is ~20 lines of `fetch`.
+Install the official content loader:
 
-`src/content.config.ts`:
+```sh
+pnpm add @vulse/astro
+```
+
+Then in `src/content.config.ts`:
 
 ```ts
-import { defineCollection, z } from 'astro:content';
+import { defineCollection } from 'astro:content';
+import { vulseLoader } from '@vulse/astro';
 
 const VULSE_URL = import.meta.env.VULSE_URL ?? 'http://localhost:3000';
 
 export const collections = {
   posts: defineCollection({
-    loader: {
-      name: 'vulse:posts',
-      async load({ store, parseData }) {
-        const res = await fetch(`${VULSE_URL}/api/public/collections/posts?limit=500`);
-        if (!res.ok) throw new Error(`Vulse responded ${res.status}`);
-        const body = (await res.json()) as {
-          items: { id: string; updatedAt: string; content: Record<string, unknown> }[];
-        };
-        store.clear();
-        for (const item of body.items) {
-          const data = await parseData({ id: item.id, data: item.content });
-          store.set({
-            id: item.id,
-            data,
-            digest: item.updatedAt,
-          });
-        }
-      },
-    },
-    schema: z.object({
-      title: z.string(),
-      slug: z.string(),
-      body: z.unknown(),
-    }),
+    loader: vulseLoader({ url: VULSE_URL, collection: 'posts' }),
   }),
 };
 ```
@@ -123,9 +105,14 @@ const posts = await getCollection('posts');
 ))}
 ```
 
-This loader will be replaced by the `@vulse/astro` package (incremental
-sync, blueprint-derived schemas, preview-token support, image helpers)
-when it ships.
+The loader handles incremental sync (passes `?since=<lastUpdatedAt>` to
+Vulse so subsequent builds only refetch changed entries), uses Vulse's
+`contentHash` as Astro's `digest` so unchanged entries are detected as
+unchanged, and builds a default Zod schema from the collection's
+blueprint — override it by passing your own `schema` to
+`defineCollection`. See the
+[`@vulse/astro` README](../packages/astro/README.md) for the full
+option list, including the `preview` option for preview deployments.
 
 ---
 
@@ -178,10 +165,22 @@ To render unpublished content in a preview deployment of your frontend:
 1. From the admin, generate a preview token for an entry via
    `POST /api/collections/:handle/:id/preview-token`. The response
    contains `{ token, expiresAt }` (default 15-minute lifetime).
-2. In your frontend's preview environment, attach
-   `?preview=<token>` (or a header — match what your loader expects) to
-   the read request. The Vulse server validates the token and serves the
-   draft content for that one entry.
+2. Pass the token to your reader.
+
+For the public single-entry endpoint, append `?preview=<token>`:
+
+```sh
+GET /api/public/collections/posts/01HXYZ?preview=vp_…
+```
+
+The token is bound to one entry, so it only unlocks the draft for that
+specific entry — every other entry in the collection is still served
+from its published view.
+
+If you're using `@vulse/astro`, pass the token via the loader's
+`preview` option (see the
+[package README](../packages/astro/README.md)) and the loader will
+overlay the draft on top of the normal published sync.
 
 See [drafts.md](./drafts.md) for the full draft/publish state machine.
 

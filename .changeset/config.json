@@ -3,7 +3,7 @@
   "changelog": "@changesets/cli/changelog",
   "commit": false,
   "fixed": [],
-  "linked": [["@vulse/core", "@vulse/auth", "@vulse/db", "@vulse/host", "@vulse/image", "@vulse/renderer", "@vulse/admin"]],
+  "linked": [["@vulse/core", "@vulse/auth", "@vulse/db", "@vulse/host", "@vulse/image", "@vulse/renderer", "@vulse/admin", "@vulse/astro"]],
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",

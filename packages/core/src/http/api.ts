@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import {
   type AuthInstance,
   effectivePerms,
@@ -35,7 +36,7 @@ import type { Blueprint } from '../blueprints/types.js';
 import type { ContentService } from '../content/types.js';
 import { NotFoundError, ValidationError } from '../errors.js';
 import { type GlobalService, createGlobalService } from '../globals/service.js';
-import { signPreviewToken } from '../preview/preview-token.js';
+import { signPreviewToken, verifyPreviewToken } from '../preview/preview-token.js';
 import { getRevision, listRevisions } from '../revisions/service.js';
 import type { CompiledSet } from '../sets/compile.js';
 import { parseListQuery } from './filter-parser.js';
@@ -67,6 +68,15 @@ export interface ApiDeps {
 function deny(event: Parameters<typeof setResponseStatus>[0], status: number, body: object) {
   setResponseStatus(event, status);
   return body;
+}
+
+/**
+ * Stable 16-char SHA-256 digest of an arbitrary content object. Matches
+ * the format used by the content service so consumers see consistent
+ * hashes whether they fetched published or preview content.
+ */
+function createDraftHash(content: unknown): string {
+  return createHash('sha256').update(JSON.stringify(content)).digest('hex').slice(0, 16);
 }
 
 /**
@@ -196,12 +206,14 @@ export function createApi(deps: ApiDeps): App {
       const q = (query.q as string | undefined) ?? undefined;
       const field = (query.field as string | undefined) ?? undefined;
       const parentId = parseParentIdQuery(query.parent_id as string | undefined);
+      const since = typeof query.since === 'string' && query.since.length > 0 ? query.since : null;
       return await content.list(handle, {
         limit,
         offset,
         ...(q ? { q } : {}),
         ...(field ? { field } : {}),
         ...(parentId !== undefined ? { parentId } : {}),
+        ...(since ? { updatedSince: since } : {}),
         includeProtected: false,
       });
     }),
@@ -223,8 +235,29 @@ export function createApi(deps: ApiDeps): App {
       const id = getRouterParam(event, 'id') as string;
       if (!blueprints.has(handle)) throw new NotFoundError(`unknown collection: ${handle}`);
 
+      const query = getQuery(event);
+      const previewParam =
+        typeof query.preview === 'string' && query.preview.length > 0 ? query.preview : null;
+
       const entry = await content.get(handle, id);
       if (!entry || entry.protected) throw new NotFoundError('entry not found');
+
+      if (previewParam) {
+        const result = verifyPreviewToken(previewParam, previewSecret);
+        if (!result.ok || result.payload.entryId !== id) {
+          return deny(event, 401, { error: 'invalid_preview_token' });
+        }
+        // Overlay draft content onto the entry when present. Anonymous
+        // callers with a valid token see the draft view.
+        if (entry.draftContent) {
+          const draftHash = createDraftHash(entry.draftContent);
+          return { ...entry, content: entry.draftContent, contentHash: draftHash };
+        }
+        return entry;
+      }
+
+      // Default: only published entries are visible.
+      if (entry.status !== 'published') throw new NotFoundError('entry not found');
       return entry;
     }),
   );
@@ -338,6 +371,7 @@ export function createApi(deps: ApiDeps): App {
       const field = (query.field as string | undefined) ?? undefined;
       const parentId = parseParentIdQuery(query.parent_id as string | undefined);
       const includeDrafts = query.includeDrafts === '1' || query.includeDrafts === 'true';
+      const since = typeof query.since === 'string' && query.since.length > 0 ? query.since : null;
 
       // Flatten the h3 QueryObject into Record<string, string> for parseListQuery.
       // When a key appears multiple times, take the first value.
@@ -356,6 +390,7 @@ export function createApi(deps: ApiDeps): App {
         ...(parentId !== undefined ? { parentId } : {}),
         ...(filter ? { filter } : {}),
         ...(sort ? { sort } : {}),
+        ...(since ? { updatedSince: since } : {}),
         includeProtected: user !== null,
         ...(includeDrafts ? { includeDrafts } : {}),
       });
