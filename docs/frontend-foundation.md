@@ -1,348 +1,208 @@
-# Frontend foundation
+# Connecting a frontend
 
-This document covers the developer-facing frontend features in
-`@vulse/site`: the project `site/` folder, layout selection, route
-overrides, SSR head rendering, SEO field conventions, script injection,
-and reuse from custom frontend adapters.
+Vulse is a **headless CMS**. The Vulse server ships the admin SPA and an
+HTTP API; the public-facing site lives in a separate frontend project of
+your choice (Astro, Next, SvelteKit, Nuxt, Remix, plain HTML, anything
+that can `fetch`). This document covers the contract your frontend uses
+and walks through the Astro recipe as the worked example.
 
-The goal is to give Vulse a production-ready frontend foundation without
-turning it into a theme system. The built-in Vue SSR site provides
-defaults, but the same metadata rules can be reused by Astro, Nuxt, or a
-custom h3 frontend later.
+> The dedicated `@vulse/astro` content loader is on the roadmap (see the
+> Workstream B plan). Until it ships, integrate via `fetch` — it's a
+> handful of lines.
 
-For site-wide editor-managed content such as footer copy, contact details,
-shared SEO defaults, and social links, see [`docs/globals.md`](./globals.md).
+---
 
-## 1. Site config
+## 1. The public API surface
 
-Configure frontend behavior through the `site` key in `vulse.config.ts`.
+All endpoints below are public (no cookie required) and return JSON.
+They are mounted under the API prefix you've configured (`/api/` by
+default).
+
+| Endpoint                                       | Returns                                         |
+| ---------------------------------------------- | ----------------------------------------------- |
+| `GET /api/public/collections/:handle`          | Paginated list of published entries             |
+| `GET /api/public/collections/:handle/:id`      | A single published entry                        |
+| `GET /api/public/collections/:handle/tree`     | Nested tree of entries (tree-enabled types)     |
+| `GET /api/public/globals`                      | All public Globals                              |
+| `GET /api/public/globals/:handle`              | One Global Set's value                          |
+| `GET /api/public/_meta/collections`            | Schema metadata for every collection            |
+| `GET /api/blueprints/:handle`                  | The full blueprint (schema) for one collection  |
+| `GET /_vulse/img/<sig>/<modifiers>/<id>.<ext>` | Signed, on-the-fly transformed image            |
+
+Common list query parameters:
+
+| Param                     | Notes                                                  |
+| ------------------------- | ------------------------------------------------------ |
+| `limit`                   | 1–500, default 25                                      |
+| `offset`                  | zero-based, for pagination                             |
+| `q`                       | full-text search across searchable fields              |
+| `field`                   | restrict text search to one field                      |
+| `parent_id`               | tree collections — children of a parent (or `null`)    |
+| `sort` / `-sort`          | `sort=updatedAt` ascending, `sort=-updatedAt` desc     |
+| `filter[name][op]=value`  | `eq`, `neq`, `in`, `gt`, `gte`, `lt`, `lte`            |
+
+Entries are returned with this shape:
 
 ```ts
-import { fileURLToPath } from 'node:url';
-import type { SiteConfig } from '@vulse/site/server';
-
-const site = {
-  url: 'https://example.com',
-  name: 'Example',
-  locale: 'en',
-  titleTemplate: '%s | Example',
-  defaultTitle: 'Example',
-  defaultDescription: 'Content powered by Vulse.',
-  defaultImage: 'https://example.com/og-default.jpg',
-  seo: {
-    robots: 'index, follow',
-    twitterCard: 'summary_large_image',
-  },
-} satisfies SiteConfig;
-
-export default {
-  blueprintsDir: fileURLToPath(new URL('./blueprints/', import.meta.url)),
-  database: { url: 'file:./dev.db' },
-  site,
+type Entry = {
+  id: string;
+  collection: string;
+  parentId: string | null;
+  sortOrder: number;
+  status: 'draft' | 'published';
+  protected: boolean;
+  content: Record<string, unknown>; // validated against the blueprint
+  publishedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
 };
 ```
 
-`site.url` should be the public canonical origin in production. It is
-used to generate canonical URLs and convert relative image paths into
-absolute OpenGraph/Twitter image URLs.
+By default, the public API returns only `status === 'published'` entries
+and never returns protected entries. Drafts are reachable via admin auth
+or a preview token (see [drafts.md](./drafts.md)).
 
-## 2. Project site folder
+---
 
-Vulse apps can define frontend pages in a project-local `site/` folder.
-This gives the Laravel/Statamic-style structure where a collection has an
-`index.vue` list page and a `show.vue` detail page, while still using the
-same in-process content service and SSR runtime.
+## 2. Astro recipe
 
-```txt
-site/
-  env.d.ts
-  layouts/
-    marketing.vue
-  pages/
-    posts/
-      index.vue
-      show.vue
+The smallest possible Astro integration uses Astro's
+[Content Layer API](https://docs.astro.build/en/guides/content-collections/).
+The loader is ~20 lines of `fetch`.
+
+`src/content.config.ts`:
+
+```ts
+import { defineCollection, z } from 'astro:content';
+
+const VULSE_URL = import.meta.env.VULSE_URL ?? 'http://localhost:3000';
+
+export const collections = {
+  posts: defineCollection({
+    loader: {
+      name: 'vulse:posts',
+      async load({ store, parseData }) {
+        const res = await fetch(`${VULSE_URL}/api/public/collections/posts?limit=500`);
+        if (!res.ok) throw new Error(`Vulse responded ${res.status}`);
+        const body = (await res.json()) as {
+          items: { id: string; updatedAt: string; content: Record<string, unknown> }[];
+        };
+        store.clear();
+        for (const item of body.items) {
+          const data = await parseData({ id: item.id, data: item.content });
+          store.set({
+            id: item.id,
+            data,
+            digest: item.updatedAt,
+          });
+        }
+      },
+    },
+    schema: z.object({
+      title: z.string(),
+      slug: z.string(),
+      body: z.unknown(),
+    }),
+  }),
+};
 ```
 
-Route generation:
+Use it in a page:
 
-| File | Route | Data loaded |
-| --- | --- | --- |
-| `site/pages/index.vue` | `/` | static page component |
-| `site/pages/about.vue` | `/about` | static page component |
-| `site/pages/posts/index.vue` | `/posts` | `content.list('posts')` |
-| `site/pages/posts/show.vue` | `/posts/:slug` | post entry by `slug` |
+```astro
+---
+import { getCollection } from 'astro:content';
+const posts = await getCollection('posts');
+---
 
-Collection folders map directly to blueprint handles. If your collection
-is `elearning`, create `site/pages/elearning/index.vue` and
-`site/pages/elearning/show.vue`.
+{posts.map((post) => (
+  <article>
+    <h2>{post.data.title}</h2>
+    <a href={`/posts/${post.data.slug}`}>Read</a>
+  </article>
+))}
+```
 
-Inside project pages, use client-safe subpath imports:
+This loader will be replaced by the `@vulse/astro` package (incremental
+sync, blueprint-derived schemas, preview-token support, image helpers)
+when it ships.
+
+---
+
+## 3. Rendering Vulse block content
+
+If you're on Vue (Astro can host Vue components), you can import the
+`<BlockRenderer>` and `<VulseImage>` components from `@vulse/renderer`
+to render Vulse block content directly:
 
 ```vue
 <script setup lang="ts">
-import { useCollection } from '@vulse/site/composables';
-import { definePageMeta } from '@vulse/site/page-meta';
-
-definePageMeta({ layout: 'marketing' });
-
-const { entries } = useCollection('elearning');
+import { BlockRenderer } from '@vulse/renderer';
+defineProps<{ body: unknown }>();
 </script>
-```
 
-Avoid importing composables from the root `@vulse/site` package in Vue
-pages. The root export is server-capable; client pages should use
-`@vulse/site/composables` and `@vulse/site/page-meta`.
-
-## 3. Layouts
-
-Layouts live in `site/layouts/*.vue` and wrap the active route component
-with a plain `<slot />`. The built-in fallback layout is named `default`.
-
-```vue
-<!-- site/layouts/marketing.vue -->
 <template>
-  <div class="marketing-shell">
-    <header>...</header>
-    <main>
-      <slot />
-    </main>
-  </div>
+  <BlockRenderer :node="body" />
 </template>
 ```
 
-Select a layout from a page with `definePageMeta()`:
+For non-Vue frontends, render the block tree yourself — the JSON shape is
+documented in the blueprint metadata (`GET /api/blueprints/:handle`).
 
-```vue
-<script setup lang="ts">
-import { definePageMeta } from '@vulse/site/page-meta';
+---
 
-definePageMeta({ layout: 'marketing' });
-</script>
-```
+## 4. Images
 
-The Vite plugin validates missing layouts during build. If a page uses
-`layout: 'marketing'`, `site/layouts/marketing.vue` must exist.
+Vulse delivers on-the-fly transformed images over `/_vulse/img/*`. URLs
+are HMAC-signed; never construct them by hand from a frontend that
+doesn't have the signing secret. Two options:
 
-## 4. Route overrides
+- **Vue frontends:** use `<VulseImage>` from `@vulse/renderer`, which
+  signs the URL client-side using the image secret threaded into the page
+  data by Vulse.
+- **Non-Vue frontends:** ask the Vulse API for an already-signed asset
+  URL (use the asset DTO that comes back inside an entry's `content`),
+  or import the sub-entry `@vulse/image/url` (Sharp-free, safe at build
+  time) and sign URLs server-side in your frontend's build step using
+  `VULSE_IMAGE_SECRET`.
 
-Put frontend route overrides under `site.routes`.
+See [images.md](./images.md) for the modifier vocabulary (`w-`, `h-`,
+`q-`, `f-…`).
 
-```ts
-const site = {
-  routes: {
-    '/about': { collection: 'pages', slug: 'about' },
-    '/blog': {
-      collection: 'posts',
-      list: true,
-      filter: { status: { eq: 'published' } },
-      sort: [{ field: 'publishedAt', direction: 'desc' }],
-    },
-  },
-} satisfies SiteConfig;
-```
+---
 
-The old top-level `routes` option still works for compatibility, but
-`site.routes` wins when both define the same pathname.
+## 5. Preview / drafts
 
-## 5. SSR head rendering
+To render unpublished content in a preview deployment of your frontend:
 
-The built-in SSR shell calls:
+1. From the admin, generate a preview token for an entry via
+   `POST /api/collections/:handle/:id/preview-token`. The response
+   contains `{ token, expiresAt }` (default 15-minute lifetime).
+2. In your frontend's preview environment, attach
+   `?preview=<token>` (or a header — match what your loader expects) to
+   the read request. The Vulse server validates the token and serves the
+   draft content for that one entry.
 
-```ts
-import { resolveHead } from '@vulse/site/server';
+See [drafts.md](./drafts.md) for the full draft/publish state machine.
 
-const head = resolveHead(state, siteConfig, new URL('https://example.com/posts/hello'));
-```
+---
 
-`resolveHead()` returns a structured `ResolvedHead` object:
+## 6. CORS
 
-```ts
-interface ResolvedHead {
-  htmlAttrs: Record<string, string>;
-  title: string;
-  meta: Array<{ name?: string; property?: string; content: string }>;
-  links: Array<{ rel: string; href: string }>;
-  scripts: SiteScript[];
-  jsonLd: unknown[];
-}
-```
+The Vulse API does not set permissive CORS by default. If your frontend
+runs on a different origin from the Vulse server, configure CORS at your
+reverse proxy / edge layer, or run both behind the same hostname. A
+built-in CORS option in `@vulse/host` is on the roadmap.
 
-`renderPage()` turns that object into server-rendered HTML. The default
-shell emits:
+---
 
-- `<title>`
-- `<meta name="description">`
-- `<meta name="robots">`
-- OpenGraph tags
-- Twitter card tags
-- `<link rel="canonical">`
-- JSON-LD scripts
-- configured analytics/scripts
+## 7. Environment variables your frontend needs
 
-Custom adapters can call `resolveHead()` directly and map the returned
-object into their own framework head API.
+| Var                  | Purpose                                                      |
+| -------------------- | ------------------------------------------------------------ |
+| `VULSE_URL`          | Base URL of the Vulse server (e.g. `http://localhost:3000`)  |
+| `VULSE_IMAGE_SECRET` | Only needed if you sign image URLs in your frontend's build  |
+| `VULSE_PREVIEW_URL`  | Optional. Where the admin "Preview" button points            |
 
-## 6. SEO field conventions
-
-Vulse reads SEO values from ordinary blueprint fields. There is no
-special SEO field type.
-
-| Purpose | Preferred field | Fallbacks |
-| --- | --- | --- |
-| Title | `seoTitle` | `seo_title`, `title`, `headline`, `site.defaultTitle`, `site.name` |
-| Description | `seoDescription` | `seo_description`, `description`, `excerpt`, `site.defaultDescription` |
-| Image | `seoImage` | `seo_image`, `ogImage`, `og_image`, `coverImage`, `cover_image`, `site.defaultImage` |
-| Canonical URL | `canonicalUrl` | `canonical_url`, generated from `site.url + pathname` |
-| Robots | `noindex` | route status, preview URL, `site.seo.robots` |
-| JSON-LD | `jsonLd` | `json_ld`, `structuredData`, `structured_data` |
-
-Example blueprint fields:
-
-```ts
-import { z } from 'zod';
-
-export class PostsBlueprint {
-  static handle = 'posts';
-  static label = 'Posts';
-
-  static schema = z.object({
-    title: z.string().meta({ ui: { kind: 'text' } }),
-    slug: z.string().meta({ ui: { kind: 'text' } }),
-    excerpt: z.string().optional().meta({ ui: { kind: 'textarea' } }),
-    seoTitle: z.string().optional().meta({ ui: { kind: 'text' } }),
-    seoDescription: z.string().optional().meta({ ui: { kind: 'textarea' } }),
-    seoImage: z.string().optional().meta({ ui: { kind: 'text' } }),
-    noindex: z.boolean().optional().meta({ ui: { kind: 'boolean' } }),
-    body: z.any().meta({ ui: { kind: 'blocks' } }),
-  });
-}
-```
-
-`noindex: true`, 404 routes, `?preview=1`, and
-`?vulse-preview=<token>` emit `noindex, nofollow`.
-
-## 7. JSON-LD
-
-For structured data, store a JSON object or array on one of the JSON-LD
-convention fields.
-
-```ts
-const articleJsonLd = {
-  '@context': 'https://schema.org',
-  '@type': 'Article',
-  headline: 'How Vulse renders content',
-  datePublished: '2026-05-20',
-};
-```
-
-If the entry contains `jsonLd: articleJsonLd`, SSR outputs it as:
-
-```html
-<script type="application/ld+json">...</script>
-```
-
-Keep JSON-LD deterministic. Avoid values like `Date.now()` during SSR,
-because they can cause hydration or cache inconsistencies.
-
-## 8. Script injection
-
-Use `site.scripts` for analytics, tag managers, and other global
-frontend scripts.
-
-```ts
-const site = {
-  scripts: [
-    {
-      id: 'analytics',
-      position: 'bodyClose',
-      src: 'https://analytics.example.com/script.js',
-      attrs: { async: true, defer: true },
-      productionOnly: true,
-    },
-  ],
-} satisfies SiteConfig;
-```
-
-Available positions:
-
-- `head` inserts before the bundled stylesheet.
-- `bodyOpen` inserts immediately after `<body>`.
-- `bodyClose` inserts after the Vulse client entry.
-
-Each script supports:
-
-- `id`: required identifier, emitted as `data-vulse-script`.
-- `position`: `head`, `bodyOpen`, or `bodyClose`.
-- `src`: external script URL.
-- `content`: inline script content.
-- `attrs`: extra HTML attributes. Boolean `true` renders as a boolean
-  attribute.
-- `noscript`: HTML rendered inside a `<noscript>` tag.
-- `productionOnly`: only render when `NODE_ENV === 'production'`.
-
-Scripts are configured in code, not authored in content entries. This is
-intentional: global scripts should be reviewable and easy to disable.
-
-## 9. Google Tag Manager example
-
-```ts
-const site = {
-  scripts: [
-    {
-      id: 'gtm-head',
-      position: 'head',
-      productionOnly: true,
-      content: `
-        (function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-        new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-        j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-        'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-        })(window,document,'script','dataLayer','GTM-XXXXXXX');
-      `,
-    },
-    {
-      id: 'gtm-noscript',
-      position: 'bodyOpen',
-      productionOnly: true,
-      noscript:
-        '<iframe src="https://www.googletagmanager.com/ns.html?id=GTM-XXXXXXX" height="0" width="0" style="display:none;visibility:hidden"></iframe>',
-    },
-  ],
-} satisfies SiteConfig;
-```
-
-Replace `GTM-XXXXXXX` with the real container id.
-
-## 10. Rendering manually
-
-Most Vulse apps should use `createSiteServer()`, but lower-level rendering
-is still available.
-
-```ts
-import { renderPage, resolveHead, resolveSiteRequest } from '@vulse/site/server';
-
-const url = new URL('https://example.com/posts/hello');
-const { status, state } = await resolveSiteRequest(deps, url);
-const head = resolveHead(state, siteConfig, url);
-const html = await renderPage(`${url.pathname}${url.search}`, state, {
-  site: siteConfig,
-  requestUrl: url,
-});
-```
-
-`renderPage()` already calls `resolveHead()`. Calling it manually is useful
-when you are building a custom adapter and need structured metadata.
-
-## 11. Boundaries
-
-Frontend foundation v1 deliberately does not include:
-
-- A theme marketplace.
-- Predefined content blocks.
-- Image optimization.
-- Sitemap generation.
-- A built-in public `/login` route.
-- Framework-specific adapters.
-
-Those can be added later without changing the core content API.
+The Vulse server itself reads `VULSE_DB_URL`, `VULSE_AUTH_SECRET`, etc.
+(See `docs/upgrading.md` and the host config docs.)

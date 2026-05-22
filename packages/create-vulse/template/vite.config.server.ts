@@ -13,7 +13,6 @@ export default defineConfig({
       '@vulse/db',
       '@vulse/host',
       '@vulse/image',
-      '@vulse/site',
       'sharp',
       'vue',
       'vue-router',

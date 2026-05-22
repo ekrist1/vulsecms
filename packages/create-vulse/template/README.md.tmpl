@@ -9,6 +9,12 @@ pnpm install
 pnpm dev      # admin SPA on http://localhost:5173
 ```
 
+Vulse is a **headless CMS**. The admin SPA and HTTP API are bundled here;
+your public-facing site lives in a separate Astro / Next / SvelteKit project
+that fetches content from `/api/public/*`. See
+[docs/frontend-foundation.md](https://github.com/ekrist1/vulsecms/blob/main/docs/frontend-foundation.md)
+for the recipe.
+
 ## Build & run in production
 
 ```sh
@@ -29,7 +35,7 @@ for any breaking-change notes between versions.
 
 | Path                  | Purpose                                        |
 | --------------------- | ---------------------------------------------- |
-| `vulse.config.ts`     | Site, database, blueprints directory           |
+| `vulse.config.ts`     | Database & blueprints directory                |
 | `blueprints/`         | Content collection definitions                 |
 | `modules/`            | Your custom extensions (routes, listeners…)    |
 | `server/server.ts`    | The server entry — composes `@vulse/host`      |

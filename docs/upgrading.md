@@ -16,7 +16,6 @@ config, integrations, content, and components. **Never edit files inside
 | `@vulse/auth`     | `node_modules` | No                     |
 | `@vulse/db`       | `node_modules` | No                     |
 | `@vulse/host`     | `node_modules` | No                     |
-| `@vulse/site`     | `node_modules` | No                     |
 | `@vulse/image`    | `node_modules` | No                     |
 | `@vulse/renderer` | `node_modules` | No                     |
 | `@vulse/admin`    | `node_modules` | No                     |
@@ -67,7 +66,36 @@ The 0.x line is pre-stable. Expect occasional breakage at minor bumps until
 the architecture settles. Each release listing here will name the file or
 function that changed and the one-line edit you need to make.
 
-*(none yet — this file gets a new section per release)*
+### Headless pivot (removal of `@vulse/site`)
+
+The `@vulse/site` Vue 3 SSR runtime has been **removed**. Vulse is now a
+headless CMS: it ships the admin SPA and the HTTP API only. Your
+public-facing site moves out of the Vulse project into a separate
+frontend (Astro, Next, SvelteKit, Nuxt, …) that fetches content from
+`/api/public/*`.
+
+**If your project used `@vulse/site`:**
+
+1. Remove `@vulse/site` from `package.json`.
+2. Delete `vite.config.site.ts` and the `vite build -c vite.config.site.ts`
+   step from your `build` script.
+3. Remove the `site` field from `vulse.config.ts` and the
+   `import type { SiteConfig } from '@vulse/site/server'` line.
+4. In `server/server.ts`, drop the `SiteConfig` / `SiteRouteOverrides`
+   imports, the `siteStaticRoot` / `siteConfig` / `siteRoutes` locals, the
+   `site:` field from `handlerOpts`, and the `{ root: siteStaticRoot, ... }`
+   entry from `createNodeServer`. The `buildHandlers` result no longer
+   includes a `site` listener.
+5. Move your `site/pages/*.vue` files into a new Astro / Next / SvelteKit
+   project alongside Vulse and rewrite them to fetch from
+   `/api/public/collections/:handle` and `/api/public/globals`. See
+   [frontend-foundation.md](./frontend-foundation.md) for the recipe.
+6. The `@vulse/renderer` package is still published and can be used from
+   any Vue-based frontend that wants to render Vulse block content.
+
+The HTTP API contract (`/api/public/*`, `/_vulse/img/*`,
+`/api/blueprints`, auth, drafts, preview tokens) is **unchanged**. Only
+the bundled Vue frontend is gone.
 
 ## What to do if your `server.ts` falls behind
 

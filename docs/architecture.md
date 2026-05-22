@@ -42,7 +42,6 @@ packages/
   auth/       better-auth wiring, users/groups/sessions, RBAC
   core/       blueprints, content, HTTP API, event bus, modules, mailer
   host/       composable helpers (prepareDatabase, buildHandlers, ...)
-  site/       SSR site runtime + Vite plugin
   admin/      Vue admin SPA (consumed as source)
   image/      image probe + resize
   renderer/   field renderers
@@ -52,7 +51,12 @@ apps/
 ```
 
 `@vulse/host` depends on the rest. A user's `server.ts` depends only on
-`@vulse/host`, `@vulse/core`, `@vulse/auth`, `@vulse/db`, and `@vulse/site`.
+`@vulse/host`, `@vulse/core`, `@vulse/auth`, and `@vulse/db`.
+
+Vulse is a **headless CMS**: the public frontend (Astro, Next, SvelteKit,
+etc.) lives in a separate project and fetches content over the HTTP API.
+See [frontend-foundation.md](./frontend-foundation.md) for the integration
+recipe.
 
 ## Extension seams
 

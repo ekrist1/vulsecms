@@ -1,8 +1,10 @@
 # Vulse
 
-A TypeScript-first CMS built on Vite, Vue 3, libsql, and h3. Ships as a
-set of `@vulse/*` packages and a `create-vulse` scaffold so projects stay
-upgradeable.
+A TypeScript-first **headless CMS** built on Vite, libsql, and h3. Ships as
+a set of `@vulse/*` packages and a `create-vulse` scaffold so projects stay
+upgradeable. The bundled admin SPA is Vue 3; the public-facing site lives
+in a separate frontend (Astro, Next, SvelteKit, …) that fetches content
+over the HTTP API.
 
 > **This README is for repo maintainers and contributors.** End users
 > should start at [docs/architecture.md](./docs/architecture.md) and
@@ -15,9 +17,8 @@ upgradeable.
 | `@vulse/db`       | libsql adapter, migration runner, core schema        |
 | `@vulse/auth`     | Better-auth wrapping, users/groups/sessions, RBAC    |
 | `@vulse/core`     | Blueprints, content service, HTTP API, event bus, mailer, module loader |
-| `@vulse/site`     | Vue 3 SSR site runtime + Vite plugin                 |
 | `@vulse/image`    | Sharp probe + resize + signed URLs                   |
-| `@vulse/renderer` | Vue field renderers (shared admin + site)            |
+| `@vulse/renderer` | Vue field renderers (admin SPA + optional Vue frontends) |
 | `@vulse/admin`    | Vue 3 admin SPA (consumed as source)                 |
 | `@vulse/host`     | Composable helpers that compose the above into a server |
 | `create-vulse`    | Scaffold CLI (`npm create vulse@latest`)             |

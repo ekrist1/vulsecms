@@ -42,31 +42,18 @@ history, and per-group permissions are intentionally not part of v1.
 
 ## 3. Frontend Usage
 
-The built-in SSR site loads public Globals for every request and serializes them
-into the initial state. In Vue components, read them with `useGlobals()`.
+Globals are exposed through the public HTTP API. A headless frontend
+(Astro, Next, SvelteKit, …) fetches them at build time or at request time
+and threads them through its own state layer.
 
-```vue
-<script setup lang="ts">
-import { computed } from 'vue';
-import { useGlobals } from '@vulse/site/composables';
-
-const { globals } = useGlobals();
-const siteName = computed(() => String(globals.value.site?.siteName ?? ''));
-</script>
-
-<template>
-  <footer>{{ siteName }}</footer>
-</template>
-```
-
-The state shape is:
+The shape is:
 
 ```ts
 type PublicGlobals = Record<string, Record<string, unknown>>;
 ```
 
-So `globals.site` is the content for the `site` Global Set, `globals.footer` is
-the content for the `footer` Global Set, and so on.
+So `globals.site` is the content for the `site` Global Set,
+`globals.footer` is the content for the `footer` Global Set, and so on.
 
 ## 4. Public API
 

@@ -10,8 +10,6 @@ import {
 } from '@vulse/core';
 import type { DatabaseAdapter, DatabaseConfigSummary } from '@vulse/db';
 import { probeMetadata } from '@vulse/image';
-import { createProjectSiteServer } from '@vulse/site/project-server';
-import type { SiteConfig, SiteRouteOverrides } from '@vulse/site/server';
 import { type App, toNodeListener } from 'h3';
 
 export interface BuildHandlersOptions {
@@ -22,29 +20,22 @@ export interface BuildHandlersOptions {
   previewSecret: string;
   imageSecret: string;
   imageCacheDir: string;
-  // Optional site composition. When omitted, only the API handler is built.
-  site?: {
-    config: SiteConfig;
-    routes?: SiteRouteOverrides;
-  };
 }
 
 export interface BuiltHandlers {
   api: ReturnType<typeof toNodeListener>;
-  site: ReturnType<typeof toNodeListener> | null;
   // Exposed so callers can mount additional sub-routers if they want to
   // wrap the API. Re-use is rare; most callers ignore this.
   apiApp: App;
 }
 
 /**
- * Compose the standard Vulse HTTP handlers (API + optional SSR site)
- * from the runtime services. This is the function user `server.ts` files
- * call inside their blueprint/sets reload watcher.
+ * Compose the standard Vulse HTTP handlers (API) from the runtime
+ * services. This is the function user `server.ts` files call inside
+ * their blueprint/sets reload watcher.
  *
- * Modules can register listeners that react to data changes before
- * this function rebuilds — wire them via `loadModules` before the first
- * call to buildHandlers.
+ * Vulse ships as a headless CMS: consumers point Astro / Next /
+ * SvelteKit / etc. at the public HTTP API.
  */
 export async function buildHandlers(opts: BuildHandlersOptions): Promise<BuiltHandlers> {
   const sets = await loadSets({ adapter: opts.db });
@@ -78,21 +69,8 @@ export async function buildHandlers(opts: BuildHandlersOptions): Promise<BuiltHa
       }),
   });
 
-  const siteApp = opts.site
-    ? createProjectSiteServer({
-        blueprints,
-        content,
-        globals,
-        authInstance: opts.authInstance,
-        previewSecret: opts.previewSecret,
-        site: { ...opts.site.config, imageSecret: opts.imageSecret },
-        ...(opts.site.routes ? { routes: opts.site.routes } : {}),
-      })
-    : null;
-
   return {
     api: toNodeListener(apiApp),
-    site: siteApp ? toNodeListener(siteApp) : null,
     apiApp,
   };
 }
