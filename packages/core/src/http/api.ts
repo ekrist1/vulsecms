@@ -9,6 +9,7 @@ import {
   withSuper,
 } from '@vulse/auth';
 import type { DatabaseAdapter, DatabaseConfigSummary } from '@vulse/db';
+import { imageRoutes } from '@vulse/image';
 import {
   type App,
   type H3Event,
@@ -24,8 +25,7 @@ import {
   readBody,
   setResponseStatus,
 } from 'h3';
-import { imageRoutes } from '@vulse/image';
-import { assetRoutes, type AssetRoutesOptions } from '../assets/routes.js';
+import { type AssetRoutesOptions, assetRoutes } from '../assets/routes.js';
 import {
   BlueprintDefinitionSchema,
   BlueprintDefinitionWithRenamesSchema,
@@ -55,6 +55,13 @@ export interface ApiDeps {
   probeImage?: AssetRoutesOptions['probeImage'];
   imageSecret?: string;
   imageCacheDir?: string;
+  // Called when admin route /api/users creates a user. The host typically
+  // forwards to bus.emit('user.registered', ...).
+  onUserCreated?: (user: {
+    id: string;
+    email: string;
+    name: string | null;
+  }) => void | Promise<void>;
 }
 
 function deny(event: Parameters<typeof setResponseStatus>[0], status: number, body: object) {
@@ -147,7 +154,11 @@ export function createApi(deps: ApiDeps): App {
 
   // ---- Sub-routers (auth me/users/groups, sets, assets) ----
   app.use(meRoute(adapter).handler);
-  app.use(usersRoute(adapter).handler);
+  app.use(
+    usersRoute(adapter, {
+      ...(deps.onUserCreated ? { onUserCreated: deps.onUserCreated } : {}),
+    }).handler,
+  );
   app.use(groupsRoute(adapter).handler);
   app.use(setsRoute(adapter).handler);
   app.use(

@@ -1,0 +1,31 @@
+{
+  "name": "__PROJECT_NAME__",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build && vite build -c vite.config.site.ts && vite build -c vite.config.server.ts",
+    "start": "node dist/server/server.js"
+  },
+  "dependencies": {
+    "@vulse/admin": "^0.1.0",
+    "@vulse/auth": "^0.1.0",
+    "@vulse/core": "^0.1.0",
+    "@vulse/db": "^0.1.0",
+    "@vulse/host": "^0.1.0",
+    "@vulse/image": "^0.1.0",
+    "@vulse/renderer": "^0.1.0",
+    "@vulse/site": "^0.1.0",
+    "h3": "^1.15.11",
+    "pinia": "^2.2.4",
+    "vue": "^3.5.0",
+    "vue-router": "^4.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@vitejs/plugin-vue": "^5.1.4",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10"
+  }
+}

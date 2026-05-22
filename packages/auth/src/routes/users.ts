@@ -9,9 +9,20 @@ import {
   setResponseStatus,
 } from 'h3';
 import { withSuper } from '../middleware/require-super.js';
-import { createUser, deleteUser, getUser, listUsers, updateUser } from '../services/users.js';
+import {
+  type CreateUserOptions,
+  createUser,
+  deleteUser,
+  getUser,
+  listUsers,
+  updateUser,
+} from '../services/users.js';
 
-export function usersRoute(adapter: DatabaseAdapter): Router {
+export interface UsersRouteOptions {
+  onUserCreated?: CreateUserOptions['onCreated'];
+}
+
+export function usersRoute(adapter: DatabaseAdapter, options: UsersRouteOptions = {}): Router {
   const router = createRouter();
 
   router.get(
@@ -31,7 +42,9 @@ export function usersRoute(adapter: DatabaseAdapter): Router {
     withSuper(
       defineEventHandler(async (event) => {
         const body = await readBody(event);
-        const out = await createUser(adapter, body);
+        const out = await createUser(adapter, body, {
+          ...(options.onUserCreated ? { onCreated: options.onUserCreated } : {}),
+        });
         setResponseStatus(event, 201);
         return out;
       }),

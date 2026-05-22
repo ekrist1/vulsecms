@@ -10,6 +10,27 @@ describe('users service', () => {
     await runMigrations(adapter, MIGRATIONS_DIR);
   });
 
+  it('invokes onCreated with the new user when provided', async () => {
+    const seen: Array<{ email: string }> = [];
+    const u = await createUser(
+      adapter,
+      {
+        email: 'hook@x.com',
+        password: 'hunter2hunter2',
+        role: 'editor',
+        isSuper: false,
+        name: 'Hookworm',
+      },
+      {
+        onCreated: async (user) => {
+          seen.push({ email: user.email });
+        },
+      },
+    );
+    expect(seen).toEqual([{ email: 'hook@x.com' }]);
+    expect(u.email).toBe('hook@x.com');
+  });
+
   it('creates an editor with given role and is_super', async () => {
     const u = await createUser(adapter, {
       email: 'e@x.com',

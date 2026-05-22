@@ -1,8 +1,11 @@
 {
   "name": "@vulse/auth",
-  "private": true,
+  "version": "0.1.0",
+  "private": false,
+  "license": "MIT",
+  "description": "Better-auth-backed authentication, users, groups, and RBAC for Vulse.",
+  "publishConfig": { "access": "public" },
   "type": "module",
-  "version": "0.0.0",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {

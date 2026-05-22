@@ -15,7 +15,6 @@ export default defineConfig({
         'composables/useEntry': resolve(import.meta.dirname, 'src/composables/useEntry.ts'),
         'page-meta': resolve(import.meta.dirname, 'src/page-meta.ts'),
         virtual: resolve(import.meta.dirname, 'src/virtual.ts'),
-        'project-client': resolve(import.meta.dirname, 'src/project-client.ts'),
         'project-server': resolve(import.meta.dirname, 'src/project-server.ts'),
         'vite/plugin': resolve(import.meta.dirname, 'src/vite/plugin.ts'),
       },

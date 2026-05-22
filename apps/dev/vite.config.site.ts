@@ -6,6 +6,7 @@ import { defineConfig } from 'vite';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const siteDir = resolve(__dirname, 'site');
+const siteProjectClientEntry = resolve(__dirname, '../../packages/site/src/project-client.ts');
 
 export default defineConfig({
   plugins: [vulseSitePlugin({ dir: siteDir }), vue()],
@@ -15,7 +16,7 @@ export default defineConfig({
     cssCodeSplit: false,
     manifest: true,
     rollupOptions: {
-      input: '@vulse/site/project-client',
+      input: siteProjectClientEntry,
       output: {
         entryFileNames: 'entry-client.js',
         chunkFileNames: 'assets/[name]-[hash].js',

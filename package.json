@@ -10,10 +10,14 @@
     "check": "pnpm -r exec vp check && biome check .",
     "test": "vitest run",
     "lint": "biome check .",
-    "format": "biome format --write ."
+    "format": "biome format --write .",
+    "changeset": "changeset",
+    "version-packages": "changeset version && pnpm install --lockfile-only",
+    "release": "pnpm -r --filter './packages/**' build && changeset publish"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
+    "@changesets/cli": "^2.27.0",
     "typescript": "^5.6.3",
     "vitest": "^2.1.4"
   }

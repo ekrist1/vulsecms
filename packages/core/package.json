@@ -1,7 +1,10 @@
 {
   "name": "@vulse/core",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0",
+  "private": false,
+  "license": "MIT",
+  "description": "Blueprints, content service, HTTP API, event bus, mailer, and module loader for Vulse.",
+  "publishConfig": { "access": "public" },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -9,6 +12,7 @@
     ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" },
     "./vite": { "types": "./dist/vite/plugin.d.ts", "import": "./dist/vite/plugin.js" }
   },
+  "files": ["dist", "README.md"],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "check": "tsc -p tsconfig.json --noEmit",
@@ -19,11 +23,13 @@
     "@vulse/db": "workspace:*",
     "@vulse/image": "workspace:*",
     "h3": "^1.15.11",
+    "nodemailer": "^6.9.0",
     "ulid": "^2.3.0",
     "zod": "^4.0.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "@types/nodemailer": "^6.4.0",
     "typescript": "^5.6.3",
     "vite": "^5.4.10",
     "vitest": "^2.1.4"

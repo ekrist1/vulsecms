@@ -7,12 +7,14 @@ import type { Plugin, ViteDevServer } from 'vite';
 import { loadBlueprints } from '../blueprints/load.js';
 import { seedBlueprintsFromCode } from '../blueprints/seed.js';
 import type { Blueprint } from '../blueprints/types.js';
+import { createEventBus } from '../bus.js';
 import { createContentService } from '../content/service.js';
 import type { ContentService } from '../content/types.js';
 import { blueprintEvents } from '../events.js';
 import { loadGlobalSets } from '../globals/load.js';
 import { type GlobalService, createGlobalService } from '../globals/service.js';
 import { createApi } from '../http/api.js';
+import { createMailer, logTransport, smtpTransport } from '../mail/index.js';
 import { setsEvents } from '../sets/events.js';
 import { loadSets } from '../sets/load.js';
 
@@ -91,6 +93,28 @@ export function vulseDevPlugin(opts: VulseDevOptions): Plugin {
       await seedBlueprintsFromCode({ adapter, dir: opts.blueprintsDir });
       const previewSecret = resolvePreviewSecret();
 
+      const bus = createEventBus();
+      const smtpUrl = process.env.VULSE_SMTP_URL;
+      const mailFrom = process.env.VULSE_MAIL_FROM ?? 'no-reply@vulse.local';
+      const mailer = createMailer({
+        transport: smtpUrl ? smtpTransport(smtpUrl) : logTransport(process.stdout),
+        from: mailFrom,
+      });
+      mailer.register('user.registered', {
+        subject: (ctx) => `Welcome to Vulse, ${ctx.name ?? ctx.email}`,
+        text: (ctx) => `Hi ${ctx.name ?? ctx.email},\n\nYour Vulse account is ready.\n`,
+      });
+      mailer.register('user.password_reset_requested', {
+        subject: () => 'Reset your Vulse password',
+        text: (ctx) =>
+          `Hello ${ctx.name ?? ''},\n\nClick this link to reset your password:\n${ctx.resetUrl}\n`,
+      });
+      mailer.sendOnEvent(bus, 'user.registered', (p) => ({ to: p.email, context: p }));
+      mailer.sendOnEvent(bus, 'user.password_reset_requested', (p) => ({
+        to: p.email,
+        context: p,
+      }));
+
       authInstance = createAuth({
         client: adapter.client,
         env: {
@@ -98,6 +122,17 @@ export function vulseDevPlugin(opts: VulseDevOptions): Plugin {
           baseUrl: process.env.VULSE_AUTH_BASE_URL ?? 'http://localhost:5173',
           allowPublicSignup: (process.env.VULSE_ALLOW_PUBLIC_SIGNUP ?? 'true') !== 'false',
           smtpUrl: process.env.VULSE_SMTP_URL,
+        },
+        callbacks: {
+          onUserCreated: (user) =>
+            bus.emit('user.registered', { userId: user.id, email: user.email, name: user.name }),
+          sendResetEmail: (user, resetUrl) =>
+            bus.emit('user.password_reset_requested', {
+              userId: '',
+              email: user.email,
+              name: user.name,
+              resetUrl,
+            }),
         },
       });
       await seedSuperUser({
@@ -123,6 +158,8 @@ export function vulseDevPlugin(opts: VulseDevOptions): Plugin {
           sets,
           previewSecret,
           globals,
+          onUserCreated: (user) =>
+            bus.emit('user.registered', { userId: user.id, email: user.email, name: user.name }),
         });
         const site = opts.site
           ? await opts.site.createApp({

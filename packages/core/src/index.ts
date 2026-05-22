@@ -17,6 +17,25 @@ export {
   deleteBlueprint,
 } from './blueprints/mutations.js';
 export { blueprintEvents } from './events.js';
+export {
+  createEventBus,
+  type EventBus,
+  type EventListener,
+  type VulseEvents,
+} from './bus.js';
+export { loadModules, type VulseModule, type ModuleContext } from './modules.js';
+export {
+  createMailer,
+  logTransport,
+  smtpTransport,
+  type Mailer,
+  type MailTransport,
+  type MailTemplate,
+  type OutgoingMessage,
+  type MailAttachment,
+  type SendArgs,
+  type MailerOptions,
+} from './mail/index.js';
 export { SetDefinitionSchema, type SetDefinition } from './sets/definition.js';
 export { compileSet, type CompiledSet } from './sets/compile.js';
 export { loadSets, reloadSet } from './sets/load.js';

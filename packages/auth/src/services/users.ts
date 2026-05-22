@@ -59,9 +59,17 @@ async function loadUser(adapter: DatabaseAdapter, id: string): Promise<UserDTO |
   };
 }
 
+export interface CreateUserOptions {
+  // Called once after the user is committed. Use this from the host
+  // to bridge into the event bus, e.g.
+  //   onCreated: (user) => bus.emit('user.registered', { ... })
+  onCreated?: (user: UserDTO) => void | Promise<void>;
+}
+
 export async function createUser(
   adapter: DatabaseAdapter,
   input: CreateUserInput,
+  options: CreateUserOptions = {},
 ): Promise<UserDTO> {
   const userId = ulid();
   const accountId = ulid();
@@ -92,7 +100,11 @@ export async function createUser(
     await adapter.exec('ROLLBACK');
     throw err;
   }
-  return (await loadUser(adapter, userId))!;
+  const out = (await loadUser(adapter, userId))!;
+  if (options.onCreated) {
+    await options.onCreated(out);
+  }
+  return out;
 }
 
 export async function getUser(adapter: DatabaseAdapter, id: string): Promise<UserDTO | null> {

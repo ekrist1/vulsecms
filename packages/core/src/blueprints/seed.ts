@@ -18,7 +18,7 @@ export async function seedBlueprintsFromCode(opts: SeedOptions): Promise<void> {
     .filter((f) => !f.startsWith('_'));
 
   for (const file of files) {
-    const mod = await import(pathToFileURL(resolve(opts.dir, file)).href);
+    const mod = await import(/* @vite-ignore */ pathToFileURL(resolve(opts.dir, file)).href);
     const cls = mod.default as typeof Collection | undefined;
     if (!cls || !('handle' in cls) || !('schema' in cls)) continue;
 

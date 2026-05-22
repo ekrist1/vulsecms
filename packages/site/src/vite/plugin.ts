@@ -1,5 +1,6 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { basename, dirname, extname, join, relative, resolve, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { Plugin, ViteDevServer } from 'vite';
 
 const VIRTUAL_MANIFEST_ID = 'virtual:vulse-site-manifest';
@@ -37,6 +38,18 @@ function normalizeSlashes(value: string): string {
 
 function toImportPath(file: string): string {
   return normalizeSlashes(file);
+}
+
+function resolveProjectClientEntry(): string {
+  const candidates = [
+    fileURLToPath(new URL('../project-client.ts', import.meta.url)),
+    fileURLToPath(new URL('../../../src/project-client.ts', import.meta.url)),
+  ];
+  const found = candidates.find((candidate) => existsSync(candidate));
+  if (!found) {
+    throw new Error('[vulse:site] Could not locate @vulse/site/src/project-client.ts.');
+  }
+  return toImportPath(found);
 }
 
 function walkVueFiles(dir: string): string[] {
@@ -210,7 +223,9 @@ export function vulseSitePlugin(options: VulseSitePluginOptions = {}): Plugin {
 
     load(id) {
       if (id === RESOLVED_MANIFEST_ID) return manifestModule(scanSite(siteDir));
-      if (id === RESOLVED_DEV_CLIENT_ID) return 'import "@vulse/site/project-client";';
+      if (id === RESOLVED_DEV_CLIENT_ID) {
+        return `import ${JSON.stringify(resolveProjectClientEntry())};`;
+      }
       return null;
     },
 

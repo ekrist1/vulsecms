@@ -1,0 +1,39 @@
+# __PROJECT_NAME__
+
+A [Vulse](https://github.com/ekrist1/vulsecms) project.
+
+## Develop
+
+```sh
+pnpm install
+pnpm dev      # admin SPA on http://localhost:5173
+```
+
+## Build & run in production
+
+```sh
+pnpm build
+PORT=3000 pnpm start
+```
+
+## Upgrade Vulse
+
+```sh
+pnpm up "@vulse/*"
+```
+
+Then read the [upgrade guide](https://github.com/ekrist1/vulsecms/blob/main/docs/upgrading.md)
+for any breaking-change notes between versions.
+
+## Where things live
+
+| Path                  | Purpose                                        |
+| --------------------- | ---------------------------------------------- |
+| `vulse.config.ts`     | Site, database, blueprints directory           |
+| `blueprints/`         | Content collection definitions                 |
+| `modules/`            | Your custom extensions (routes, listeners…)    |
+| `server/server.ts`    | The server entry — composes `@vulse/host`      |
+| `src/main.ts`         | Admin SPA entry                                |
+
+Read [docs/architecture.md](https://github.com/ekrist1/vulsecms/blob/main/docs/architecture.md)
+for the full extension model.
